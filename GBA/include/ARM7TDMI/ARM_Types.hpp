@@ -1,0 +1,24 @@
+#pragma once
+
+#include <cstdint>
+
+namespace CPU
+{
+/// @brief 
+enum class OperatingState : uint32_t
+{
+    ARM = 0,  // Executing 32-bit ARM instructions
+    THUMB = 1  // Executing 16-bit THUMB instructions
+};
+
+enum class OperatingMode : uint32_t
+{
+    User = 0b10000,  // The normal ARM program execution state
+    FIQ = 0b10001,  // Designed to support a data transfer or channel process
+    IRQ = 0b10010,  // Used for general-purpose interrupt handling
+    Supervisor = 0b10011,  // Protected mode for the operating system
+    Abort = 0b10111,  // Entered after a data or instruction prefetch abort
+    System = 0b11011,  // A privileged user mode for the operating system
+    Undefined = 0b11111  // Entered when an undefined instruction is executed
+};
+}  // namespace CPU

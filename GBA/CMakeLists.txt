@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.19)
 
 project (AdvancedBoy
     LANGUAGES CXX
@@ -8,6 +8,7 @@ project (AdvancedBoy
 
 set(SOURCES
     src/ARM7TDMI/ARM7TDMI.cpp
+    src/ARM7TDMI/Registers.cpp
     src/main.cpp
 )
 
