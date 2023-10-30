@@ -8,6 +8,7 @@ project (AdvancedBoy
 
 set(SOURCES
     src/ARM7TDMI/ARM7TDMI.cpp
+    src/ARM7TDMI/ArmInstructions.cpp
     src/ARM7TDMI/Registers.cpp
     src/ARM7TDMI/ThumbInstructions.cpp
     src/main.cpp
