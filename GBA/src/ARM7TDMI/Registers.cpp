@@ -1,5 +1,5 @@
 #include <ARM7TDMI/Registers.hpp>
-#include <ARM7TDMI/ARM_Types.hpp>
+#include <ARM7TDMI/CpuTypes.hpp>
 #include <cassert>
 #include <cstdint>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ARM7TDMI/ARM_Types.hpp>
+#include <ARM7TDMI/CpuTypes.hpp>
 #include <array>
 #include <cstdint>
 
