@@ -8,7 +8,7 @@ namespace CPU { class ARM7TDMI; }
 
 namespace CPU::ARM
 {
-/// @brief Base class for all ARM instructions.
+/// @brief Abstract base class for all ARM instructions.
 class ArmInstruction : public virtual Instruction {};
 
 /// @brief Decode a 32-bit ARM instruction.

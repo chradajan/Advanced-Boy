@@ -25,7 +25,7 @@ enum class OperatingMode : uint32_t
     Undefined = 0b11111  // Entered when an undefined instruction is executed
 };
 
-/// @brief Pure virtual base class of all ARM and THUMB instructions.
+/// @brief Abstract base class of all ARM and THUMB instructions.
 class Instruction
 {
 public:

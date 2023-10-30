@@ -8,7 +8,7 @@ namespace CPU { class ARM7TDMI; }
 
 namespace CPU::THUMB
 {
-/// @brief Base class for all THUMB instructions.
+/// @brief Abstract base class for all THUMB instructions.
 class ThumbInstruction : public virtual Instruction {};
 
 /// @brief Decode a 16-bit THUMB instruction.
