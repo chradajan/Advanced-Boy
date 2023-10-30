@@ -4,7 +4,7 @@
 
 namespace CPU::ARM
 {
-std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t instruction)
+std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
 {
     if (BranchAndExchange::IsInstanceOf(instruction))
     {
@@ -64,5 +64,75 @@ std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t instruction)
     }
 
     return nullptr;
+}
+
+void BranchAndExchange::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void BlockDataTransfer::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void Branch::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void SoftwareInterrupt::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void Undefined::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void SingleDataTransfer::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void SingleDataSwap::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void Multiply::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void MultiplyLong::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void PSRTransferMRS::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void PSRTransferMSR::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void DataProcessing::Execute(ARM7TDMI* const cpu)
+{
+
 }
 }

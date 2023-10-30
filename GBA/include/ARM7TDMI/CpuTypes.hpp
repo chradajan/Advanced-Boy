@@ -4,6 +4,8 @@
 
 namespace CPU
 {
+class ARM7TDMI;
+
 /// @brief Operating state of CPU (either ARM or THUMB instructions).
 enum class OperatingState : uint32_t
 {
@@ -28,5 +30,9 @@ class Instruction
 {
 public:
     virtual ~Instruction() {}
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    virtual void Execute(ARM7TDMI* cpu) = 0;
 };
 }  // namespace CPU

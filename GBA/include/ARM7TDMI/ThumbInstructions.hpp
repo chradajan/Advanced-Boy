@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <memory>
 
+namespace CPU { class ARM7TDMI; }
+
 namespace CPU::THUMB
 {
 /// @brief Base class for all THUMB instructions.
@@ -26,6 +28,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Software Interrupt instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b1101'1111'0000'0000;
@@ -58,6 +64,10 @@ public:
     /// @return Whether this instruction is an Unconditional Branch instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b1110'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'1000'0000'0000;
@@ -88,6 +98,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Conditional Branch instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b1101'0000'0000'0000;
@@ -120,6 +134,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Multiple Load/Store instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b1100'0000'0000'0000;
@@ -154,6 +172,10 @@ public:
     /// @return Whether this instruction is a Long Branch with Link instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b1111'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;
@@ -185,6 +207,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is an Add Offset to Stack Pointer instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b1011'0000'0000'0000;
@@ -218,9 +244,9 @@ public:
     /// @return Whether this instruction is a Push/Pop Registers instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
-    uint8_t GetRlist() const { return instruction_.flags.Rlist; }
-    bool GetR() const { return instruction_.flags.R; }
-    bool GetL() const { return instruction_.flags.L; }
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b1011'0100'0000'0000;
@@ -256,6 +282,10 @@ public:
     /// @return Whether this instruction is a Load/Store Halfword instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b1000'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;
@@ -290,6 +320,10 @@ public:
     /// @return Whether this instruction is an SP Relative Load/Store instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b1001'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;
@@ -323,6 +357,10 @@ public:
     /// @return Whether this instruction is a Load Address instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b1010'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;
@@ -355,6 +393,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Load/Store with Immediate Offset instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b0110'0000'0000'0000;
@@ -390,6 +432,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Load/Store with Register Offset instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b0101'0000'0000'0000;
@@ -427,6 +473,10 @@ public:
     /// @return Whether this instruction is a Load/Store Sign-Extended Byte/Halfword instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b0101'0010'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0010'0000'0000;
@@ -463,6 +513,10 @@ public:
     /// @return Whether this instruction is a PC Relative Load instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b0100'1000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'1000'0000'0000;
@@ -494,6 +548,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is an HI Register Operations/Branch Exchange instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b0100'0100'0000'0000;
@@ -530,6 +588,10 @@ public:
     /// @return Whether this instruction is an ALU Operations instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b0100'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'1100'0000'0000;
@@ -563,6 +625,10 @@ public:
     /// @return Whether this instruction is a Move/Compare/Add/Subtract Immediate instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint16_t FORMAT =      0b0010'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1110'0000'0000'0000;
@@ -595,6 +661,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is an Add/Subtract instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b0001'1000'0000'0000;
@@ -630,6 +700,10 @@ public:
     /// @param instruction 16-bit THUMB instruction.
     /// @return Whether this instruction is a Move Shifted Register instruction.
     static bool IsInstanceOf(uint16_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint16_t FORMAT =      0b0000'0000'0000'0000;

@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <memory>
 
+namespace CPU { class ARM7TDMI; }
+
 namespace CPU::ARM
 {
 /// @brief Base class for all ARM instructions.
@@ -26,6 +28,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Branch and Exchange instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'1111'1111'1111'0001'0000;
@@ -58,6 +64,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Block Data Transfer instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1000'0000'0000'0000'0000'0000'0000;
@@ -97,6 +107,10 @@ public:
     /// @return Whether this instruction is a Branch instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'1010'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0000'0000;
@@ -130,6 +144,10 @@ public:
     /// @return Whether this instruction is a Software Interrupt instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'1111'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'0000'0000'0000'0000'0000'0000;
@@ -162,6 +180,10 @@ public:
     /// @return Whether this instruction is a Undefined instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'0110'0000'0000'0000'0000'0001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0001'0000;
@@ -192,6 +214,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Single Data Transfer instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
@@ -233,6 +259,10 @@ public:
     /// @return Whether this instruction is a Single Data Swap instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'1111'1111'0000;
@@ -269,6 +299,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Multiply instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -308,6 +342,10 @@ public:
     /// @return Whether this instruction is a Multiply Long instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'1000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'0000'1111'0000;
@@ -346,6 +384,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Halfword Data Transfer Register Offset instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -389,6 +431,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Halfword Data Transfer Immediate Offset instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
@@ -434,6 +480,10 @@ public:
     /// @return Whether this instruction is a PSR Transfer (MRS) instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
+
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'1111'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1011'1111'0000'0000'0000'0000;
@@ -468,6 +518,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a PSR Transfer (MSR) instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'0000'1111'0000'0000'0000;
@@ -513,6 +567,10 @@ public:
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Data Processing instruction.
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+
+    /// @brief Execute the instruction.
+    /// @param cpu Pointer to the ARM CPU.
+    void Execute(ARM7TDMI* cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;

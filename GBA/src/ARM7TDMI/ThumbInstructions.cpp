@@ -1,10 +1,11 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
+#include <ARM7TDMI/ARM7TDMI.hpp>
 #include <cstdint>
 #include <memory>
 
 namespace CPU::THUMB
 {
-std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t instruction)
+std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t const instruction)
 {
     if (SoftwareInterrupt::IsInstanceOf(instruction))
     {
@@ -84,5 +85,100 @@ std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t instruction)
     }
 
     return nullptr;
+}
+
+void SoftwareInterrupt::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void UnconditionalBranch::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void ConditionalBranch::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void MultipleLoadStore::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LongBranchWithLink::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void AddOffsetToStackPointer::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void PushPopRegisters::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LoadStoreHalfword::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void SPRelativeLoadStore::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LoadAddress::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LoadStoreWithImmediateOffset::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LoadStoreWithRegisterOffset::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void PCRelativeLoad::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void ALUOperations::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void AddSubtract::Execute(ARM7TDMI* const cpu)
+{
+
+}
+
+void MoveShiftedRegister::Execute(ARM7TDMI* const cpu)
+{
+    
 }
 }
