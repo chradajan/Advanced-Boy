@@ -31,7 +31,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'1111'1111'1111'0001'0000;
@@ -67,7 +67,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1000'0000'0000'0000'0000'0000'0000;
@@ -109,7 +109,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1010'0000'0000'0000'0000'0000'0000;
@@ -146,7 +146,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1111'0000'0000'0000'0000'0000'0000;
@@ -182,7 +182,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0110'0000'0000'0000'0000'0001'0000;
@@ -217,7 +217,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
@@ -261,7 +261,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'0000'0000'0000'1001'0000;
@@ -302,7 +302,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -344,7 +344,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'1000'0000'0000'0000'1001'0000;
@@ -387,7 +387,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -434,7 +434,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
@@ -482,7 +482,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'1111'0000'0000'0000'0000;
@@ -521,7 +521,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'0000'1111'0000'0000'0000;
@@ -570,7 +570,7 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    void Execute(ARM7TDMI* cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;

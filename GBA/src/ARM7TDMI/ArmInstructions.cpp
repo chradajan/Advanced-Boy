@@ -1,6 +1,7 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 
 namespace CPU::ARM
 {
@@ -66,73 +67,87 @@ std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
     return nullptr;
 }
 
-void BranchAndExchange::Execute(ARM7TDMI* const cpu)
+void BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_BranchAndExchange");
 }
 
-void BlockDataTransfer::Execute(ARM7TDMI* const cpu)
+void BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_BlockDataTransfer");
 }
 
-void Branch::Execute(ARM7TDMI* const cpu)
+void Branch::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_Branch");
 }
 
-void SoftwareInterrupt::Execute(ARM7TDMI* const cpu)
+void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
 }
 
-void Undefined::Execute(ARM7TDMI* const cpu)
+void Undefined::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_Undefined");
 }
 
-void SingleDataTransfer::Execute(ARM7TDMI* const cpu)
+void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataTransfer");
 }
 
-void SingleDataSwap::Execute(ARM7TDMI* const cpu)
+void SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataSwap");
 }
 
-void Multiply::Execute(ARM7TDMI* const cpu)
+void Multiply::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_Multiply");
 }
 
-void MultiplyLong::Execute(ARM7TDMI* const cpu)
+void MultiplyLong::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_MultiplyLong");
 }
 
-void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI* const cpu)
+void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferRegisterOffset");
 }
 
-void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI* const cpu)
+void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferImmediateOffset");
 }
 
-void PSRTransferMRS::Execute(ARM7TDMI* const cpu)
+void PSRTransferMRS::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMRS");
 }
 
-void PSRTransferMSR::Execute(ARM7TDMI* const cpu)
+void PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMSR");
 }
 
-void DataProcessing::Execute(ARM7TDMI* const cpu)
+void DataProcessing::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: ARM_DataProcessing");
 }
 }

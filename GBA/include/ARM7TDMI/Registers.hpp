@@ -142,7 +142,6 @@ private:
         uint32_t r13_;
         uint32_t r14_;
         uint32_t r15_;
-        CPSR cpsr_;
     } systemAndUserRegisters_;
 
     struct

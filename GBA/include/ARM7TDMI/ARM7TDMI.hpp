@@ -49,7 +49,14 @@ namespace CPU
 class ARM7TDMI
 {
 public:
+    /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
     ARM7TDMI();
+
+    ARM7TDMI(ARM7TDMI const&) = delete;
+    ARM7TDMI(ARM7TDMI&&) = delete;
+    ARM7TDMI& operator=(ARM7TDMI const&) = delete;
+    ARM7TDMI& operator=(ARM7TDMI&&) = delete;
+    ~ARM7TDMI() = default;
 
 private:
     Registers registers_;

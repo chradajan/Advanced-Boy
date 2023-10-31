@@ -1,7 +1,13 @@
-#include <ARM7TDMI/ARM7TDMI.hpp>
+#include <GameBoyAdvance.hpp>
 
-int main()
+int main(int argc, char** argv)
 {
-    CPU::ARM7TDMI cpu;
+    GameBoyAdvance gba("");
+
+    if (argc > 1)
+    {
+        gba.LoadGamePak(argv[1]);
+    }
+
     return 0;
 }

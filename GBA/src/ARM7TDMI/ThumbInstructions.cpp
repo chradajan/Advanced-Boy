@@ -2,6 +2,7 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 
 namespace CPU::THUMB
 {
@@ -87,98 +88,186 @@ std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t const instruction)
     return nullptr;
 }
 
-void SoftwareInterrupt::Execute(ARM7TDMI* const cpu)
+void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_SoftwareInterrupt");
 }
 
-void UnconditionalBranch::Execute(ARM7TDMI* const cpu)
+void UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_UnconditionalBranch");
 }
 
-void ConditionalBranch::Execute(ARM7TDMI* const cpu)
+void ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_ConditionalBranch");
 }
 
-void MultipleLoadStore::Execute(ARM7TDMI* const cpu)
+void MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_MultipleLoadStore");
 }
 
-void LongBranchWithLink::Execute(ARM7TDMI* const cpu)
+void LongBranchWithLink::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LongBranchWithLink");
 }
 
-void AddOffsetToStackPointer::Execute(ARM7TDMI* const cpu)
+void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_AddOffsetToStackPointer");
 }
 
-void PushPopRegisters::Execute(ARM7TDMI* const cpu)
+void PushPopRegisters::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_PushPopRegisters");
 }
 
-void LoadStoreHalfword::Execute(ARM7TDMI* const cpu)
+void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreHalfword");
 }
 
-void SPRelativeLoadStore::Execute(ARM7TDMI* const cpu)
+void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_SPRelativeLoadStore");
 }
 
-void LoadAddress::Execute(ARM7TDMI* const cpu)
+void LoadAddress::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadAddress");
 }
 
-void LoadStoreWithImmediateOffset::Execute(ARM7TDMI* const cpu)
+void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithImmediateOffset");
 }
 
-void LoadStoreWithRegisterOffset::Execute(ARM7TDMI* const cpu)
+void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithRegisterOffset");
 }
 
-void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI* const cpu)
+void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreSignExtendedByteHalfword");
 }
 
-void PCRelativeLoad::Execute(ARM7TDMI* const cpu)
+void PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_PCRelativeLoad");
 }
 
-void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI* const cpu)
+void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_HiRegisterOperationsBranchExchange");
 }
 
-void ALUOperations::Execute(ARM7TDMI* const cpu)
+void ALUOperations::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_ALUOperations");
 }
 
-void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI* const cpu)
+void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
-
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_MoveCompareAddSubtractImmediate");
 }
 
-void AddSubtract::Execute(ARM7TDMI* const cpu)
+void AddSubtract::Execute(ARM7TDMI& cpu)
 {
+    //  OP | I | OpCode
+    // ----------------
+    //  0  | 0 | ADD Rd, Rs, Rn
+    //  0  | 1 | ADD Rd, Rs, #Offset3
+    //  1  | 0 | SUB Rd, Rs, Rn
+    //  1  | 1 | SUB Rd, Rs, #Offset3
 
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_AddSubtract");
+
+    // uint64_t result = 0;
+    // uint32_t source = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    // uint32_t operand =
+    //     instruction_.flags.I ? instruction_.flags.RnOffset3 : cpu.registers_.ReadRegister(instruction_.flags.RnOffset3);
+
+    // if (instruction_.flags.Op)
+    // {
+    //     // SUB
+
+    // }
+    // else
+    // {
+    //     // ADD
+    //     result = source + operand;
+    // }
+
+    // uint32_t truncatedResult = result & MAX_32;
+
+    // cpu.registers_.SetNegative(false);
+    // cpu.registers_.SetZero(truncatedResult == 0);
+    // cpu.registers_.SetCarry(result > MAX_32);
+    // cpu.registers_.SetOverflow(result > MAX_32);
+    // cpu.registers_.WriteRegister(instruction_.flags.Rd, truncatedResult);
 }
 
-void MoveShiftedRegister::Execute(ARM7TDMI* const cpu)
+void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    
+    // ARM has some weird shift behavior as described below:
+    // LSL #0 -> no shift
+    // LSR #0 -> LSR #32
+    // ASR #0 -> ASR #32
+
+    //  OP | OpCode
+    // -------------
+    //  00 | LSL Rd, Rs, #Offset5
+    //  01 | LSR Rd, Rs, #Offset5
+    //  10 | ASR Rd, Rs, #Offset5
+
+    (void)cpu;
+    throw std::runtime_error("Unimplemented Instruction: THUMB_MoveShiftedRegister");
+
+    // uint32_t operand = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+
+    // switch (instruction_.flags.Op)
+    // {
+    //     case 0:  // LSL
+    //         operand <<= instruction_.flags.Offset5;
+    //         break;
+    //     case 1:  // LSR
+    //         operand >>= instruction_.flags.Offset5;
+    //         break;
+    //     case 2:  // ASR
+    //         if (operand & MSB_32)
+    //         {
+    //             operand >>= instruction_.flags.Offset5;
+
+    //         }
+    //         else
+    //         {
+    //             operand >>= instruction_.flags.Offset5;
+    //         }
+    //         break;
+    //     case 3:
+    //         throw std::runtime_error("Invalid MoveShiftedRegister OpCode");
+    // }
+
+    // cpu.registers_.WriteRegister(instruction_.flags.Rd, operand);
 }
 }

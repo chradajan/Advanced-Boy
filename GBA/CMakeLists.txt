@@ -11,6 +11,9 @@ set(SOURCES
     src/ARM7TDMI/ArmInstructions.cpp
     src/ARM7TDMI/Registers.cpp
     src/ARM7TDMI/ThumbInstructions.cpp
+    src/Memory/GamePak.cpp
+    src/Memory/MemoryManager.cpp
+    src/GameBoyAdvance.cpp
     src/main.cpp
 )
 

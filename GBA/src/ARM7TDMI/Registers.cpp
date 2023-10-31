@@ -7,6 +7,15 @@ namespace CPU
 {
 Registers::Registers()
 {
+    SetOperatingMode(OperatingMode::System);
+    SetOperatingState(OperatingState::ARM);
+
+    systemAndUserRegisters_ = {};
+    fiqRegisters_ = {};
+    supervisorRegisters_ = {};
+    abortRegisters_ = {};
+    irqRegisters_ = {};
+    undefinedRegisters_ = {};
 }
 
 uint32_t Registers::ReadRegister(uint8_t index) const

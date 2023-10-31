@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 
 namespace CPU
 {
@@ -33,6 +34,18 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
-    virtual void Execute(ARM7TDMI* cpu) = 0;
+    virtual void Execute(ARM7TDMI& cpu) = 0;
 };
+
+// Useful 32-bit constants
+constexpr uint32_t MSB_32 = 0b1000'0000'0000'0000'0000'0000'0000'0000;
+constexpr uint32_t MAX_U32 = std::numeric_limits<uint32_t>::max();
+
+// Useful 16-bit constants
+constexpr uint16_t MSB_16 = 0b1000'0000'0000'0000;
+constexpr uint16_t MAX_U16 = std::numeric_limits<uint16_t>::max();
+
+// Useful 8-bit constants
+constexpr uint8_t MSB_8 = 0b1000'0000;
+constexpr uint8_t MAX_U8 = std::numeric_limits<uint8_t>::max();
 }  // namespace CPU
