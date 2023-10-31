@@ -25,6 +25,6 @@ public:
     void LoadGamePak(fs::path romPath);
 
 private:
-    CPU::ARM7TDMI cpu_;
     Memory::MemoryManager memMgr_;
+    CPU::ARM7TDMI cpu_;
 };

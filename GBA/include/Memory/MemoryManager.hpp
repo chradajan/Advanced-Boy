@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -29,9 +30,27 @@ public:
     /// @param romPath Path to ROM file.
     void LoadGamePak(fs::path romPath);
 
+    /// @brief Read from memory.
+    /// @param addr Aligned address.
+    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    /// @return Value from specified address.
+    uint32_t ReadMemory(uint32_t addr, uint8_t accessSize);
+
+    /// @brief Write to memory.
+    /// @param addr Aligned address.
+    /// @param val Value to write to specified address.
+    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    void WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize);
+
 private:
     /// @brief Set all internal memory to 0.
     void ZeroMemory();
+
+    /// @brief Determine which region of memory an address points to.
+    /// @param addr Address to determine mapping of.
+    /// @param accessSize Size in bytes of access.
+    /// @return Pointer to mapped location in memory.
+    uint8_t* GetPointerToMem(uint32_t addr, uint8_t accessSize);
 
     // General Internal Memory
     std::array<uint8_t, 16  * KiB> BIOS_;           // 00000000-00003FFF    BIOS - System ROM

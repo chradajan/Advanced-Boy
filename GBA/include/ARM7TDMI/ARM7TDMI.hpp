@@ -2,6 +2,8 @@
 
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/Registers.hpp>
+#include <cstdint>
+#include <functional>
 
 namespace CPU::THUMB
 {
@@ -50,8 +52,10 @@ class ARM7TDMI
 {
 public:
     /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
-    ARM7TDMI();
+    ARM7TDMI(std::function<uint32_t(uint32_t, uint8_t)> ReadMemory,
+             std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory);
 
+    ARM7TDMI() = delete;
     ARM7TDMI(ARM7TDMI const&) = delete;
     ARM7TDMI(ARM7TDMI&&) = delete;
     ARM7TDMI& operator=(ARM7TDMI const&) = delete;
@@ -59,6 +63,11 @@ public:
     ~ARM7TDMI() = default;
 
 private:
+    // R/W Functions
+    std::function<uint32_t(uint32_t, uint8_t)> ReadMemory;
+    std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory;
+
+    // Registers
     Registers registers_;
 
     // Lots of friends. Kind of annoying, but it's the only way to easily couple the CPU with individual instruction classes.
