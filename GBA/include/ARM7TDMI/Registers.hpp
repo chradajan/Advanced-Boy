@@ -27,7 +27,14 @@ public:
     /// @brief Get current value of PC considering operating state and mode.
     /// @param cpu Pointer to CPU.
     /// @return Value of program counter.
-    uint32_t GetPC() const { return *systemAndUserRegistersLUT_[15]; }
+    uint32_t GetPC() const { return systemAndUserRegisters_.r15_; }
+
+    /// @brief Set the PC.
+    /// @param addr New address to set PC to.
+    void SetPC(uint32_t addr) { systemAndUserRegisters_.r15_ = addr; }
+
+    /// @brief Advance the PC by either 2 or 4 depending on current operating state.
+    void AdvancePC() { systemAndUserRegisters_.r15_ += (GetOperatingState() == OperatingState::ARM) ? 4 : 2; }
 
     /// @brief Get the current stack pointer. Only intended for use in THUMB mode.
     /// @return Value of stack pointer.

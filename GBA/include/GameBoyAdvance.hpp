@@ -24,6 +24,9 @@ public:
     /// @param romPath Path to ROM file.
     void LoadGamePak(fs::path romPath);
 
+    /// @brief Run GBA indefinitely.
+    void Run();
+
 private:
     Memory::MemoryManager memMgr_;
     CPU::ARM7TDMI cpu_;

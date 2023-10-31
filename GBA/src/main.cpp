@@ -9,5 +9,7 @@ int main(int argc, char** argv)
         gba.LoadGamePak(argv[1]);
     }
 
+    gba.Run();
+
     return 0;
 }

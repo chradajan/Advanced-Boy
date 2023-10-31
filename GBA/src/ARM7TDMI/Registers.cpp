@@ -16,6 +16,10 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
+
+    // TODO
+    // SKip the BIOS and set PC to beginning of Game Pak ROM.
+    SetPC(0x08000000);
 }
 
 uint32_t Registers::ReadRegister(uint8_t index) const

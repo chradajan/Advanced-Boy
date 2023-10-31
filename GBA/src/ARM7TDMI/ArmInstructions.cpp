@@ -1,8 +1,8 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
+#include <ARM7TDMI/ARM7TDMI.hpp>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
-
 namespace CPU::ARM
 {
 std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)

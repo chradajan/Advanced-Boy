@@ -14,3 +14,11 @@ void GameBoyAdvance::LoadGamePak(fs::path const romPath)
 {
     memMgr_.LoadGamePak(romPath);
 }
+
+void GameBoyAdvance::Run()
+{
+    while (true)
+    {
+        cpu_.Clock();
+    }
+}

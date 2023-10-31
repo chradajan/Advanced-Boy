@@ -36,7 +36,9 @@ uint32_t MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
         // TODO
-        return 0;
+        std::stringstream exceptionMsg;
+        exceptionMsg << "IO Read. Addr: " << (unsigned int)addr << " Size: " << (unsigned int)accessSize;
+        throw std::runtime_error(exceptionMsg.str());
     }
     else if ((addr >= GAME_PAK_ROM_ADDR_MIN) && (addr <= GAME_PAK_SRAM_ADDR_MAX))
     {
@@ -65,6 +67,9 @@ void MemoryManager::WriteMemory(uint32_t const addr, uint32_t const val, uint8_t
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
         // TODO
+        std::stringstream exceptionMsg;
+        exceptionMsg << "IO Write. Addr: " << (unsigned int)addr << " Val: " << (unsigned int)val << " Size: " << (unsigned int)accessSize;
+        throw std::runtime_error(exceptionMsg.str());
     }
     else if ((addr >= GAME_PAK_ROM_ADDR_MIN) && (addr <= GAME_PAK_SRAM_ADDR_MAX))
     {

@@ -4,6 +4,7 @@
 #include <ARM7TDMI/Registers.hpp>
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 namespace CPU::THUMB
 {
@@ -62,7 +63,19 @@ public:
     ARM7TDMI& operator=(ARM7TDMI&&) = delete;
     ~ARM7TDMI() = default;
 
+    /// @brief Advance the CPU by one clock cycle. For now, always run at 1CPI.
+    void Clock();
+
 private:
+    /// @brief Determine whether the command should execute based on its condition.
+    /// @param condition 4-bit condition.
+    /// @return True if command should be executed, false otherwise
+    bool ArmConditionMet(uint8_t condition);
+
+    // F/D/E cycle state
+    uint32_t rawFetchedInstruction_;
+    std::unique_ptr<Instruction> decodedInstruction_;
+
     // R/W Functions
     std::function<uint32_t(uint32_t, uint8_t)> ReadMemory;
     std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory;
