@@ -34,9 +34,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
-add_executable(AdvancedBoy ${SOURCES})
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+qt_standard_project_setup()
 
-target_link_libraries(${PROJECT_NAME} SDL2::SDL2main SDL2::SDL2-static)
+qt_add_executable(${PROJECT_NAME}
+    ${SOURCES}
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2main SDL2::SDL2-static)
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE ${PROJECT_SOURCE_DIR}/include
