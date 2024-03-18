@@ -6,15 +6,32 @@ project (AdvancedBoy
     DESCRIPTION "Game Boy Advance Emulator"
 )
 
-set(SOURCES
+set(ARM7TDMI_SOURCES
     src/ARM7TDMI/ARM7TDMI.cpp
     src/ARM7TDMI/ArmInstructions.cpp
     src/ARM7TDMI/Registers.cpp
     src/ARM7TDMI/ThumbInstructions.cpp
-    src/Memory/GamePak.cpp
-    src/Memory/MemoryManager.cpp
+)
+
+set(GUI_SOURCES
+    include/GUI/DebugWindow.hpp
+    src/GUI/DebugWindow.cpp
+    include/GUI/MemoryViewerWidget.hpp
+    src/GUI/MemoryViewerWidget.cpp
+    include/GUI/MainWindow.hpp
+    src/GUI/MainWindow.cpp
+    include/GUI/RegisterViewerWidget.hpp
+    src/GUI/RegisterViewerWidget.cpp
+)
+
+set(MAIN_SOURCES
     src/GameBoyAdvance.cpp
     src/main.cpp
+)
+
+set(MEMORY_SOURCES
+    src/Memory/GamePak.cpp
+    src/Memory/MemoryManager.cpp
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -38,7 +55,10 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 qt_standard_project_setup()
 
 qt_add_executable(${PROJECT_NAME}
-    ${SOURCES}
+    ${ARM7TDMI_SOURCES}
+    ${GUI_SOURCES}
+    ${MAIN_SOURCES}
+    ${MEMORY_SOURCES}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
@@ -47,4 +67,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2main SDL2::SDL2-static)
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE ${PROJECT_SOURCE_DIR}/include
+)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    WIN32_EXECUTABLE ON
+    MACOSX_BUNDLE ON
 )
