@@ -1,15 +1,15 @@
-#include <GameBoyAdvance.hpp>
+#include <AdvancedBoy.hpp>
 
 int main(int argc, char** argv)
 {
-    GameBoyAdvance gba("");
+    // GameBoyAdvance gba("");
 
-    if (argc > 1)
-    {
-        gba.LoadGamePak(argv[1]);
-    }
+    // if (argc > 1)
+    // {
+    //     gba.LoadGamePak(argv[1]);
+    // }
 
-    gba.Run();
+    // gba.Run();
 
     return 0;
 }

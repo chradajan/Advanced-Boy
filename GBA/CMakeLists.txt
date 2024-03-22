@@ -6,6 +6,9 @@ project (AdvancedBoy
     DESCRIPTION "Game Boy Advance Emulator"
 )
 
+set(GBA_LIBRARY GbaLib)
+set(GBA_PROGRAM ${PROJECT_NAME})
+
 set(ARM7TDMI_SOURCES
     src/ARM7TDMI/ARM7TDMI.cpp
     src/ARM7TDMI/ArmInstructions.cpp
@@ -14,8 +17,8 @@ set(ARM7TDMI_SOURCES
 )
 
 set(MAIN_SOURCES
+    src/AdvancedBoy.cpp
     src/GameBoyAdvance.cpp
-    src/main.cpp
 )
 
 set(MEMORY_SOURCES
@@ -28,17 +31,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
-add_library(${PROJECT_NAME} SHARED ${ARM7TDMI_SOURCES} ${MAIN_SOURCES} ${MEMORY_SOURCES})
+add_library(${GBA_LIBRARY} SHARED ${ARM7TDMI_SOURCES} ${MAIN_SOURCES} ${MEMORY_SOURCES})
+add_executable(${GBA_PROGRAM} src/main.cpp)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
+target_link_libraries(${GBA_PROGRAM} ${GBA_LIBRARY})
+
+set_target_properties(${GBA_LIBRARY} PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/AdvancedBoy.hpp
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib
-    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib
     PREFIX ""
 )
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(${GBA_LIBRARY}
     PRIVATE ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${PROJECT_SOURCE_DIR}
 )
