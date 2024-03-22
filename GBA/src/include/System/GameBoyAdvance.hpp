@@ -22,7 +22,8 @@ public:
 
     /// @brief Load a Game Pak into memory.
     /// @param romPath Path to ROM file.
-    void LoadGamePak(fs::path romPath);
+    /// @return Whether the GamePak was valid and successfully loaded.
+    bool LoadGamePak(fs::path romPath);
 
     /// @brief Run GBA indefinitely.
     void Run();
@@ -30,4 +31,7 @@ public:
 private:
     Memory::MemoryManager memMgr_;
     CPU::ARM7TDMI cpu_;
+
+    bool biosLoaded_;
+    bool gamePakLoaded_;
 };

@@ -23,12 +23,14 @@ MemoryManager::MemoryManager(fs::path const biosPath)
     gamePak_ = nullptr;
 }
 
-void MemoryManager::LoadGamePak(fs::path const romPath)
+bool MemoryManager::LoadGamePak(fs::path const romPath)
 {
     gamePak_.reset();
     gamePak_ = std::make_unique<GamePak>(romPath);
 
     ZeroMemory();
+
+    return gamePak_->RomLoaded();
 }
 
 uint32_t MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize)

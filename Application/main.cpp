@@ -9,5 +9,7 @@ int main(int argc, char** argv)
         InsertCartridge(argv[1]);
     }
 
+    PowerOn();
+
     return 0;
 }

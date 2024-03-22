@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <queue>
 
 namespace CPU::THUMB
 {
@@ -63,6 +64,11 @@ public:
     ARM7TDMI& operator=(ARM7TDMI&&) = delete;
     ~ARM7TDMI() = default;
 
+    /// @brief Seed the prefetch buffer with the first instruction at PC. This might be unnecessary later, but for now it should be
+    ///        called after loading a GamePak and before clocking the CPU. Once BIOS loading is implemented, this should be able to
+    ///        be removed since PC will start in BIOS as opposed to GamePak ROM.
+    void PreparePrefetchBuffer();
+
     /// @brief Advance the CPU by one clock cycle. For now, always run at 1CPI.
     void Clock();
 
@@ -73,8 +79,9 @@ private:
     bool ArmConditionMet(uint8_t condition);
 
     // F/D/E cycle state
-    uint32_t rawFetchedInstruction_;
+    std::queue<uint32_t> prefetchBuffer_;
     std::unique_ptr<Instruction> decodedInstruction_;
+    bool branchExecuted_;
 
     // R/W Functions
     std::function<uint32_t(uint32_t, uint8_t)> ReadMemory;

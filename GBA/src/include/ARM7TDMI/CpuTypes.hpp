@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
 
 namespace CPU
 {
@@ -35,6 +36,8 @@ public:
     /// @brief Execute the instruction.
     /// @param cpu Pointer to the ARM CPU.
     virtual void Execute(ARM7TDMI& cpu) = 0;
+
+    virtual operator std::string() const = 0;
 };
 
 // Useful 32-bit constants

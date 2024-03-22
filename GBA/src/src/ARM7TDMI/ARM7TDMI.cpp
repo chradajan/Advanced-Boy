@@ -6,22 +6,33 @@
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <queue>
 
 namespace CPU
 {
 ARM7TDMI::ARM7TDMI(std::function<uint32_t(uint32_t, uint8_t)> ReadMemory,
                    std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory) :
-    rawFetchedInstruction_(MAX_U32),
     decodedInstruction_(nullptr),
+    branchExecuted_(false),
     ReadMemory(ReadMemory),
     WriteMemory(WriteMemory)
 {
+}
+
+void ARM7TDMI::PreparePrefetchBuffer()
+{
+    bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
+    uint8_t const accessSize = isArmState ? 4 : 2;
+
+    prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
+    registers_.AdvancePC();
 }
 
 void ARM7TDMI::Clock()
 {
     bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
     uint8_t const accessSize = isArmState ? 4 : 2;
+    uint32_t undecodedInstruction = MAX_U32;
 
     // Execute
     if (decodedInstruction_)
@@ -29,43 +40,43 @@ void ARM7TDMI::Clock()
         decodedInstruction_->Execute(*this);
     }
 
-    // Decode
-    if (rawFetchedInstruction_ != MAX_U32)
+    if (branchExecuted_)
     {
+        branchExecuted_ = false;
+        prefetchBuffer_ = std::queue<uint32_t>();
         decodedInstruction_.reset();
-        
-        if (isArmState)
-        {
-            decodedInstruction_ = ARM::DecodeInstruction(rawFetchedInstruction_);
-        }
-        else
-        {
-            decodedInstruction_ = THUMB::DecodeInstruction(rawFetchedInstruction_);
-        }
+        return;
     }
 
     // Fetch
-    rawFetchedInstruction_ = ReadMemory(registers_.GetPC(), accessSize);
-    registers_.AdvancePC();
+    if (prefetchBuffer_.empty())
+    {
+        prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
+        registers_.AdvancePC();
+    }
+    else
+    {
+        undecodedInstruction = prefetchBuffer_.front();
+        prefetchBuffer_.pop();
 
+        prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
+        registers_.AdvancePC();
+    }
 
-    // bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
-    // uint8_t const accessSize = isArmState ? 4 : 2;
-    // uint32_t const rawInstruction = ReadMemory(registers_.GetPC(), accessSize);
+    // Decode
+    if (undecodedInstruction != MAX_U32)
+    {
+        decodedInstruction_.reset();
 
-    // std::unique_ptr<Instruction> decodedInstruction;
-
-    // if (isArmState)
-    // {
-    //     decodedInstruction = ARM::DecodeInstruction(rawInstruction);
-    // }
-    // else
-    // {
-    //     decodedInstruction = THUMB::DecodeInstruction(rawInstruction);
-    // }
-
-    // registers_.AdvancePC();
-    // decodedInstruction->Execute(*this);
+        if (isArmState)
+        {
+            decodedInstruction_ = ARM::DecodeInstruction(undecodedInstruction);
+        }
+        else
+        {
+            decodedInstruction_ = THUMB::DecodeInstruction(undecodedInstruction);
+        }
+    }
 }
 
 bool ARM7TDMI::ArmConditionMet(uint8_t condition)
