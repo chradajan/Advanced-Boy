@@ -1,4 +1,4 @@
-#include <GameBoyAdvance.hpp>
+#include <System/GameBoyAdvance.hpp>
 #include <Memory/MemoryManager.hpp>
 #include <filesystem>
 #include <functional>

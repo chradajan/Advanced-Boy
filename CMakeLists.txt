@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.19)
+
+project (AdvancedBoy
+    LANGUAGES CXX
+    VERSION 1.0
+    DESCRIPTION "Game Boy Advance Emulator"
+)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+add_subdirectory(GBA)
+add_subdirectory(Application)
