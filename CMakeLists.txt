@@ -6,6 +6,8 @@ project (AdvancedBoy
     DESCRIPTION "Game Boy Advance Emulator"
 )
 
+add_definitions(-D_LOG_PATH="${PROJECT_SOURCE_DIR}/logs")
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 add_subdirectory(GBA)

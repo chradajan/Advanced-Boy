@@ -94,20 +94,10 @@ void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_SoftwareInterrupt");
 }
 
-SoftwareInterrupt::operator std::string() const
-{
-    return "";
-}
-
 void UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_UnconditionalBranch");
-}
-
-UnconditionalBranch::operator std::string() const
-{
-    return "";
 }
 
 void ConditionalBranch::Execute(ARM7TDMI& cpu)
@@ -116,20 +106,10 @@ void ConditionalBranch::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_ConditionalBranch");
 }
 
-ConditionalBranch::operator std::string() const
-{
-    return "";
-}
-
 void MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_MultipleLoadStore");
-}
-
-MultipleLoadStore::operator std::string() const
-{
-    return "";
 }
 
 void LongBranchWithLink::Execute(ARM7TDMI& cpu)
@@ -138,20 +118,10 @@ void LongBranchWithLink::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_LongBranchWithLink");
 }
 
-LongBranchWithLink::operator std::string() const
-{
-    return "";
-}
-
 void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_AddOffsetToStackPointer");
-}
-
-AddOffsetToStackPointer::operator std::string() const
-{
-    return "";
 }
 
 void PushPopRegisters::Execute(ARM7TDMI& cpu)
@@ -160,20 +130,10 @@ void PushPopRegisters::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_PushPopRegisters");
 }
 
-PushPopRegisters::operator std::string() const
-{
-    return "";
-}
-
 void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreHalfword");
-}
-
-LoadStoreHalfword::operator std::string() const
-{
-    return "";
 }
 
 void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
@@ -182,20 +142,10 @@ void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_SPRelativeLoadStore");
 }
 
-SPRelativeLoadStore::operator std::string() const
-{
-    return "";
-}
-
 void LoadAddress::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadAddress");
-}
-
-LoadAddress::operator std::string() const
-{
-    return "";
 }
 
 void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
@@ -204,20 +154,10 @@ void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithImmediateOffset");
 }
 
-LoadStoreWithImmediateOffset::operator std::string() const
-{
-    return "";
-}
-
 void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithRegisterOffset");
-}
-
-LoadStoreWithRegisterOffset::operator std::string() const
-{
-    return "";
 }
 
 void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
@@ -226,20 +166,10 @@ void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreSignExtendedByteHalfword");
 }
 
-LoadStoreSignExtendedByteHalfword::operator std::string() const
-{
-    return "";
-}
-
 void PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_PCRelativeLoad");
-}
-
-PCRelativeLoad::operator std::string() const
-{
-    return "";
 }
 
 void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
@@ -248,31 +178,16 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: THUMB_HiRegisterOperationsBranchExchange");
 }
 
-HiRegisterOperationsBranchExchange::operator std::string() const
-{
-    return "";
-}
-
 void ALUOperations::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_ALUOperations");
 }
 
-ALUOperations::operator std::string() const
-{
-    return "";
-}
-
 void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_MoveCompareAddSubtractImmediate");
-}
-
-MoveCompareAddSubtractImmediate::operator std::string() const
-{
-    return "";
 }
 
 void AddSubtract::Execute(ARM7TDMI& cpu)
@@ -310,11 +225,6 @@ void AddSubtract::Execute(ARM7TDMI& cpu)
     // cpu.registers_.SetCarry(result > MAX_32);
     // cpu.registers_.SetOverflow(result > MAX_32);
     // cpu.registers_.WriteRegister(instruction_.flags.Rd, truncatedResult);
-}
-
-AddSubtract::operator std::string() const
-{
-    return "";
 }
 
 void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
@@ -359,10 +269,5 @@ void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
     // }
 
     // cpu.registers_.WriteRegister(instruction_.flags.Rd, operand);
-}
-
-MoveShiftedRegister::operator std::string() const
-{
-    return "";
 }
 }

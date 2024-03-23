@@ -1,4 +1,5 @@
 #include <System/GameBoyAdvance.hpp>
+#include <Logging/Logging.hpp>
 #include <Memory/MemoryManager.hpp>
 #include <filesystem>
 #include <functional>
@@ -10,6 +11,7 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     biosLoaded_(biosPath != ""),
     gamePakLoaded_(false)
 {
+    Logging::InitializeLogging();
 }
 
 bool GameBoyAdvance::LoadGamePak(fs::path const romPath)

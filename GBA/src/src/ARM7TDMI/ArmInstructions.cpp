@@ -1,8 +1,13 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
+#include <Config.hpp>
 #include <cstdint>
+#include <format>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <stdexcept>
+#include <iomanip>
 namespace CPU::ARM
 {
 std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
@@ -67,15 +72,49 @@ std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
     return nullptr;
 }
 
+std::string ConditionMnemonic(uint8_t condition)
+{
+    switch (condition)
+    {
+        case 0:
+            return "EQ";
+        case 1:
+            return "NE";
+        case 2:
+            return "CS";
+        case 3:
+            return "CC";
+        case 4:
+            return "MI";
+        case 5:
+            return "PL";
+        case 6:
+            return "VS";
+        case 7:
+            return "VC";
+        case 8:
+            return "HI";
+        case 9:
+            return "LS";
+        case 10:
+            return "GE";
+        case 11:
+            return "LT";
+        case 12:
+            return "GT";
+        case 13:
+            return "LE";
+        case 14:
+            return "";
+        default:
+            return "";
+    }
+}
+
 void BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_BranchAndExchange");
-}
-
-BranchAndExchange::operator std::string() const
-{
-    return "";
 }
 
 void BlockDataTransfer::Execute(ARM7TDMI& cpu)
@@ -84,27 +123,8 @@ void BlockDataTransfer::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_BlockDataTransfer");
 }
 
-BlockDataTransfer::operator std::string() const
-{
-    return "";
-}
-
 void Branch::Execute(ARM7TDMI& cpu)
 {
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
-    {
-        return;
-    }
-
-    // Branch with Link (BL) writes the old PC into the link register (R14) of the current bank.
-    // The PC value written into R14 is adjusted to allow for the prefetch, and contains the
-    // address of the instruction following the branch and link instruction. Note that the CPSR
-    // is not saved with the PC and R14[1:0] are always cleared.
-    if (instruction_.flags.L)
-    {
-        cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
-    }
-
     // Branch instructions contain a signed 2's complement 24 bit offset. This is shifted left
     // two bits, sign extended to 32 bits, and added to the PC. The instruction can therefore
     // specify a branch of +/- 32Mbytes. The branch offset must take account of the prefetch
@@ -118,13 +138,29 @@ void Branch::Execute(ARM7TDMI& cpu)
     }
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
-    cpu.registers_.SetPC(newPC);
-    cpu.branchExecuted_ = true;
-}
 
-Branch::operator std::string() const
-{
-    return "";
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        std::string op = instruction_.flags.L ? "BL" : "B";
+        std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+        mnemonic_ = std::format("{}{} {:08X}", op, cond, newPC);
+    }
+
+    if (cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+
+        // Branch with Link (BL) writes the old PC into the link register (R14) of the current bank.
+        // The PC value written into R14 is adjusted to allow for the prefetch, and contains the
+        // address of the instruction following the branch and link instruction. Note that the CPSR
+        // is not saved with the PC and R14[1:0] are always cleared.
+        if (instruction_.flags.L)
+        {
+            cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
+        }
+
+        cpu.registers_.SetPC(newPC);
+        cpu.branchExecuted_ = true;
+    }
 }
 
 void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
@@ -133,20 +169,10 @@ void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
 }
 
-SoftwareInterrupt::operator std::string() const
-{
-    return "";
-}
-
 void Undefined::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_Undefined");
-}
-
-Undefined::operator std::string() const
-{
-    return "";
 }
 
 void SingleDataTransfer::Execute(ARM7TDMI& cpu)
@@ -155,20 +181,10 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataTransfer");
 }
 
-SingleDataTransfer::operator std::string() const
-{
-    return "";
-}
-
 void SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataSwap");
-}
-
-SingleDataSwap::operator std::string() const
-{
-    return "";
 }
 
 void Multiply::Execute(ARM7TDMI& cpu)
@@ -177,20 +193,10 @@ void Multiply::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_Multiply");
 }
 
-Multiply::operator std::string() const
-{
-    return "";
-}
-
 void MultiplyLong::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_MultiplyLong");
-}
-
-MultiplyLong::operator std::string() const
-{
-    return "";
 }
 
 void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
@@ -199,20 +205,10 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferRegisterOffset");
 }
 
-HalfwordDataTransferRegisterOffset::operator std::string() const
-{
-    return "";
-}
-
 void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferImmediateOffset");
-}
-
-HalfwordDataTransferImmediateOffset::operator std::string() const
-{
-    return "";
 }
 
 void PSRTransferMRS::Execute(ARM7TDMI& cpu)
@@ -221,30 +217,15 @@ void PSRTransferMRS::Execute(ARM7TDMI& cpu)
     throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMRS");
 }
 
-PSRTransferMRS::operator std::string() const
-{
-    return "";
-}
-
 void PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMSR");
 }
 
-PSRTransferMSR::operator std::string() const
-{
-    return "";
-}
-
 void DataProcessing::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_DataProcessing");
-}
-
-DataProcessing::operator std::string() const
-{
-    return "";
 }
 }

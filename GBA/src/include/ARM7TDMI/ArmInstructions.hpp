@@ -17,6 +17,10 @@ class ArmInstruction : public virtual Instruction {};
 /// @return Pointer to instance of decoded instruction. Returns nullptr if instruction is invalid.
 std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t instruction);
 
+/// @brief Convert an ARM condition into its mnemonic.
+/// @return ARM condition mnemonic.
+std::string ConditionMnemonic(uint8_t condition);
+
 class BranchAndExchange : public virtual ArmInstruction
 {
 public:
@@ -31,12 +35,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'1111'1111'1111'0001'0000;
@@ -71,12 +71,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1000'0000'0000'0000'0000'0000'0000;
@@ -117,12 +113,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1010'0000'0000'0000'0000'0000'0000;
@@ -158,12 +150,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'1111'0000'0000'0000'0000'0000'0000;
@@ -198,12 +186,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0110'0000'0000'0000'0000'0001'0000;
@@ -237,12 +221,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
@@ -285,12 +265,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'0000'0000'0000'1001'0000;
@@ -330,12 +306,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -376,12 +348,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'1000'0000'0000'0000'1001'0000;
@@ -423,12 +391,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -474,12 +438,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
@@ -526,12 +486,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'1111'0000'0000'0000'0000;
@@ -569,12 +525,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'0000'1111'0000'0000'0000;
@@ -622,12 +574,8 @@ public:
     static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
+    /// @param cpu Reference to the ARM CPU.
     void Execute(ARM7TDMI& cpu) override;
-
-    /// @brief Convert instruction to a human readable format.
-    /// @return String representing the ARM instruction.
-    operator std::string() const override;
 
 private:
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;

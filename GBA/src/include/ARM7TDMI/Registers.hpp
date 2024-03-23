@@ -3,6 +3,7 @@
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <array>
 #include <cstdint>
+#include <string>
 
 namespace CPU
 {
@@ -107,6 +108,10 @@ public:
     /// @brief Set the FIQ disabled flag.
     /// @param state New value to set F flag to. true = disabled, false = enabled.
     void SetFiqDisabled(bool state) { cpsr_.flags_.f_ = state; }
+
+    /// @brief Convert CPU registers to a human readable format.
+    /// @return String representing current register state.
+    std::string GetRegistersString() const;
 
 private:
     // CPSR layout

@@ -2,6 +2,9 @@
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <cassert>
 #include <cstdint>
+#include <format>
+#include <sstream>
+#include <string>
 
 namespace CPU
 {
@@ -120,5 +123,46 @@ uint32_t Registers::GetLR() const
         default:
             return 0;
     }
+}
+
+std::string Registers::GetRegistersString() const
+{
+    std::stringstream regStream;
+    bool const isArmState = GetOperatingState() == OperatingState::ARM;
+
+    for (int i = 0; i < 15; ++i)
+    {
+        regStream << std::format("r{} {:08X}  ", i, ReadRegister(i));
+    }
+
+    regStream << "CPSR: " << (IsNegative() ? "N" : " ") << (IsZero() ? "Z" : " ") << (IsCarry() ? "C" : " ") << (IsOverflow() ? "V" : " ") << "  ";
+    regStream << (IsIrqDisabled() ? "I" : " ") << (IsFiqDisabled() ? "F" : " ") << (isArmState ? "T" : " ") << "  " << "Mode: ";
+
+    switch (GetOperatingMode())
+    {
+        case OperatingMode::User:
+            regStream << "User";
+            break;
+        case OperatingMode::FIQ:
+            regStream << "FIQ";
+            break;
+        case OperatingMode::IRQ:
+            regStream << "IRQ";
+            break;
+        case OperatingMode::Supervisor:
+            regStream << "Supervisor";
+            break;
+        case OperatingMode::Abort:
+            regStream << "Abort";
+            break;
+        case OperatingMode::System:
+            regStream << "System";
+            break;
+        case OperatingMode::Undefined:
+            regStream << "Undefined";
+            break;
+    }
+
+    return regStream.str();
 }
 }  // namespace CPU

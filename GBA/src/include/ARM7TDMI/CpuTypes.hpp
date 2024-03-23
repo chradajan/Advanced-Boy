@@ -37,7 +37,12 @@ public:
     /// @param cpu Pointer to the ARM CPU.
     virtual void Execute(ARM7TDMI& cpu) = 0;
 
-    virtual operator std::string() const = 0;
+    /// @brief Get the ARM/THUMB mnemonic of this instruction.
+    /// @return ARM/THUMB mnemonic as a string.
+    std::string GetMnemonic() const { return mnemonic_; }
+
+protected:
+    std::string mnemonic_;
 };
 
 // Useful 32-bit constants

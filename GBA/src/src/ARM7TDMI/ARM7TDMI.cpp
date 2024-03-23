@@ -2,6 +2,8 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
+#include <Config.hpp>
+#include <Logging/Logging.hpp>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -37,14 +39,29 @@ void ARM7TDMI::Clock()
     // Execute
     if (decodedInstruction_)
     {
+        uint32_t loggedPC;
+        std::string regString;
+
+        if constexpr (Config::LOGGING_ENABLED)
+        {
+            loggedPC = isArmState ? registers_.GetPC() - 8 : registers_.GetPC() - 4;
+            regString = registers_.GetRegistersString();
+        }
+
         decodedInstruction_->Execute(*this);
+
+        if constexpr (Config::LOGGING_ENABLED)
+        {
+            Logging::LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
+        }
     }
+
+    decodedInstruction_.reset();
 
     if (branchExecuted_)
     {
         branchExecuted_ = false;
         prefetchBuffer_ = std::queue<uint32_t>();
-        decodedInstruction_.reset();
         return;
     }
 
