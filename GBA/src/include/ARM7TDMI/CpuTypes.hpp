@@ -34,14 +34,16 @@ public:
     virtual ~Instruction() {}
 
     /// @brief Execute the instruction.
-    /// @param cpu Pointer to the ARM CPU.
-    virtual void Execute(ARM7TDMI& cpu) = 0;
+    /// @param cpu Reference to the ARM CPU.
+    /// @return Number of cycles this instruction took to execute.
+    virtual int Execute(ARM7TDMI& cpu) = 0;
 
     /// @brief Get the ARM/THUMB mnemonic of this instruction.
     /// @return ARM/THUMB mnemonic as a string.
     std::string GetMnemonic() const { return mnemonic_; }
 
 protected:
+    /// @brief Human readable form of this instruction.
     std::string mnemonic_;
 };
 

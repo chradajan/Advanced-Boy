@@ -33,7 +33,7 @@ bool MemoryManager::LoadGamePak(fs::path const romPath)
     return gamePak_->RomLoaded();
 }
 
-uint32_t MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize)
+std::pair<uint32_t, int> MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize)
 {
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
@@ -44,7 +44,7 @@ uint32_t MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize
     }
     else if ((addr >= GAME_PAK_ROM_ADDR_MIN) && (addr <= GAME_PAK_SRAM_ADDR_MAX))
     {
-        return gamePak_->ReadMemory(addr, accessSize);
+        return {gamePak_->ReadMemory(addr, accessSize), 1};
     }
     else
     {
@@ -53,18 +53,18 @@ uint32_t MemoryManager::ReadMemory(uint32_t const addr, uint8_t const accessSize
         switch (accessSize)
         {
             case 1:
-                return *bytePtr;
+                return {*bytePtr, 1};
             case 2:
-                return *reinterpret_cast<uint16_t*>(bytePtr);
+                return {*reinterpret_cast<uint16_t*>(bytePtr), 1};
             case 4:
-                return *reinterpret_cast<uint32_t*>(bytePtr);
+                return {*reinterpret_cast<uint32_t*>(bytePtr), 1};
             default:
                 throw std::runtime_error("Illegal Read Memory access size");
         }
     }
 }
 
-void MemoryManager::WriteMemory(uint32_t const addr, uint32_t const val, uint8_t const accessSize)
+int MemoryManager::WriteMemory(uint32_t const addr, uint32_t const val, uint8_t const accessSize)
 {
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
@@ -96,6 +96,8 @@ void MemoryManager::WriteMemory(uint32_t const addr, uint32_t const val, uint8_t
                 throw std::runtime_error("Illegal Write Memory access size");
         }
     }
+
+    return 1;
 }
 
 void MemoryManager::ZeroMemory()

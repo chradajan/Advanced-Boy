@@ -12,22 +12,13 @@
 
 namespace CPU
 {
-ARM7TDMI::ARM7TDMI(std::function<uint32_t(uint32_t, uint8_t)> ReadMemory,
-                   std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory) :
+ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory,
+                   std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory) :
     decodedInstruction_(nullptr),
-    branchExecuted_(false),
+    flushPipeline_(false),
     ReadMemory(ReadMemory),
     WriteMemory(WriteMemory)
 {
-}
-
-void ARM7TDMI::PreparePrefetchBuffer()
-{
-    bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
-    uint8_t const accessSize = isArmState ? 4 : 2;
-
-    prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
-    registers_.AdvancePC();
 }
 
 void ARM7TDMI::Clock()
@@ -58,25 +49,25 @@ void ARM7TDMI::Clock()
 
     decodedInstruction_.reset();
 
-    if (branchExecuted_)
+    if (flushPipeline_)
     {
-        branchExecuted_ = false;
-        prefetchBuffer_ = std::queue<uint32_t>();
+        flushPipeline_ = false;
+        fetchedInstructions_ = std::queue<uint32_t>();
         return;
     }
 
     // Fetch
-    if (prefetchBuffer_.empty())
+    if (fetchedInstructions_.empty())
     {
-        prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
+        fetchedInstructions_.push(ReadMemory(registers_.GetPC(), accessSize).first);
         registers_.AdvancePC();
     }
     else
     {
-        undecodedInstruction = prefetchBuffer_.front();
-        prefetchBuffer_.pop();
+        undecodedInstruction = fetchedInstructions_.front();
+        fetchedInstructions_.pop();
 
-        prefetchBuffer_.push(ReadMemory(registers_.GetPC(), accessSize));
+        fetchedInstructions_.push(ReadMemory(registers_.GetPC(), accessSize).first);
         registers_.AdvancePC();
     }
 

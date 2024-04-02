@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <utility>
 #include <queue>
 
 namespace CPU::THUMB
@@ -54,8 +55,8 @@ class ARM7TDMI
 {
 public:
     /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
-    ARM7TDMI(std::function<uint32_t(uint32_t, uint8_t)> ReadMemory,
-             std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory);
+    ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory,
+             std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory);
 
     ARM7TDMI() = delete;
     ARM7TDMI(ARM7TDMI const&) = delete;
@@ -63,11 +64,6 @@ public:
     ARM7TDMI& operator=(ARM7TDMI const&) = delete;
     ARM7TDMI& operator=(ARM7TDMI&&) = delete;
     ~ARM7TDMI() = default;
-
-    /// @brief Seed the prefetch buffer with the first instruction at PC. This might be unnecessary later, but for now it should be
-    ///        called after loading a GamePak and before clocking the CPU. Once BIOS loading is implemented, this should be able to
-    ///        be removed since PC will start in BIOS as opposed to GamePak ROM.
-    void PreparePrefetchBuffer();
 
     /// @brief Advance the CPU by one clock cycle. For now, always run at 1CPI.
     void Clock();
@@ -79,13 +75,13 @@ private:
     bool ArmConditionMet(uint8_t condition);
 
     // F/D/E cycle state
-    std::queue<uint32_t> prefetchBuffer_;
+    std::queue<uint32_t> fetchedInstructions_;
     std::unique_ptr<Instruction> decodedInstruction_;
-    bool branchExecuted_;
+    bool flushPipeline_;
 
     // R/W Functions
-    std::function<uint32_t(uint32_t, uint8_t)> ReadMemory;
-    std::function<void(uint32_t, uint32_t, uint8_t)> WriteMemory;
+    std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory;
+    std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory;
 
     // Registers
     Registers registers_;

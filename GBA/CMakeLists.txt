@@ -6,7 +6,9 @@ set(GBA_SOURCES
     src/src/ARM7TDMI/ArmInstructions.cpp
     src/src/ARM7TDMI/Registers.cpp
     src/src/ARM7TDMI/ThumbInstructions.cpp
+    src/src/Logging/ArmInstructionLogging.cpp
     src/src/Logging/Logging.cpp
+    src/src/Logging/ThumbInstructionLogging.cpp
     src/src/Memory/GamePak.cpp
     src/src/Memory/MemoryManager.cpp
     src/src/System/GameBoyAdvance.cpp

@@ -17,10 +17,6 @@ class ArmInstruction : public virtual Instruction {};
 /// @return Pointer to instance of decoded instruction. Returns nullptr if instruction is invalid.
 std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t instruction);
 
-/// @brief Convert an ARM condition into its mnemonic.
-/// @return ARM condition mnemonic.
-std::string ConditionMnemonic(uint8_t condition);
-
 class BranchAndExchange : public virtual ArmInstruction
 {
 public:
@@ -36,9 +32,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'1111'1111'1111'0001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1111'1111'1111'1111'1111'0000;
 
@@ -72,9 +72,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'1000'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0000'0000;
 
@@ -86,11 +90,11 @@ private:
         {
             uint32_t RegisterList : 16;
             uint32_t Rn : 4;
-            uint32_t L : 1;
-            uint32_t W : 1;
-            uint32_t S : 1;
-            uint32_t U : 1;
-            uint32_t P : 1;
+            uint32_t L : 1;  // 0 = store, 1 = load
+            uint32_t W : 1;  // 0 = no write-back, 1 = write address into base
+            uint32_t S : 1;  // 0 = do not load PSR or force user mode, 1 = load PSR or force user mode
+            uint32_t U : 1;  // 0 = down - subtract offset from base, 1 = up - add offset to base
+            uint32_t P : 1;  // 0 = post - add offset after transfer, 1 = pre - add offset before transfer
             uint32_t : 3;
             uint32_t Cond : 4;
         } flags;
@@ -114,9 +118,14 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    /// @param newPc PC to branch to.
+    void SetMnemonic(uint32_t newPC);
+
     static constexpr uint32_t FORMAT =      0b0000'1010'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0000'0000;
 
@@ -151,9 +160,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'1111'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'0000'0000'0000'0000'0000'0000;
 
@@ -187,9 +200,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0110'0000'0000'0000'0000'0001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0001'0000;
 
@@ -222,9 +239,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
 
@@ -266,9 +287,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'1111'1111'0000;
 
@@ -307,9 +332,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'0000'1111'0000;
 
@@ -349,9 +378,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0000'1000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'0000'1111'0000;
 
@@ -392,9 +425,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0100'0000'0000'1111'1001'0000;
 
@@ -439,9 +476,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0100'0000'0000'0000'1001'0000;
 
@@ -487,9 +528,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'1111'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1011'1111'0000'0000'0000'0000;
 
@@ -526,9 +571,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'0000'1111'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1101'1011'0000'1111'0000'0000'0000;
 
@@ -575,9 +624,13 @@ public:
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    void Execute(ARM7TDMI& cpu) override;
+    /// @return Number of cycles this instruction took to execute.
+    int Execute(ARM7TDMI& cpu) override;
 
 private:
+    /// @brief Generate a mnemonic string for this instruction.
+    void SetMnemonic();
+
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
 

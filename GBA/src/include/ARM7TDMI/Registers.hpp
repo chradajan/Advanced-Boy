@@ -19,11 +19,25 @@ public:
     /// @return Value of selected register.
     uint32_t ReadRegister(uint8_t index) const;
 
+    /// @brief Read a CPU register from a specific operating mode.
+    /// @param cpu Pointer to CPU.
+    /// @param index Index of register to read.
+    /// @param mode Operating mode to read registers of.
+    /// @return Value of selected register.
+    uint32_t ReadRegister(uint8_t index, OperatingMode mode) const;
+
     /// @brief Write a CPU register considering operating state and mode.
     /// @param cpu Pointer to CPU.
     /// @param index Index of register to write.
     /// @param value Value to set register to.
     void WriteRegister(uint8_t index, uint32_t value);
+
+    /// @brief Write a CPU register from a specific operating mode.
+    /// @param cpu Pointer to CPU.
+    /// @param index Index of register to write.
+    /// @param value Value to set register to.
+    /// @param mode Operating mode to write register of.
+    void WriteRegister(uint8_t index, uint32_t value, OperatingMode mode);
 
     /// @brief Get current value of PC considering operating state and mode.
     /// @param cpu Pointer to CPU.
@@ -108,6 +122,12 @@ public:
     /// @brief Set the FIQ disabled flag.
     /// @param state New value to set F flag to. true = disabled, false = enabled.
     void SetFiqDisabled(bool state) { cpsr_.flags_.f_ = state; }
+
+    /// @brief Save the CPSR into the current operating mode's SPSR register.
+    void SaveCPSR();
+
+    /// @brief Load the current operating mode's SPSR register into CPSR.
+    void LoadSPSR();
 
     /// @brief Convert CPU registers to a human readable format.
     /// @return String representing current register state.

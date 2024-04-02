@@ -88,109 +88,109 @@ std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t const instruction)
     return nullptr;
 }
 
-void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
+int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_SoftwareInterrupt");
 }
 
-void UnconditionalBranch::Execute(ARM7TDMI& cpu)
+int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_UnconditionalBranch");
 }
 
-void ConditionalBranch::Execute(ARM7TDMI& cpu)
+int ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_ConditionalBranch");
 }
 
-void MultipleLoadStore::Execute(ARM7TDMI& cpu)
+int MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_MultipleLoadStore");
 }
 
-void LongBranchWithLink::Execute(ARM7TDMI& cpu)
+int LongBranchWithLink::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LongBranchWithLink");
 }
 
-void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
+int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_AddOffsetToStackPointer");
 }
 
-void PushPopRegisters::Execute(ARM7TDMI& cpu)
+int PushPopRegisters::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_PushPopRegisters");
 }
 
-void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
+int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreHalfword");
 }
 
-void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
+int SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_SPRelativeLoadStore");
 }
 
-void LoadAddress::Execute(ARM7TDMI& cpu)
+int LoadAddress::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadAddress");
 }
 
-void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
+int LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithImmediateOffset");
 }
 
-void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
+int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithRegisterOffset");
 }
 
-void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
+int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreSignExtendedByteHalfword");
 }
 
-void PCRelativeLoad::Execute(ARM7TDMI& cpu)
+int PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_PCRelativeLoad");
 }
 
-void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
+int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_HiRegisterOperationsBranchExchange");
 }
 
-void ALUOperations::Execute(ARM7TDMI& cpu)
+int ALUOperations::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_ALUOperations");
 }
 
-void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
+int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: THUMB_MoveCompareAddSubtractImmediate");
 }
 
-void AddSubtract::Execute(ARM7TDMI& cpu)
+int AddSubtract::Execute(ARM7TDMI& cpu)
 {
     //  OP | I | OpCode
     // ----------------
@@ -227,7 +227,7 @@ void AddSubtract::Execute(ARM7TDMI& cpu)
     // cpu.registers_.WriteRegister(instruction_.flags.Rd, truncatedResult);
 }
 
-void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
+int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
     // ARM has some weird shift behavior as described below:
     // LSL #0 -> no shift

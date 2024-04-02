@@ -7,7 +7,7 @@
 #include <sstream>
 #include <string>
 #include <stdexcept>
-#include <iomanip>
+
 namespace CPU::ARM
 {
 std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
@@ -72,58 +72,102 @@ std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
     return nullptr;
 }
 
-std::string ConditionMnemonic(uint8_t condition)
-{
-    switch (condition)
-    {
-        case 0:
-            return "EQ";
-        case 1:
-            return "NE";
-        case 2:
-            return "CS";
-        case 3:
-            return "CC";
-        case 4:
-            return "MI";
-        case 5:
-            return "PL";
-        case 6:
-            return "VS";
-        case 7:
-            return "VC";
-        case 8:
-            return "HI";
-        case 9:
-            return "LS";
-        case 10:
-            return "GE";
-        case 11:
-            return "LT";
-        case 12:
-            return "GT";
-        case 13:
-            return "LE";
-        case 14:
-            return "";
-        default:
-            return "";
-    }
-}
-
-void BranchAndExchange::Execute(ARM7TDMI& cpu)
+int BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_BranchAndExchange");
 }
 
-void BlockDataTransfer::Execute(ARM7TDMI& cpu)
+int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_BlockDataTransfer");
+    int cycles = 1;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return cycles;
+    }
+
+    uint8_t regIndex = 0;
+    uint16_t regList = instruction_.flags.RegisterList;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn) & 0xFFFF'FFFC;
+    bool const r15InList = instruction_.flags.RegisterList & 0x8000;
+    bool const preIndexOffset = instruction_.flags.P;
+    bool const postIndexOffset = !preIndexOffset;
+    int8_t const offset = instruction_.flags.U ? 4 : -4;
+
+    OperatingMode mode = cpu.registers_.GetOperatingMode();
+
+    if (instruction_.flags.S)
+    {
+        if (r15InList)
+        {
+            if (!instruction_.flags.L)
+            {
+                mode = OperatingMode::User;
+            }
+        }
+        else
+        {
+            mode = OperatingMode::User;
+        }
+    }
+
+    while (regList != 0)
+    {
+        if (regList & 0x01)
+        {
+            if (preIndexOffset)
+            {
+                addr += offset;
+            }
+
+            if (instruction_.flags.L)
+            {
+                auto [readValue, readCycles] = cpu.ReadMemory(addr, 4);
+                cycles += readCycles;
+                cpu.registers_.WriteRegister(regIndex, readValue, mode);
+            }
+            else
+            {
+                uint32_t regValue = cpu.registers_.ReadRegister(regIndex, mode);
+                int writeCycles = cpu.WriteMemory(addr, regValue, 4);
+                cycles += writeCycles;
+            }
+
+            if (postIndexOffset)
+            {
+                addr += offset;
+            }
+        }
+
+        ++regIndex;
+        regList >>= 1;
+    }
+
+    if (instruction_.flags.W)
+    {
+        cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
+    }
+
+    if (instruction_.flags.L && r15InList)
+    {
+        cpu.flushPipeline_ = true;
+
+        if (instruction_.flags.S)
+        {
+            cpu.registers_.LoadSPSR();
+        }
+    }
+
+    return cycles;
 }
 
-void Branch::Execute(ARM7TDMI& cpu)
+int Branch::Execute(ARM7TDMI& cpu)
 {
     // Branch instructions contain a signed 2's complement 24 bit offset. This is shifted left
     // two bits, sign extended to 32 bits, and added to the PC. The instruction can therefore
@@ -141,14 +185,11 @@ void Branch::Execute(ARM7TDMI& cpu)
 
     if constexpr (Config::LOGGING_ENABLED)
     {
-        std::string op = instruction_.flags.L ? "BL" : "B";
-        std::string cond = ConditionMnemonic(instruction_.flags.Cond);
-        mnemonic_ = std::format("{}{} {:08X}", op, cond, newPC);
+        SetMnemonic(newPC);
     }
 
     if (cpu.ArmConditionMet(instruction_.flags.Cond))
     {
-
         // Branch with Link (BL) writes the old PC into the link register (R14) of the current bank.
         // The PC value written into R14 is adjusted to allow for the prefetch, and contains the
         // address of the instruction following the branch and link instruction. Note that the CPSR
@@ -159,71 +200,73 @@ void Branch::Execute(ARM7TDMI& cpu)
         }
 
         cpu.registers_.SetPC(newPC);
-        cpu.branchExecuted_ = true;
+        cpu.flushPipeline_ = true;
     }
+
+    return 1;
 }
 
-void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
+int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
 }
 
-void Undefined::Execute(ARM7TDMI& cpu)
+int Undefined::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_Undefined");
 }
 
-void SingleDataTransfer::Execute(ARM7TDMI& cpu)
+int SingleDataTransfer::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataTransfer");
 }
 
-void SingleDataSwap::Execute(ARM7TDMI& cpu)
+int SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataSwap");
 }
 
-void Multiply::Execute(ARM7TDMI& cpu)
+int Multiply::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_Multiply");
 }
 
-void MultiplyLong::Execute(ARM7TDMI& cpu)
+int MultiplyLong::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_MultiplyLong");
 }
 
-void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
+int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferRegisterOffset");
 }
 
-void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
+int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferImmediateOffset");
 }
 
-void PSRTransferMRS::Execute(ARM7TDMI& cpu)
+int PSRTransferMRS::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMRS");
 }
 
-void PSRTransferMSR::Execute(ARM7TDMI& cpu)
+int PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMSR");
 }
 
-void DataProcessing::Execute(ARM7TDMI& cpu)
+int DataProcessing::Execute(ARM7TDMI& cpu)
 {
     (void)cpu;
     throw std::runtime_error("Unimplemented Instruction: ARM_DataProcessing");

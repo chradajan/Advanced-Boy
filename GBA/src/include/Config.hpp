@@ -13,4 +13,5 @@ namespace fs = std::filesystem;
 namespace Config
 {
 constexpr bool LOGGING_ENABLED = true;
+constexpr bool ASSERTS_ENABLED = true;
 }

@@ -31,17 +31,20 @@ public:
     /// @return Whether the GamePak was valid and successfully loaded.
     bool LoadGamePak(fs::path romPath);
 
+    // TODO Implement actual memory access times. For now just return 1.
+
     /// @brief Read from memory.
     /// @param addr Aligned address.
     /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Value from specified address.
-    uint32_t ReadMemory(uint32_t addr, uint8_t accessSize);
+    /// @return Value from specified address and number of cycles taken to read.
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, uint8_t accessSize);
 
     /// @brief Write to memory.
     /// @param addr Aligned address.
     /// @param val Value to write to specified address.
     /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    void WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize);
+    /// @return Number of cycles taken to write.
+    int WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize);
 
 private:
     /// @brief Set all internal memory to 0.
