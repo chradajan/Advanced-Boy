@@ -629,7 +629,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    void SetMnemonic(uint32_t operand2);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
@@ -637,7 +637,6 @@ private:
     union InstructionFormat
     {
         InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Operand2 : 12;
@@ -649,6 +648,32 @@ private:
             uint32_t : 2;
             uint32_t Cond : 4;
         } flags;
+
+        struct
+        {
+            uint32_t Rm : 4;
+            uint32_t : 1;
+            uint32_t ShiftType : 2;
+            uint32_t : 1;
+            uint32_t Rs : 4;
+            uint32_t : 20;
+        } shiftRegByReg;
+
+        struct
+        {
+            uint32_t Rm : 4;
+            uint32_t : 1;
+            uint32_t ShiftType : 2;
+            uint32_t ShiftAmount : 5;
+            uint32_t : 20;
+        } shiftRegByImm;
+
+        struct
+        {
+            uint32_t Imm : 8;
+            uint32_t RotateAmount : 4;
+            uint32_t : 20;
+        } rotatedImmediate;
 
         uint32_t word;
     } instruction_;

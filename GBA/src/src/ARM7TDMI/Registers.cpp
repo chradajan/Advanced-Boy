@@ -11,6 +11,7 @@ namespace CPU
 {
 Registers::Registers()
 {
+    cpsr_.word_ = 0;
     SetOperatingMode(OperatingMode::System);
     SetOperatingState(OperatingState::ARM);
 
@@ -24,8 +25,8 @@ Registers::Registers()
     // TODO
     // SKip the BIOS and set PC to beginning of Game Pak ROM. Also set r0, r13, and r14.
     SetPC(0x08000000);
+    SetCarry(true);
 
-    *systemAndUserRegistersLUT_[0] = 0x0000'0CA5;
     *systemAndUserRegistersLUT_[13] = 0x0300'7F00;
     *systemAndUserRegistersLUT_[14] = 0x0800'0000;
 }
@@ -220,8 +221,8 @@ std::string Registers::GetRegistersString() const
         regStream << std::format("r{} {:08X}  ", i, ReadRegister(i));
     }
 
-    regStream << "CPSR: " << (IsNegative() ? "N" : " ") << (IsZero() ? "Z" : " ") << (IsCarry() ? "C" : " ") << (IsOverflow() ? "V" : " ") << "  ";
-    regStream << (IsIrqDisabled() ? "I" : " ") << (IsFiqDisabled() ? "F" : " ") << (isArmState ? "T" : " ") << "  " << "Mode: ";
+    regStream << "CPSR: " << (IsNegative() ? "N" : "-") << (IsZero() ? "Z" : "-") << (IsCarry() ? "C" : "-") << (IsOverflow() ? "V" : "-") << "  ";
+    regStream << (IsIrqDisabled() ? "I" : "-") << (IsFiqDisabled() ? "F" : "-") << (isArmState ? "T" : "-") << "  " << "Mode: ";
 
     switch (GetOperatingMode())
     {

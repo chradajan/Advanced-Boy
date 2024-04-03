@@ -1,12 +1,85 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
+#include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
+#include <bit>
 #include <cstdint>
 #include <format>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <stdexcept>
+
+namespace
+{
+/// @brief Helper function to carry out subtraction operations for Data Processing.
+/// @param operand1 Left hand operand.
+/// @param operand2 Right hand operand.
+/// @param overflowOut Result of V flag after subtraction.
+/// @param carryOut Result of C flag after subtraction.
+/// @param useCarry Whether to include carry bit in subtraction.
+/// @param carry Value of carry bit.
+/// @return Result of subtraction operation.
+uint32_t DataProcessingSubtraction(uint32_t operand1,
+                                   uint32_t operand2,
+                                   bool& overflowOut,
+                                   bool& carryOut,
+                                   bool useCarry=false,
+                                   bool carry=false)
+{
+    uint64_t result64;
+    uint8_t carryVal = carry ? 1 : 0;
+
+    if (useCarry)
+    {
+        result64 = operand1 - operand2 + carryVal - 1;
+    }
+    else
+    {
+        result64 = operand1 - operand2;
+    }
+
+    uint32_t result32 = result64 & CPU::MAX_U32;
+    overflowOut = ((operand1 & 0x8000'0000) != (operand2 & 0x8000'0000)) && ((operand2 & 0x8000'0000) == (result32 & 0x8000'0000));
+    carryOut = result64 > CPU::MAX_U32;
+
+    return result32;
+}
+
+/// @brief Helper function to carry out addition operations for Data Processing.
+/// @param operand1 Left hand operand.
+/// @param operand2 Right hand operand.
+/// @param overflowOut Result of V flag after addition.
+/// @param carryOut Result of C flag after addition.
+/// @param useCarry Whether to include carry bit in addition.
+/// @param carry Value of carry bit.
+/// @return Result of addition operation.
+uint32_t DataProcessingAddition(uint32_t operand1,
+                                uint32_t operand2,
+                                bool& overflowOut,
+                                bool& carryOut,
+                                bool useCarry=false,
+                                bool carry=false)
+{
+    uint64_t result64;
+    uint8_t carryVal = carry ? 1 : 0;
+
+    if (useCarry)
+    {
+        result64 = operand1 + operand2 + carryVal;
+    }
+    else
+    {
+        result64 = operand1 + operand2;
+    }
+
+    uint32_t result32 = result64 & CPU::MAX_U32;
+    overflowOut = ((operand1 & 0x8000'0000) == (operand2 & 0x8000'0000)) && ((operand1 & 0x8000'0000) != (result32 & 0x8000'0000));
+    carryOut = result64 > CPU::MAX_U32;
+
+    return result32;
+}
+}
 
 namespace CPU::ARM
 {
@@ -268,7 +341,257 @@ int PSRTransferMSR::Execute(ARM7TDMI& cpu)
 
 int DataProcessing::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_DataProcessing");
+    int cycles = 1;
+
+    uint32_t operand1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint32_t operand2;
+    uint8_t const destIndex = instruction_.flags.Rd;
+
+    bool negativeOut = cpu.registers_.IsNegative();
+    bool zeroOut = cpu.registers_.IsZero();
+    bool carryOut = cpu.registers_.IsCarry();
+    bool overflowOut = cpu.registers_.IsOverflow();
+
+    if (instruction_.flags.I)
+    {
+        // Operand 2 is an immediate value
+        operand2 = instruction_.rotatedImmediate.Imm;
+        uint8_t const rotateAmount = instruction_.rotatedImmediate.RotateAmount << 1;
+        operand2 = std::rotr(operand2, rotateAmount);
+    }
+    else
+    {
+        // Operand 2 is a register
+        operand2 = cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rm);
+
+        ++cycles;
+
+        // If R15 is used as an operand and a register specified shift amount is used, PC will be 12 bytes ahead.
+        if (instruction_.flags.Rn == 15)
+        {
+            operand1 += 4;
+        }
+
+        if (instruction_.shiftRegByReg.Rm == 15)
+        {
+            operand2 += 4;
+        }
+
+        bool const shiftByReg = (instruction_.flags.Operand2 & 0x10);
+        uint8_t shiftAmount =
+            shiftByReg ? (cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rs) & 0xFF) :
+            instruction_.shiftRegByImm.ShiftAmount;
+
+        switch (instruction_.shiftRegByReg.ShiftType)
+        {
+            case 0b00:  // LSL
+            {
+                if (shiftAmount == 0)
+                {
+                    carryOut = cpu.registers_.IsCarry();
+                }
+                else if (shiftAmount > 32)
+                {
+                    carryOut = false;
+                    operand2 = 0;
+                }
+                else
+                {
+                    carryOut = (operand2 & (0x8000'0000 >> (shiftAmount - 1)));
+                    operand2 <<= shiftAmount;
+                }
+                break;
+            }
+            case 0b01:  // LSR
+            {
+                if (shiftAmount == 0)
+                {
+                    if (shiftByReg)
+                    {
+                        carryOut = cpu.registers_.IsCarry();
+                    }
+                    else
+                    {
+                        // LSR #0 -> LSR #32
+                        carryOut = (operand2 & 0x8000'0000);
+                        operand2 = 0;
+                    }
+                }
+                else if (shiftAmount > 32)
+                {
+                    carryOut = false;
+                    operand2 = 0;
+                }
+                else
+                {
+                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
+                    operand2 >>= shiftAmount;
+                }
+                break;
+            }
+            case 0b10:  // ASR
+            {
+                bool const msbSet = operand2 & 0x8000'0000;
+
+                if (shiftAmount == 0)
+                {
+                    if (shiftByReg)
+                    {
+                        carryOut = cpu.registers_.IsCarry();
+                    }
+                    else
+                    {
+                        // ASR #0 -> ASR #32
+                        carryOut = msbSet;
+                        operand2 = msbSet ? 0xFFFF'FFFF : 0;
+                    }
+                }
+                else if (shiftAmount > 32)
+                {
+                    carryOut = msbSet;
+                    operand2 = msbSet ? 0xFFFF'FFFF : 0;
+                }
+                else
+                {
+                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
+
+                    for (int i = 0; i < shiftAmount; ++i)
+                    {
+                        operand2 >>= 1;
+                        operand2 |= msbSet ? 0x8000'0000 : 0;
+                    }
+                }
+                break;
+            }
+            case 0b11:  // ROR, RRX
+            {
+                if (shiftAmount > 32)
+                {
+                    shiftAmount %= 32;
+                }
+
+                if (shiftAmount == 0)
+                {
+                    if (shiftByReg)
+                    {
+                        carryOut = cpu.registers_.IsCarry();
+                    }
+                    else
+                    {
+                        // ROR #0 -> RRX
+                        carryOut = operand2 & 0x01;
+                        operand2 >>= 1;
+                        operand2 |= cpu.registers_.IsCarry() ? 0x8000'0000 : 0;
+                    }
+                }
+                else
+                {
+                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
+                    operand2 = std::rotr(operand2, shiftAmount);
+                }
+                break;
+            }
+        }
+    }
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(operand2);
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return cycles;
+    }
+
+    uint32_t result = 0;
+    bool writeResult = true;
+    bool updateFlags = instruction_.flags.S;
+
+    switch (instruction_.flags.OpCode)
+    {
+        case 0b0000:  // AND
+            result = operand1 & operand2;
+            break;
+        case 0b0001:  // EOR
+            result = operand1 & operand2;
+            break;
+        case 0b0010:  // SUB
+            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut);
+            break;
+        case 0b0011:  // RSB
+            result = DataProcessingSubtraction(operand2, operand1, overflowOut, carryOut);
+            break;
+        case 0b0100:  // ADD
+            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut);
+            break;
+        case 0b0101:  // ADC
+            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            break;
+        case 0b0110:  // SBC
+            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            break;
+        case 0b0111:  // RSC
+            result = DataProcessingSubtraction(operand2, operand1, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            break;
+        case 0b1000:  // TST
+            result = operand1 & operand2;
+            writeResult = false;
+            break;
+        case 0b1001:  // TEQ
+            result = operand1 & operand2;
+            writeResult = false;
+            break;
+        case 0b1010:  // CMP
+            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut);
+            writeResult = false;
+            break;
+        case 0b1011:  // CMN
+            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut);
+            writeResult = false;
+            break;
+        case 0b1100:  // ORR
+            result = operand1 | operand2;
+            break;
+        case 0b1101:  // MOV
+            result = operand2;
+            break;
+        case 0b1110:  // BIC
+            result = operand1 & ~operand2;
+            break;
+        case 0b1111:  // MVN
+            result = ~operand2;
+            break;
+    }
+
+    negativeOut = (result & 0x8000'0000);
+    zeroOut = (result == 0);
+
+    if (writeResult)
+    {
+        if (destIndex == 15)
+        {
+            ++cycles;
+            cpu.flushPipeline_ = true;
+
+            if (updateFlags)
+            {
+                updateFlags = false;
+                cpu.registers_.LoadSPSR();
+            }
+        }
+
+        cpu.registers_.WriteRegister(destIndex, result);
+    }
+
+    if (updateFlags)
+    {
+        cpu.registers_.SetNegative(negativeOut);
+        cpu.registers_.SetZero(zeroOut);
+        cpu.registers_.SetCarry(carryOut);
+        cpu.registers_.SetOverflow(overflowOut);
+    }
+
+    return cycles;
 }
 }

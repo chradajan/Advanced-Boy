@@ -1,6 +1,7 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Config.hpp>
+#include <cstdint>
 #include <format>
 #include <sstream>
 #include <string>
@@ -89,28 +90,28 @@ void BlockDataTransfer::SetMnemonic()
 
     switch (addressingModeCase)
     {
-        case 0:
+        case 0b000:
             op = isStackOp ? "STMED" : "STMDA";
             break;
-        case 1:
+        case 0b001:
             op = isStackOp ? "STMEA" : "STMIA";
             break;
-        case 2:
+        case 0b010:
             op = isStackOp ? "STMFD" : "STMDB";
             break;
-        case 3:
+        case 0b011:
             op = isStackOp ? "STMFA" : "STMIB";
             break;
-        case 4:
+        case 0b100:
             op = isStackOp ? "LDMFA" : "LDMDA";
             break;
-        case 5:
+        case 0b101:
             op = isStackOp ? "LDMFD" : "LDMIA";
             break;
-        case 6:
+        case 0b110:
             op = isStackOp ? "LDMEA" : "LDMDB";
             break;
-        case 7:
+        case 0b111:
             op = isStackOp ? "LDMED" : "LDMIB";
             break;
     }
@@ -211,8 +212,151 @@ void PSRTransferMSR::SetMnemonic()
 
 }
 
-void DataProcessing::SetMnemonic()
+void DataProcessing::SetMnemonic(uint32_t operand2)
 {
+    std::string op;
+    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    std::string s = instruction_.flags.S ? "S" : "";
 
+    if ((instruction_.flags.OpCode >= 8) || (instruction_.flags.OpCode <= 11))
+    {
+        s = "";
+    }
+
+    switch (instruction_.flags.OpCode)
+    {
+        case 0b0000:
+            op = "AND";
+            break;
+        case 0b0001:
+            op = "EOR";
+            break;
+        case 0b0010:
+            op = "SUB";
+            break;
+        case 0b0011:
+            op = "RSB";
+            break;
+        case 0b0100:
+            op = "ADD";
+            break;
+        case 0b0101:
+            op = "ADC";
+            break;
+        case 0b0110:
+            op = "SBC";
+            break;
+        case 0b0111:
+            op = "RSC";
+            break;
+        case 0b1000:
+            op = "TST";
+            break;
+        case 0b1001:
+            op = "TEQ";
+            break;
+        case 0b1010:
+            op = "CMP";
+            break;
+        case 0b1011:
+            op = "CMN";
+            break;
+        case 0b1100:
+            op = "ORR";
+            break;
+        case 0b1101:
+            op = "MOV";
+            break;
+        case 0b1110:
+            op = "BIC";
+            break;
+        case 0b1111:
+            op = "MVN";
+            break;
+    }
+
+    std::string regInfo = "";
+    uint8_t const destIndex = instruction_.flags.Rd;
+    uint8_t const operand1Index = instruction_.flags.Rn;
+
+    std::string operand2Str;
+
+    if (instruction_.flags.I)
+    {
+        // Rotated immediate operand
+        operand2Str = std::format("#{}", operand2);
+    }
+    else
+    {
+        std::string shiftType;
+        bool const shiftByReg = instruction_.flags.Operand2 & 0x10;
+        bool const isRRX = !shiftByReg && (instruction_.shiftRegByImm.ShiftAmount == 0);
+
+        uint8_t const Rm = instruction_.shiftRegByReg.Rm;
+        uint8_t const Rs = instruction_.shiftRegByReg.Rs;
+        uint8_t const shiftAmount = instruction_.shiftRegByImm.ShiftAmount;
+
+        switch (instruction_.shiftRegByReg.ShiftType)
+        {
+            case 0b00:
+                shiftType = "LSL";
+                break;
+            case 0b01:
+                shiftType = "LSR";
+                break;
+            case 0b10:
+                shiftType = "ASR";
+                break;
+            case 0b11:
+                shiftType = isRRX ? "RRX" : "ROR";
+                break;
+        }
+
+        if (shiftByReg)
+        {
+            // Shift reg by reg
+            operand2Str = std::format("R{}, {} R{}", Rm, shiftType, Rs);
+        }
+        else
+        {
+            // Shift reg by imm
+            if (isRRX)
+            {
+                operand2Str = std::format("R{}, {}", Rm, shiftType);
+            }
+            else
+            {
+                operand2Str = std::format("R{}, {} #{}", Rm, shiftType, shiftAmount);
+            }
+        }
+    }
+
+    switch (instruction_.flags.OpCode)
+    {
+        case 0b1101:  // MOV
+        case 0b1111:  // MVN
+            regInfo = std::format("R{}, {}", destIndex, operand2Str);
+            break;
+        case 0b1010:  // CMP
+        case 0b1011:  // CMN
+        case 0b1001:  // TEQ
+        case 0b1000:  // TST
+            regInfo = std::format("R{}, {}", operand1Index, operand2Str);
+            break;
+        case 0b0000:  // AND
+        case 0b0001:  // EOR
+        case 0b0010:  // SUB
+        case 0b0011:  // RSB
+        case 0b0100:  // ADD
+        case 0b0101:  // ADC
+        case 0b0110:  // SBC
+        case 0b0111:  // RSC
+        case 0b1100:  // ORR
+        case 0b1110:  // BIC
+            regInfo = std::format("R{}, R{}, {}", destIndex, operand1Index, operand2Str);
+            break;
+    }
+
+    mnemonic_ = std::format("{:08X} -> {}{}{} {}", instruction_.word, op, cond, s, regInfo);
 }
 }
