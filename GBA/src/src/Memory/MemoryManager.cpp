@@ -37,10 +37,21 @@ std::pair<uint32_t, int> MemoryManager::ReadMemory(uint32_t const addr, uint8_t 
 {
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
-        // TODO
-        std::stringstream exceptionMsg;
-        exceptionMsg << "IO Read. Addr: " << (unsigned int)addr << " Size: " << (unsigned int)accessSize;
-        throw std::runtime_error(exceptionMsg.str());
+        // TODO Implement actual I/O register handling
+        // TODO Implement memory mirroring for 4000800h every 64K.
+        uint8_t* bytePtr = &placeholderIoRegisters_[addr - IO_REG_ADDR_MIN];
+
+        switch (accessSize)
+        {
+            case 1:
+                return {*bytePtr, 1};
+            case 2:
+                return {*reinterpret_cast<uint16_t*>(bytePtr), 1};
+            case 4:
+                return {*reinterpret_cast<uint32_t*>(bytePtr), 1};
+            default:
+                throw std::runtime_error("Illegal Read Memory access size");
+        }
     }
     else if ((addr >= GAME_PAK_ROM_ADDR_MIN) && (addr <= GAME_PAK_SRAM_ADDR_MAX))
     {
@@ -68,10 +79,24 @@ int MemoryManager::WriteMemory(uint32_t const addr, uint32_t const val, uint8_t 
 {
     if ((addr >= IO_REG_ADDR_MIN) && (addr <= IO_REG_ADDR_MAX))
     {
-        // TODO
-        std::stringstream exceptionMsg;
-        exceptionMsg << "IO Write. Addr: " << (unsigned int)addr << " Val: " << (unsigned int)val << " Size: " << (unsigned int)accessSize;
-        throw std::runtime_error(exceptionMsg.str());
+        // TODO Implement actual I/O register handling
+        // TODO Implement memory mirroring for 4000800h every 64K.
+        uint8_t* bytePtr = &placeholderIoRegisters_[addr - IO_REG_ADDR_MIN];
+
+        switch (accessSize)
+        {
+            case 1:
+                *bytePtr = val;
+                break;
+            case 2:
+                *reinterpret_cast<uint16_t*>(bytePtr) = val;
+                break;
+            case 4:
+                *reinterpret_cast<uint32_t*>(bytePtr) = val;
+                break;
+            default:
+                throw std::runtime_error("Illegal Read Memory access size");
+        }
     }
     else if ((addr >= GAME_PAK_ROM_ADDR_MIN) && (addr <= GAME_PAK_SRAM_ADDR_MAX))
     {
@@ -107,6 +132,15 @@ void MemoryManager::ZeroMemory()
     paletteRAM_.fill(0);
     VRAM_.fill(0);
     OAM_.fill(0);
+    // lcdRegisters_.fill(0);
+    // soundRegisters_.fill(0);
+    // dmaTransferChannelsRegisters_.fill(0);
+    // timerRegisters_.fill(0);
+    // serialCommunication1Registers_.fill(0);
+    // keypadInputRegisters_.fill(0);
+    // serialCommunication2Registers_.fill(0);
+    // interruptWaitstatePowerDownControlRegisters_.fill(0);
+    placeholderIoRegisters_.fill(0);
 }
 
 uint8_t* MemoryManager::GetPointerToMem(uint32_t const addr, uint8_t const accessSize)

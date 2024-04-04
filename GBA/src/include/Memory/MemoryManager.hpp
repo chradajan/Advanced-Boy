@@ -67,6 +67,45 @@ private:
     std::array<uint8_t, 1  * KiB> OAM_;         // 07000000-070003FF    OAM - OBJ Attributes
 
     // Game Pak
+    // 04000000-0400005F
     std::unique_ptr<GamePak> gamePak_;
+
+    /* Not sure yet what the best way to implement I/O register handling is. For now, keep all I/O registers in a single r/w array.
+
+    // LCD I/O Registers
+    // 04000000-0400005F
+    std::array<uint8_t, 0x60> lcdRegisters_;
+
+    // Sound Registers
+    // 04000060-040000AF
+    std::array<uint8_t, 0x50> soundRegisters_;
+
+    // DMA Transfer Channels Registers
+    // 040000B0 - 04000FF
+    std::array<uint8_t, 0x50> dmaTransferChannelsRegisters_;
+
+    // Timer Registers
+    //04000100 - 0400011F
+    std::array<uint8_t, 0x20> timerRegisters_;
+
+    // Serial Communication (1) Registers
+    // 04000120 - 0400012F
+    std::array<uint8_t, 0x10> serialCommunication1Registers_;
+
+    // Keypad Input Registers
+    // 04000130 - 04000133
+    std::array<uint8_t, 4> keypadInputRegisters_;
+
+    // Serial Communication (2) Registers
+    // 04000134 - 040001FF
+    std::array<uint8_t, 0xCC> serialCommunication2Registers_;
+
+    // Interrupt, Waitstate, and Power-Down Control Registers
+    // 04000200 - 04000804
+    // TODO: Pretty wasteful to use 1.5kb for only a couple registers.
+    std::array<uint8_t, 0x604> interruptWaitstatePowerDownControlRegisters_;
+
+    */
+   std::array<uint8_t, 0x804> placeholderIoRegisters_;
 };
 }
