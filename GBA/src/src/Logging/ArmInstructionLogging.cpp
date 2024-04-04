@@ -49,6 +49,62 @@ std::string ConditionMnemonic(uint8_t condition)
     }
 }
 
+/// @brief Form a mnemonic for halfword data transfer ops.
+/// @param load Whether this is a load or store op.
+/// @param cond ARM condition code.
+/// @param destIndex Index of destination register.
+/// @param baseIndex Index of base register.
+/// @param s S flag.
+/// @param h H flag.
+/// @param up Add or Subtract offset from base.
+/// @param preIndexed Pre/Post indexed op.
+/// @param writeBack Whether to write back to 
+/// @param offsetExpression String of either immediate offset or offset register index.
+/// @return Mnemonic of instruction.
+std::string HalfwordDataTransferHelper(bool load,
+                                       uint8_t cond,
+                                       uint8_t destIndex,
+                                       uint8_t baseIndex,
+                                       bool s,
+                                       bool h,
+                                       bool up,
+                                       bool preIndexed,
+                                       bool writeBack,
+                                       std::string offsetExpression)
+{
+    std::string op = load ? "LDR" : "STR";
+    std::string opType;
+
+    if (s)
+    {
+        opType = h ? "SH" : "SB";
+    }
+    else
+    {
+        opType = "H";
+    }
+
+    std::string address;
+
+    if (offsetExpression == "")
+    {
+        address = std::format("[R{}]", baseIndex);
+    }
+    else
+    {
+        if (preIndexed)
+        {
+            address = std::format("[R{}, {}{}]{}", baseIndex, up ? "+" : "-", offsetExpression, writeBack ? "!" : "");
+        }
+        else
+        {
+            address = std::format("[R{}], {}{}", baseIndex, up ? "+" : "-", offsetExpression);
+        }
+    }
+
+    return std::format("{}{}{} R{}, {}", op, ConditionMnemonic(cond), opType, destIndex, address);
+}
+
 /// @brief Help write LDM/STM formatted register string.
 /// @param regStream Stringstream to write to.
 /// @param consecutiveRegisters How many consecutive registers were included in the operation.
@@ -192,51 +248,39 @@ void MultiplyLong::SetMnemonic()
 
 }
 
-void HalfwordDataTransferRegisterOffset::SetMnemonic()
+void HalfwordDataTransferRegisterOffset::SetMnemonic(uint32_t offset)
 {
+    uint8_t offsetRegIndex = instruction_.flags.Rm;
+    std::string offsetExpression = (offset == 0 ? "" : std::format("R{}", offsetRegIndex));
+    std::string mnemonic = HalfwordDataTransferHelper(instruction_.flags.L,
+                                                      instruction_.flags.Cond,
+                                                      instruction_.flags.Rd,
+                                                      instruction_.flags.Rn,
+                                                      instruction_.flags.S,
+                                                      instruction_.flags.H,
+                                                      instruction_.flags.U,
+                                                      instruction_.flags.P,
+                                                      instruction_.flags.W,
+                                                      offsetExpression);
 
+    mnemonic_ = std::format("{:08X} -> {}", instruction_.word, mnemonic);
 }
 
 void HalfwordDataTransferImmediateOffset::SetMnemonic(uint8_t offset)
 {
-    std::string op = instruction_.flags.L ? "LDR" : "STR";
-    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
-    std::string opType;
+    std::string offsetExpression = (offset == 0 ? "" : std::format("#{}", offset));
+    std::string mnemonic = HalfwordDataTransferHelper(instruction_.flags.L,
+                                                      instruction_.flags.Cond,
+                                                      instruction_.flags.Rd,
+                                                      instruction_.flags.Rn,
+                                                      instruction_.flags.S,
+                                                      instruction_.flags.H,
+                                                      instruction_.flags.U,
+                                                      instruction_.flags.P,
+                                                      instruction_.flags.W,
+                                                      offsetExpression);
 
-    if (instruction_.flags.S)
-    {
-        opType = instruction_.flags.H ? "SH" : "SB";
-    }
-    else
-    {
-        opType = "H";
-    }
-
-    std::string address;
-    uint8_t const baseIndex = instruction_.flags.Rn;
-    std::string const up = instruction_.flags.U ? "" : "-";
-    bool const preIndexed = instruction_.flags.P;
-
-    if (offset == 0)
-    {
-        address = std::format("[R{}]", baseIndex);
-    }
-    else
-    {
-        if (preIndexed)
-        {
-            std::string const writeBack = instruction_.flags.W ? "!" : "";
-            address = std::format("[R{}, #{}{}]{}", baseIndex, up, offset, writeBack);
-        }
-        else
-        {
-            address = std::format("[R{}], #{}{}", baseIndex, up, offset);
-        }
-    }
-
-    uint8_t const destIndex = instruction_.flags.Rd;
-
-    mnemonic_ = std::format("{:08X} -> {}{}{} R{}, {}", instruction_.word, op, cond, opType, destIndex, address);
+    mnemonic_ = std::format("{:08X} -> {}", instruction_.word, mnemonic);
 }
 
 void PSRTransferMRS::SetMnemonic()
