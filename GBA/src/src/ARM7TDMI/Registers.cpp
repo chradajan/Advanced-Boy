@@ -39,11 +39,6 @@ uint32_t Registers::ReadRegister(uint8_t index) const
 
 uint32_t Registers::ReadRegister(uint8_t index, OperatingMode mode) const
 {
-    if constexpr (Config::ASSERTS_ENABLED)
-    {
-        assert((index < 8) || ((GetOperatingState() == OperatingState::ARM) && (index < 16)));
-    }
-
     switch (mode)
     {
         case OperatingMode::User:
@@ -72,11 +67,6 @@ void Registers::WriteRegister(uint8_t index, uint32_t value)
 
 void Registers::WriteRegister(uint8_t index, uint32_t value, OperatingMode mode)
 {
-    if constexpr (Config::ASSERTS_ENABLED)
-    {
-        assert((index < 8) || ((GetOperatingState() == OperatingState::ARM) && (index < 16)));
-    }
-
     switch (mode)
     {
         case OperatingMode::User:
@@ -103,11 +93,6 @@ void Registers::WriteRegister(uint8_t index, uint32_t value, OperatingMode mode)
 
 uint32_t Registers::GetSP() const
 {
-    if constexpr (Config::ASSERTS_ENABLED)
-    {
-        assert(GetOperatingState() == OperatingState::THUMB);
-    }
-
     switch (GetOperatingMode())
     {
         case OperatingMode::User:
@@ -130,11 +115,6 @@ uint32_t Registers::GetSP() const
 
 uint32_t Registers::GetLR() const
 {
-    if constexpr (Config::ASSERTS_ENABLED)
-    {
-        assert(GetOperatingState() == OperatingState::THUMB);
-    }
-
     switch (GetOperatingMode())
     {
         case OperatingMode::User:
@@ -158,7 +138,6 @@ uint32_t Registers::GetLR() const
 void Registers::SaveCPSR()
 {
     auto mode = GetOperatingMode();
-
     assert((mode != OperatingMode::User) || (mode != OperatingMode::System));
 
     switch (mode)
@@ -186,7 +165,6 @@ void Registers::SaveCPSR()
 void Registers::LoadSPSR()
 {
     auto mode = GetOperatingMode();
-
     assert((mode != OperatingMode::User) || (mode != OperatingMode::System));
 
     switch (mode)

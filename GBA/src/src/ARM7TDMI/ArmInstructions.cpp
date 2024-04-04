@@ -147,8 +147,32 @@ std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
 
 int BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_BranchAndExchange");
+    int cycles = 1;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return cycles;
+    }
+
+    uint32_t newPc = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    cpu.registers_.SetPC(newPc);
+    cpu.flushPipeline_ = true;
+
+    if (newPc & 0x01)
+    {
+        cpu.registers_.SetOperatingState(OperatingState::THUMB);
+    }
+    else
+    {
+        cpu.registers_.SetOperatingState(OperatingState::ARM);
+    }
+
+    return cycles;
 }
 
 int BlockDataTransfer::Execute(ARM7TDMI& cpu)

@@ -129,7 +129,11 @@ namespace CPU::ARM
 {
 void BranchAndExchange::SetMnemonic()
 {
+    std::string op = "BX";
+    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    uint8_t operandRegIndex = instruction_.flags.Rn;
 
+    mnemonic_ = std::format("{:08X} -> {}{} R{}", instruction_.word, op, cond, operandRegIndex);
 }
 
 void BlockDataTransfer::SetMnemonic()
