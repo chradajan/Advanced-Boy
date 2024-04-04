@@ -165,15 +165,15 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         return cycles;
     }
 
-    uint8_t regIndex = 0;
     uint16_t regList = instruction_.flags.RegisterList;
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn) & 0xFFFF'FFFC;
-    bool const r15InList = instruction_.flags.RegisterList & 0x8000;
-    bool const preIndexOffset = instruction_.flags.P;
-    bool const postIndexOffset = !preIndexOffset;
-    int8_t const offset = instruction_.flags.U ? 4 : -4;
-
+    bool r15InList = instruction_.flags.RegisterList & 0x8000;
     OperatingMode mode = cpu.registers_.GetOperatingMode();
+
+    if (!regList)
+    {
+        // If regList is empty, R15 is still stored/loaded
+        regList = 0x8000;
+    }
 
     if (instruction_.flags.S)
     {
@@ -190,15 +190,46 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         }
     }
 
+    int regListSize = std::popcount(regList);
+    uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn) & 0xFFFF'FFFC;
+    uint32_t minAddr;
+    uint32_t wbAddr;
+    bool preIndexOffset = instruction_.flags.P;
+
+    if (instruction_.flags.U)
+    {
+        minAddr = preIndexOffset ? (baseAddr + 4) : baseAddr;
+
+        if (preIndexOffset)
+        {
+            wbAddr = minAddr + (4 * (regListSize - 1));
+        }
+        else
+        {
+            wbAddr = minAddr + (4 * regListSize);
+        }
+    }
+    else
+    {
+        if (preIndexOffset)
+        {
+            minAddr = baseAddr - (4 * regListSize);
+            wbAddr = minAddr;
+        }
+        else
+        {
+            minAddr = baseAddr - (4 * (regListSize - 1));
+            wbAddr = minAddr - 4;
+        }
+    }
+
+    uint8_t regIndex = 0;
+    uint32_t addr = minAddr;
+
     while (regList != 0)
     {
         if (regList & 0x01)
         {
-            if (preIndexOffset)
-            {
-                addr += offset;
-            }
-
             if (instruction_.flags.L)
             {
                 auto [readValue, readCycles] = cpu.ReadMemory(addr, 4);
@@ -208,14 +239,17 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
             else
             {
                 uint32_t regValue = cpu.registers_.ReadRegister(regIndex, mode);
+
+                if (regIndex == 15)
+                {
+                    regValue += 4;
+                }
+
                 int writeCycles = cpu.WriteMemory(addr, regValue, 4);
                 cycles += writeCycles;
             }
 
-            if (postIndexOffset)
-            {
-                addr += offset;
-            }
+            addr += 4;
         }
 
         ++regIndex;
@@ -224,7 +258,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
     if (instruction_.flags.W)
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
+        cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
     }
 
     if (instruction_.flags.L && r15InList)
@@ -325,10 +359,10 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    uint8_t const unsignedOffset = (instruction_.flags.Offset1 << 4) | instruction_.flags.Offset;
-    int16_t const signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
-    bool const preIndex = instruction_.flags.P;
-    bool const postIndex = !preIndex;
+    uint8_t unsignedOffset = (instruction_.flags.Offset1 << 4) | instruction_.flags.Offset;
+    int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
+    bool preIndex = instruction_.flags.P;
+    bool postIndex = !preIndex;
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
 
     if constexpr (Config::LOGGING_ENABLED)
@@ -431,7 +465,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     uint32_t operand1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
     uint32_t operand2;
-    uint8_t const destIndex = instruction_.flags.Rd;
+    uint8_t destIndex = instruction_.flags.Rd;
 
     bool negativeOut = cpu.registers_.IsNegative();
     bool zeroOut = cpu.registers_.IsZero();
@@ -442,7 +476,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
     {
         // Operand 2 is an immediate value
         operand2 = instruction_.rotatedImmediate.Imm;
-        uint8_t const rotateAmount = instruction_.rotatedImmediate.RotateAmount << 1;
+        uint8_t rotateAmount = instruction_.rotatedImmediate.RotateAmount << 1;
         operand2 = std::rotr(operand2, rotateAmount);
     }
     else
@@ -463,7 +497,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             operand2 += 4;
         }
 
-        bool const shiftByReg = (instruction_.flags.Operand2 & 0x10);
+        bool shiftByReg = (instruction_.flags.Operand2 & 0x10);
         uint8_t shiftAmount =
             shiftByReg ? (cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rs) & 0xFF) :
             instruction_.shiftRegByImm.ShiftAmount;
@@ -517,7 +551,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             }
             case 0b10:  // ASR
             {
-                bool const msbSet = operand2 & 0x8000'0000;
+                bool msbSet = operand2 & 0x8000'0000;
 
                 if (shiftAmount == 0)
                 {
