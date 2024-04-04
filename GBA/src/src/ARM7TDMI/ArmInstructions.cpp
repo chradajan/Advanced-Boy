@@ -323,8 +323,94 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
 int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_HalfwordDataTransferImmediateOffset");
+    int cycles = 1;
+
+    uint8_t const unsignedOffset = (instruction_.flags.Offset1 << 4) | instruction_.flags.Offset;
+    int16_t const signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
+    bool const preIndex = instruction_.flags.P;
+    bool const postIndex = !preIndex;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(unsignedOffset);
+    }
+
+    if (preIndex)
+    {
+        addr += signedOffset;
+    }
+
+    if (instruction_.flags.L)  // Load
+    {
+        cpu.flushPipeline_ = (instruction_.flags.Rd == 15);
+
+        if (instruction_.flags.S)
+        {
+            uint32_t signExtendedWord;
+
+            if (instruction_.flags.H)
+            {
+                // S = 1, H = 1
+                auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+                signExtendedWord = halfWord;
+
+                if (halfWord & 0x8000)
+                {
+                    signExtendedWord |= 0xFFFF'0000;
+                }
+
+                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cycles += readCycles;
+            }
+            else
+            {
+                // S = 1, H = 0
+                auto [byte, readCycles] = cpu.ReadMemory(addr, 1);
+                signExtendedWord = byte;
+
+                if (byte & 0x80)
+                {
+                    signExtendedWord |= 0xFFFF'FF00;
+                }
+
+                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cycles += readCycles;
+            }
+        }
+        else
+        {
+            // S = 0, H = 1
+            auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+            cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
+            cycles += readCycles;
+        }
+    }
+    else  // Store
+    {
+        // S = 0, H = 1
+        uint8_t srcIndex = instruction_.flags.Rd;
+        uint16_t halfWord = cpu.registers_.ReadRegister(srcIndex);
+
+        if (srcIndex == 15)
+        {
+            halfWord += 4;
+        }
+
+        cycles += cpu.WriteMemory(addr, halfWord, 2);
+    }
+
+    if (postIndex)
+    {
+        addr += signedOffset;
+    }
+
+    if (instruction_.flags.W)
+    {
+        cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
+    }
+
+    return cycles;
 }
 
 int PSRTransferMRS::Execute(ARM7TDMI& cpu)

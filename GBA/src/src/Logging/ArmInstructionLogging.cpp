@@ -197,9 +197,46 @@ void HalfwordDataTransferRegisterOffset::SetMnemonic()
 
 }
 
-void HalfwordDataTransferImmediateOffset::SetMnemonic()
+void HalfwordDataTransferImmediateOffset::SetMnemonic(uint8_t offset)
 {
+    std::string op = instruction_.flags.L ? "LDR" : "STR";
+    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    std::string opType;
 
+    if (instruction_.flags.S)
+    {
+        opType = instruction_.flags.H ? "SH" : "SB";
+    }
+    else
+    {
+        opType = "H";
+    }
+
+    std::string address;
+    uint8_t const baseIndex = instruction_.flags.Rn;
+    std::string const up = instruction_.flags.U ? "" : "-";
+    bool const preIndexed = instruction_.flags.P;
+
+    if (offset == 0)
+    {
+        address = std::format("[R{}]", baseIndex);
+    }
+    else
+    {
+        if (preIndexed)
+        {
+            std::string const writeBack = instruction_.flags.W ? "!" : "";
+            address = std::format("[R{}, #{}{}]{}", baseIndex, up, offset, writeBack);
+        }
+        else
+        {
+            address = std::format("[R{}], #{}{}", baseIndex, up, offset);
+        }
+    }
+
+    uint8_t const destIndex = instruction_.flags.Rd;
+
+    mnemonic_ = std::format("{:08X} -> {}{}{} R{}, {}", instruction_.word, op, cond, opType, destIndex, address);
 }
 
 void PSRTransferMRS::SetMnemonic()
