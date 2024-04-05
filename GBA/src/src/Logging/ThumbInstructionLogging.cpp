@@ -115,7 +115,33 @@ void MoveCompareAddSubtractImmediate::SetMnemonic()
 
 void AddSubtract::SetMnemonic()
 {
+    std::string op;
+    uint8_t rnOffset = instruction_.flags.RnOffset3;
 
+    if (instruction_.flags.I && (rnOffset == 0))
+    {
+        op = "MOV";
+    }
+    else
+    {
+        op = instruction_.flags.Op ? "SUB" : "ADD";
+    }
+
+    std::string operand = "";
+
+    if (!instruction_.flags.I)
+    {
+        operand = std::format(", R{}", rnOffset);
+    }
+    else if (rnOffset > 0)
+    {
+        operand = std::format(", #{}", rnOffset);
+    }
+
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint8_t srcIndex = instruction_.flags.Rs;
+
+    mnemonic_ = std::format("{:04X} -> {} R{}, R{}{}", instruction_.halfword, op, destIndex, srcIndex, operand);
 }
 
 void MoveShiftedRegister::SetMnemonic()

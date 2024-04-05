@@ -299,7 +299,7 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
             result = op1 - op2;
             result &= CPU::MAX_U32;
             carryOut = CarryFlagSubtraction(op1, op2);
-            carryOut = CarryFlagSubtraction(op1, op2);
+            overflowOut = OverflowFlagSubtraction(op1, op2, result);
             break;
     }
 
@@ -322,39 +322,36 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 
 int AddSubtract::Execute(ARM7TDMI& cpu)
 {
-    //  OP | I | OpCode
-    // ----------------
-    //  0  | 0 | ADD Rd, Rs, Rn
-    //  0  | 1 | ADD Rd, Rs, #Offset3
-    //  1  | 0 | SUB Rd, Rs, Rn
-    //  1  | 1 | SUB Rd, Rs, #Offset3
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
 
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_AddSubtract");
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint32_t op2 = instruction_.flags.I ? instruction_.flags.RnOffset3 : cpu.registers_.ReadRegister(instruction_.flags.RnOffset3);
+    uint64_t result64;
+    uint32_t result;
 
-    // uint64_t result = 0;
-    // uint32_t source = cpu.registers_.ReadRegister(instruction_.flags.Rs);
-    // uint32_t operand =
-    //     instruction_.flags.I ? instruction_.flags.RnOffset3 : cpu.registers_.ReadRegister(instruction_.flags.RnOffset3);
+    if (instruction_.flags.Op)
+    {
+        result64 = op1 - op2;
+        result = result64 & MAX_U32;
+        cpu.registers_.SetCarry(CarryFlagSubtraction(op1, op2));
+        cpu.registers_.SetOverflow(OverflowFlagSubtraction(op1, op2, result));
+    }
+    else
+    {
+        result64 = op1 + op2;
+        result = result64 & MAX_U32;
+        cpu.registers_.SetCarry(CarryFlagAddition(result64));
+        cpu.registers_.SetOverflow(OverflowFlagAddition(op1, op2, result));
+    }
 
-    // if (instruction_.flags.Op)
-    // {
-    //     // SUB
+    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetZero(result == 0);
+    cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
 
-    // }
-    // else
-    // {
-    //     // ADD
-    //     result = source + operand;
-    // }
-
-    // uint32_t truncatedResult = result & MAX_32;
-
-    // cpu.registers_.SetNegative(false);
-    // cpu.registers_.SetZero(truncatedResult == 0);
-    // cpu.registers_.SetCarry(result > MAX_32);
-    // cpu.registers_.SetOverflow(result > MAX_32);
-    // cpu.registers_.WriteRegister(instruction_.flags.Rd, truncatedResult);
+    return 1;
 }
 
 int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
