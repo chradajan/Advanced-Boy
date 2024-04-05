@@ -160,17 +160,20 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
     }
 
     uint32_t newPc = cpu.registers_.ReadRegister(instruction_.flags.Rn);
-    cpu.registers_.SetPC(newPc);
-    cpu.flushPipeline_ = true;
 
     if (newPc & 0x01)
     {
         cpu.registers_.SetOperatingState(OperatingState::THUMB);
+        newPc &= 0xFFFF'FFFE;
     }
     else
     {
         cpu.registers_.SetOperatingState(OperatingState::ARM);
+        newPc &= 0xFFFF'FFFC;
     }
+
+    cpu.registers_.SetPC(newPc);
+    cpu.flushPipeline_ = true;
 
     return cycles;
 }
@@ -688,7 +691,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                     for (int i = 0; i < shiftAmount; ++i)
                     {
                         operand2 >>= 1;
-                        operand2 |= msbSet ? 0x8000'0000 : 0;
+                        operand2 |= (msbSet ? 0x8000'0000 : 0);
                     }
                 }
                 break;
