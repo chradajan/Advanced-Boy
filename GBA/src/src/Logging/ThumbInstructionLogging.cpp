@@ -87,7 +87,28 @@ void ALUOperations::SetMnemonic()
 
 void MoveCompareAddSubtractImmediate::SetMnemonic()
 {
+    std::string op;
 
+    switch (instruction_.flags.Op)
+    {
+        case 0b00:
+            op = "MOV";
+            break;
+        case 0b01:
+            op = "CMP";
+            break;
+        case 0b10:
+            op = "ADD";
+            break;
+        case 0b11:
+            op = "SUB";
+            break;
+    }
+
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint8_t offset = instruction_.flags.Offset8;
+
+    mnemonic_ = std::format("{:04X} -> {} R{}, #{}", instruction_.halfword, op, destIndex, offset);
 }
 
 void AddSubtract::SetMnemonic()
