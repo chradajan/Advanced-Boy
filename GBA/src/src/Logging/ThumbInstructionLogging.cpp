@@ -11,9 +11,9 @@ void SoftwareInterrupt::SetMnemonic()
 
 }
 
-void UnconditionalBranch::SetMnemonic()
+void UnconditionalBranch::SetMnemonic(uint32_t newPC)
 {
-
+    mnemonic_ = std::format("{:04X} -> B #{:08X}", instruction_.halfword, newPC);
 }
 
 void ConditionalBranch::SetMnemonic(uint32_t newPC)

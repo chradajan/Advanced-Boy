@@ -136,8 +136,26 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 
 int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_UnconditionalBranch");
+    int cycles = 1;
+
+    int16_t signedOffset = instruction_.flags.Offset11 << 1;
+
+    if (signedOffset & 0x0800)
+    {
+        signedOffset |= 0xF000;
+    }
+
+    uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(newPC);
+    }
+
+    cpu.registers_.SetPC(newPC);
+    cpu.flushPipeline_ = true;
+
+    return cycles;
 }
 
 int ConditionalBranch::Execute(ARM7TDMI& cpu)
