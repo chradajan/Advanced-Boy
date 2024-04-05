@@ -1,5 +1,6 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
+#include <Config.hpp>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -229,45 +230,80 @@ int AddSubtract::Execute(ARM7TDMI& cpu)
 
 int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    // ARM has some weird shift behavior as described below:
-    // LSL #0 -> no shift
-    // LSR #0 -> LSR #32
-    // ASR #0 -> ASR #32
+    int cycles = 1;
 
-    //  OP | OpCode
-    // -------------
-    //  00 | LSL Rd, Rs, #Offset5
-    //  01 | LSR Rd, Rs, #Offset5
-    //  10 | ASR Rd, Rs, #Offset5
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
 
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_MoveShiftedRegister");
+    bool carryOut = cpu.registers_.IsCarry();
 
-    // uint32_t operand = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint32_t result;
+    uint32_t operand = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint8_t shiftAmount = instruction_.flags.Offset5;
 
-    // switch (instruction_.flags.Op)
-    // {
-    //     case 0:  // LSL
-    //         operand <<= instruction_.flags.Offset5;
-    //         break;
-    //     case 1:  // LSR
-    //         operand >>= instruction_.flags.Offset5;
-    //         break;
-    //     case 2:  // ASR
-    //         if (operand & MSB_32)
-    //         {
-    //             operand >>= instruction_.flags.Offset5;
+    switch (instruction_.flags.Op)
+    {
+        case 0b00:  // LSL
+        {
+            if (shiftAmount == 0)
+            {
+                result = operand;
+            }
+            else
+            {
+                carryOut = (operand & (0x8000'0000 >> (shiftAmount - 1)));
+                result = operand << shiftAmount;
+            }
+            break;
+        }
+        case 0b01:  // LSR
+        {
+            if (shiftAmount == 0)
+            {
+                // LSR #0 -> LSR #32
+                carryOut = (operand & 0x8000'0000);
+                result = 0;
+            }
+            else
+            {
+                carryOut = (operand & (0x01 << (shiftAmount - 1)));
+                result = operand >> shiftAmount;
+            }
+            break;
+        }
+        case 0b10:  // ASR
+        {
+            bool msbSet = operand & 0x8000'0000;
 
-    //         }
-    //         else
-    //         {
-    //             operand >>= instruction_.flags.Offset5;
-    //         }
-    //         break;
-    //     case 3:
-    //         throw std::runtime_error("Invalid MoveShiftedRegister OpCode");
-    // }
+            if (shiftAmount == 0)
+            {
+                // ASR #0 -> ASR #32
+                carryOut = msbSet;
+                result = msbSet ? 0xFFFF'FFFF : 0;
+            }
+            else
+            {
+                carryOut = (operand & (0x01 << (shiftAmount - 1)));
 
-    // cpu.registers_.WriteRegister(instruction_.flags.Rd, operand);
+                for (int i = 0; i < shiftAmount; ++i)
+                {
+                    operand >>= 1;
+                    operand |= (msbSet ? 0x8000'0000 : 0);
+                }
+
+                result = operand;
+            }
+            break;
+        }
+    }
+
+    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetZero(result == 0);
+    cpu.registers_.SetCarry(carryOut);
+    cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
+
+    return cycles;
 }
 }

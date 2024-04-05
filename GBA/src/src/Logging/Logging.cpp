@@ -40,7 +40,7 @@ void LogInstruction(uint32_t const pc, std::string const mnemonic, std::string c
     {
         std::ofstream logFile;
         logFile.open(logPath, std::ios_base::app);
-        logFile << std::format("{:08X}:  {:<50}  {}\n", pc, mnemonic, registers);
+        logFile << std::format("{:08X}:  {:<40}  {}\n", pc, mnemonic, registers);
     }
 }
 }

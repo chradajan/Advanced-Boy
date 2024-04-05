@@ -192,7 +192,7 @@ void Registers::LoadSPSR()
 std::string Registers::GetRegistersString() const
 {
     std::stringstream regStream;
-    bool const isArmState = GetOperatingState() == OperatingState::ARM;
+    bool const isThumbState = GetOperatingState() == OperatingState::THUMB;
 
     for (int i = 0; i < 15; ++i)
     {
@@ -200,7 +200,7 @@ std::string Registers::GetRegistersString() const
     }
 
     regStream << "CPSR: " << (IsNegative() ? "N" : "-") << (IsZero() ? "Z" : "-") << (IsCarry() ? "C" : "-") << (IsOverflow() ? "V" : "-") << "  ";
-    regStream << (IsIrqDisabled() ? "I" : "-") << (IsFiqDisabled() ? "F" : "-") << (isArmState ? "T" : "-") << "  " << "Mode: ";
+    regStream << (IsIrqDisabled() ? "I" : "-") << (IsFiqDisabled() ? "F" : "-") << (isThumbState ? "T" : "-") << "  " << "Mode: ";
 
     switch (GetOperatingMode())
     {
