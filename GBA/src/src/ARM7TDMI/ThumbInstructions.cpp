@@ -136,8 +136,6 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 
 int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     int16_t signedOffset = instruction_.flags.Offset11 << 1;
 
     if (signedOffset & 0x0800)
@@ -155,14 +153,20 @@ int UnconditionalBranch::Execute(ARM7TDMI& cpu)
     cpu.registers_.SetPC(newPC);
     cpu.flushPipeline_ = true;
 
-    return cycles;
+    return 1;
 }
 
 int ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    int8_t signedOffset = instruction_.flags.SOffset8;
+    int16_t signedOffset = instruction_.flags.SOffset8 << 1;
+
+    if (signedOffset & 0x0100)
+    {
+        signedOffset |= 0xFE00;
+    }
+
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
     if constexpr (Config::LOGGING_ENABLED)
@@ -259,8 +263,6 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 
 int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     if constexpr (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
@@ -315,7 +317,7 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
         cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
     }
 
-    return cycles;
+    return 1;
 }
 
 int AddSubtract::Execute(ARM7TDMI& cpu)
@@ -357,8 +359,6 @@ int AddSubtract::Execute(ARM7TDMI& cpu)
 
 int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     if constexpr (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
@@ -431,6 +431,6 @@ int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
     cpu.registers_.SetCarry(carryOut);
     cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
 
-    return cycles;
+    return 1;
 }
 }
