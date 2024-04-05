@@ -43,4 +43,43 @@ void LogInstruction(uint32_t const pc, std::string const mnemonic, std::string c
         logFile << std::format("{:08X}:  {:<40}  {}\n", pc, mnemonic, registers);
     }
 }
+
+std::string ConditionMnemonic(uint8_t condition)
+{
+    switch (condition)
+    {
+        case 0:
+            return "EQ";
+        case 1:
+            return "NE";
+        case 2:
+            return "CS";
+        case 3:
+            return "CC";
+        case 4:
+            return "MI";
+        case 5:
+            return "PL";
+        case 6:
+            return "VS";
+        case 7:
+            return "VC";
+        case 8:
+            return "HI";
+        case 9:
+            return "LS";
+        case 10:
+            return "GE";
+        case 11:
+            return "LT";
+        case 12:
+            return "GT";
+        case 13:
+            return "LE";
+        case 14:
+            return "";
+        default:
+            return "";
+    }
+}
 }

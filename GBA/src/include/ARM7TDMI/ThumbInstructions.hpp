@@ -114,7 +114,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    void SetMnemonic(uint32_t newPC);
 
     static constexpr uint16_t FORMAT =      0b1101'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;

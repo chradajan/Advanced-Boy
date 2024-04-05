@@ -1,6 +1,7 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Config.hpp>
+#include <Logging/Logging.hpp>
 #include <cstdint>
 #include <format>
 #include <sstream>
@@ -8,47 +9,6 @@
 
 namespace
 {
-/// @brief Convert an ARM condition into its mnemonic.
-/// @return ARM condition mnemonic.
-std::string ConditionMnemonic(uint8_t condition)
-{
-    switch (condition)
-    {
-        case 0:
-            return "EQ";
-        case 1:
-            return "NE";
-        case 2:
-            return "CS";
-        case 3:
-            return "CC";
-        case 4:
-            return "MI";
-        case 5:
-            return "PL";
-        case 6:
-            return "VS";
-        case 7:
-            return "VC";
-        case 8:
-            return "HI";
-        case 9:
-            return "LS";
-        case 10:
-            return "GE";
-        case 11:
-            return "LT";
-        case 12:
-            return "GT";
-        case 13:
-            return "LE";
-        case 14:
-            return "";
-        default:
-            return "";
-    }
-}
-
 /// @brief Form a mnemonic for halfword data transfer ops.
 /// @param load Whether this is a load or store op.
 /// @param cond ARM condition code.
@@ -102,7 +62,7 @@ std::string HalfwordDataTransferHelper(bool load,
         }
     }
 
-    return std::format("{}{}{} R{}, {}", op, ConditionMnemonic(cond), opType, destIndex, address);
+    return std::format("{}{}{} R{}, {}", op, Logging::ConditionMnemonic(cond), opType, destIndex, address);
 }
 
 /// @brief Help write LDM/STM formatted register string.
@@ -130,7 +90,7 @@ namespace CPU::ARM
 void BranchAndExchange::SetMnemonic()
 {
     std::string op = "BX";
-    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     uint8_t operandRegIndex = instruction_.flags.Rn;
 
     mnemonic_ = std::format("{:08X} -> {}{} R{}", instruction_.word, op, cond, operandRegIndex);
@@ -139,7 +99,7 @@ void BranchAndExchange::SetMnemonic()
 void BlockDataTransfer::SetMnemonic()
 {
     std::string op;
-    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     uint8_t const addrReg = instruction_.flags.Rn;
     bool isStackOp = addrReg == 13;
 
@@ -218,8 +178,8 @@ void BlockDataTransfer::SetMnemonic()
 void Branch::SetMnemonic(uint32_t newPC)
 {
     std::string op = instruction_.flags.L ? "BL" : "B";
-    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
-    mnemonic_ = std::format("{:08X} -> {}{} {:08X}", instruction_.word, op, cond, newPC);
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    mnemonic_ = std::format("{:08X} -> {}{} 0x{:08X}", instruction_.word, op, cond, newPC);
 }
 
 void SoftwareInterrupt::SetMnemonic()
@@ -300,7 +260,7 @@ void PSRTransferMSR::SetMnemonic()
 void DataProcessing::SetMnemonic(uint32_t operand2)
 {
     std::string op;
-    std::string cond = ConditionMnemonic(instruction_.flags.Cond);
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     std::string s = instruction_.flags.S ? "S" : "";
 
     if ((instruction_.flags.OpCode >= 8) || (instruction_.flags.OpCode <= 11))

@@ -142,8 +142,23 @@ int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 
 int ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_ConditionalBranch");
+    int cycles = 1;
+
+    int8_t signedOffset = instruction_.flags.SOffset8;
+    uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(newPC);
+    }
+
+    if (cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        cpu.registers_.SetPC(newPC);
+        cpu.flushPipeline_ = true;
+    }
+
+    return cycles;
 }
 
 int MultipleLoadStore::Execute(ARM7TDMI& cpu)

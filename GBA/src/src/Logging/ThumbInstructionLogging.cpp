@@ -1,5 +1,6 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
+#include <Logging/Logging.hpp>
 #include <format>
 #include <string>
 
@@ -15,9 +16,10 @@ void UnconditionalBranch::SetMnemonic()
 
 }
 
-void ConditionalBranch::SetMnemonic()
+void ConditionalBranch::SetMnemonic(uint32_t newPC)
 {
-
+    std::string condition = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    mnemonic_ = std::format("{:04X} -> B{} 0x{:08X}", instruction_.halfword, condition, newPC);
 }
 
 void MultipleLoadStore::SetMnemonic()
