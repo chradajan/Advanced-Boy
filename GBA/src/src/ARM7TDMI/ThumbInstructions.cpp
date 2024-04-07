@@ -1,6 +1,7 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Config.hpp>
+#include <bit>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -257,8 +258,204 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 
 int ALUOperations::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_ALUOperations");
+    int cycles = 1;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    bool storeResult = true;
+    bool updateCarry = true;
+    bool updateOverflow = true;
+    bool carryOut = cpu.registers_.IsCarry();
+    bool overflowOut = cpu.registers_.IsOverflow();
+
+    uint32_t result;
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+    uint32_t op2 = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+
+    switch (instruction_.flags.Op)
+    {
+        case 0b0000:  // AND
+            result = op1 & op2;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+        case 0b0001:  // EOR
+            result = op1 ^ op2;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+        case 0b0010:  // LSL
+        {
+            op2 &= 0xFF;
+            ++cycles;
+            updateOverflow = false;
+
+            if (op2 > 32)
+            {
+                carryOut = false;
+                result = 0;
+            }
+            else if (op2 != 0)
+            {
+                carryOut = (op1 & (0x8000'0000 >> (op2 - 1)));
+                result = op1 << op2;
+            }
+
+            break;
+        }
+        case 0b0011:  // LSR
+        {
+            op2 &= 0xFF;
+            ++cycles;
+            updateOverflow = false;
+
+            if (op2 > 32)
+            {
+                carryOut = false;
+                result = 0;
+            }
+            else if (op2 != 0)
+            {
+                carryOut = (op1 & (0x01 << (op2 - 1)));
+                result = op1 >> op2;
+            }
+
+            break;
+        }
+        case 0b0100:  // ASR
+        {
+            op2 &= 0xFF;
+            ++cycles;
+            updateOverflow = false;
+
+            bool msbSet = op1 & 0x8000'0000;
+
+            if (op2 > 32)
+            {
+                carryOut = msbSet;
+                result = msbSet ? 0xFFFF'FFFF : 0;
+            }
+            else
+            {
+                carryOut = (op1 & (0x01 << (op2 - 1)));
+
+                while (op2 > 0)
+                {
+                    op1 >>= 1;
+                    op1 |= (msbSet ? 0x8000'0000 : 0);
+                    --op2;
+                }
+
+                result = op1;
+            }
+
+            break;
+        }
+        case 0b0101:  // ADC
+        {
+            uint64_t result64 = op1 + op2 + (carryOut ? 1 : 0);
+            result = result64 & MAX_U32;
+            carryOut = CarryFlagAddition(result64);
+            overflowOut = OverflowFlagAddition(op1, op2, result);
+            break;
+        }
+        case 0b0110:  // SBC
+            result = op1 - op2 - (carryOut ? 0 : 1);
+            carryOut = CarryFlagSubtraction(op1, op2);
+            overflowOut = OverflowFlagSubtraction(op1, op2, result);
+            break;
+        case 0b0111:  // ROR
+        {
+            op2 &= 0xFF;
+            ++cycles;
+            updateOverflow = false;
+
+            if (op2 > 32)
+            {
+                op2 %= 32;
+            }
+
+            if (op2)
+            {
+                carryOut = (op1 & (0x01 << (op2 - 1)));
+                result = std::rotr(op1, op2);
+            }
+            else
+            {
+                result = op1;
+            }
+
+            break;
+        }
+        case 0b1000:  // TST
+            result = op1 & op2;
+            storeResult = false;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+        case 0b1001:  // NEG
+            result = 0 - op2;
+            carryOut = CarryFlagSubtraction(0, op2);
+            overflowOut = OverflowFlagSubtraction(0, op2, result);
+            break;
+        case 0b1010:  // CMP
+            result = op1 - op2;
+            carryOut = CarryFlagSubtraction(op1, op2);
+            overflowOut = OverflowFlagSubtraction(op1, op2, result);
+            storeResult = false;
+            break;
+        case 0b1011:  // CMN
+        {
+            uint64_t result64 = op1 + op2;
+            result = result64 & MAX_U32;
+            carryOut = CarryFlagAddition(result64);
+            overflowOut = OverflowFlagAddition(op1, op2, result);
+            storeResult = false;
+            break;
+        }
+        case 0b1100:  // ORR
+            result = op1 | op2;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+        case 0b1101:  // MUL
+            result = op1 * op2;
+            updateOverflow = false;
+            break;
+        case 0b1110:  // BIC
+            result = op1 & ~op2;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+        case 0b1111:  // MVN
+            result = ~op2;
+            updateCarry = false;
+            updateOverflow = false;
+            break;
+    }
+
+    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetZero(result == 0);
+
+    if (updateCarry)
+    {
+        cpu.registers_.SetCarry(carryOut);
+    }
+
+    if (updateOverflow)
+    {
+        cpu.registers_.SetOverflow(overflowOut);
+    }
+
+    if (storeResult)
+    {
+        cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
+    }
+
+    return cycles;
 }
 
 int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)

@@ -84,7 +84,64 @@ void PCRelativeLoad::SetMnemonic()
 
 void ALUOperations::SetMnemonic()
 {
+    std::string op;
 
+    switch (instruction_.flags.Op)
+    {
+        case 0b0000:
+            op = "AND";
+            break;
+        case 0b0001:
+            op = "EOR";
+            break;
+        case 0b0010:
+            op = "LSL";
+            break;
+        case 0b0011:
+            op = "LSR";
+            break;
+        case 0b0100:
+            op = "ASR";
+            break;
+        case 0b0101:
+            op = "ADC";
+            break;
+        case 0b0110:
+            op = "SBC";
+            break;
+        case 0b0111:
+            op = "ROR";
+            break;
+        case 0b1000:
+            op = "TST";
+            break;
+        case 0b1001:
+            op = "NEG";
+            break;
+        case 0b1010:
+            op = "CMP";
+            break;
+        case 0b1011:
+            op = "CMN";
+            break;
+        case 0b1100:
+            op = "ORR";
+            break;
+        case 0b1101:
+            op = "MUL";
+            break;
+        case 0b1110:
+            op = "BIC";
+            break;
+        case 0b1111:
+            op = "MVN";
+            break;
+    }
+
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint8_t srcIndex = instruction_.flags.Rs;
+
+    mnemonic_ = std::format("{:04X} -> {} R{}, R{}", instruction_.halfword, op, destIndex, srcIndex);
 }
 
 void MoveCompareAddSubtractImmediate::SetMnemonic()
