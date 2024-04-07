@@ -252,8 +252,79 @@ int PCRelativeLoad::Execute(ARM7TDMI& cpu)
 
 int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_HiRegisterOperationsBranchExchange");
+    uint8_t destIndex = instruction_.flags.RdHd;
+    uint8_t srcIndex = instruction_.flags.RsHs;
+
+    if (instruction_.flags.H1)
+    {
+        destIndex += 8;
+    }
+
+    if (instruction_.flags.H2)
+    {
+        srcIndex += 8;
+    }
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(destIndex, srcIndex);
+    }
+
+    switch (instruction_.flags.Op)
+    {
+        case 0b00:  // ADD
+        {
+            uint32_t result = cpu.registers_.ReadRegister(destIndex) + cpu.registers_.ReadRegister(srcIndex);
+            cpu.registers_.WriteRegister(destIndex, result);
+
+            if (destIndex == 15)
+            {
+                cpu.flushPipeline_ = true;
+            }
+
+            break;
+        }
+        case 0b01:  // CMP
+        {
+            uint32_t op1 = cpu.registers_.ReadRegister(destIndex);
+            uint32_t op2 = cpu.registers_.ReadRegister(srcIndex);
+            uint32_t result = op1 - op1;
+            cpu.registers_.SetOverflow(OverflowFlagSubtraction(op1, op2, result));
+            cpu.registers_.SetCarry(CarryFlagSubtraction(op1, op2));
+            cpu.registers_.SetNegative(result & 0x8000'0000);
+            cpu.registers_.SetZero(result == 0);
+            break;
+        }
+        case 0b10:  // MOV
+            cpu.registers_.WriteRegister(destIndex, cpu.registers_.ReadRegister(srcIndex));
+
+            if (destIndex == 15)
+            {
+                cpu.flushPipeline_ = true;
+            }
+
+            break;
+        case 0b11:  // BX
+        {
+            uint32_t newPC = cpu.registers_.ReadRegister(srcIndex);
+            cpu.flushPipeline_ = true;
+
+            if (newPC & 0x01)
+            {
+                cpu.registers_.SetOperatingState(OperatingState::THUMB);
+                newPC &= 0xFFFF'FFFE;
+            }
+            else
+            {
+                cpu.registers_.SetOperatingState(OperatingState::ARM);
+                newPC &= 0xFFFF'FFFC;
+            }
+
+            break;
+        }
+    }
+
+    return 1;
 }
 
 int ALUOperations::Execute(ARM7TDMI& cpu)

@@ -159,20 +159,20 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
         return cycles;
     }
 
-    uint32_t newPc = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint32_t newPC = cpu.registers_.ReadRegister(instruction_.flags.Rn);
 
-    if (newPc & 0x01)
+    if (newPC & 0x01)
     {
         cpu.registers_.SetOperatingState(OperatingState::THUMB);
-        newPc &= 0xFFFF'FFFE;
+        newPC &= 0xFFFF'FFFE;
     }
     else
     {
         cpu.registers_.SetOperatingState(OperatingState::ARM);
-        newPc &= 0xFFFF'FFFC;
+        newPC &= 0xFFFF'FFFC;
     }
 
-    cpu.registers_.SetPC(newPc);
+    cpu.registers_.SetPC(newPC);
     cpu.flushPipeline_ = true;
 
     return cycles;

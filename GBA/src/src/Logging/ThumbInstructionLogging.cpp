@@ -72,9 +72,29 @@ void LoadStoreSignExtendedByteHalfword::SetMnemonic()
 
 }
 
-void HiRegisterOperationsBranchExchange::SetMnemonic()
+void HiRegisterOperationsBranchExchange::SetMnemonic(uint8_t destIndex, uint8_t srcIndex)
 {
+    std::string op;
+    std::string regString = std::format("R{}, R{}", destIndex, srcIndex);
 
+    switch (instruction_.flags.Op)
+    {
+        case 0b00:
+            op = "ADD";
+            break;
+        case 0b01:
+            op = "CMP";
+            break;
+        case 0b10:
+            op = "MOV";
+            break;
+        case 0b11:
+            op = "BX";
+            regString = std::format("R{}", srcIndex);
+            break;
+    }
+
+    mnemonic_ = std::format("{:04X} -> {} {}", instruction_.halfword, op, regString);
 }
 
 void PCRelativeLoad::SetMnemonic()
