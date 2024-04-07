@@ -52,9 +52,10 @@ void SPRelativeLoadStore::SetMnemonic()
 
 }
 
-void LoadAddress::SetMnemonic()
+void LoadAddress::SetMnemonic(uint8_t destIndex, uint16_t offset)
 {
-
+    std::string reg = instruction_.flags.SP ? "SP" : "PC";
+    mnemonic_ = std::format("{:04X} -> ADD R{}, {}, #{}", instruction_.halfword, destIndex, reg, offset);
 }
 
 void LoadStoreWithImmediateOffset::SetMnemonic()

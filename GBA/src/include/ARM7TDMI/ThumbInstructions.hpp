@@ -400,7 +400,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    void SetMnemonic(uint8_t destIndex, uint16_t offset);
 
     static constexpr uint16_t FORMAT =      0b1010'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;

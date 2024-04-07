@@ -222,8 +222,18 @@ int SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 
 int LoadAddress::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadAddress");
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint16_t offset = (instruction_.flags.Word8 << 2);
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(destIndex, offset);
+    }
+
+    uint32_t addr = instruction_.flags.SP ? cpu.registers_.GetSP() : cpu.registers_.GetPC();
+    addr += offset;
+    cpu.registers_.WriteRegister(destIndex, addr);
+    return 1;
 }
 
 int LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
