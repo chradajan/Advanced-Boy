@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 namespace
 {
@@ -13,7 +14,7 @@ namespace
 /// @param op2 Addition operand
 /// @param result Addition result
 /// @return State of overflow flag after addition
-bool OverflowFlagAddition(uint32_t op1, uint32_t op2, uint32_t result)
+bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
     return (~(op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
 }
@@ -23,26 +24,39 @@ bool OverflowFlagAddition(uint32_t op1, uint32_t op2, uint32_t result)
 /// @param op2 Subtraction operand
 /// @param result Subtraction result
 /// @return State of overflow flag after subtraction
-bool OverflowFlagSubtraction(uint32_t op1, uint32_t op2, uint32_t result)
+bool SubtractionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
     return ((op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
 }
 
-/// @brief Determine the result of the carry flag for addition operation.
-/// @param result Un-truncated sum from addition operation.
-/// @return State of carry flag after addition
-bool CarryFlagAddition(uint64_t result)
+/// @brief Calculate the result of a THUMB add or add w/ carry operation, along with the carry and overflow flags.
+/// @param op1 First addition operand.
+/// @param op2 Second addition operand.
+/// @param result Result of addition, returned by reference.
+/// @param carry Carry flag, defaults to 0 meaning non ADC operation.
+/// @return Pair of {carry_flag, overflow_flag}.
+std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
 {
-    return result & 0x1'0000'0000;
+    uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(op2) + static_cast<uint64_t>(carry);
+    result = result64 & CPU::MAX_U32;
+    bool c = (result64 > CPU::MAX_U32);
+    bool v = AdditionOverflow(op1, op2, result);
+    return {c, v};
 }
 
-/// @brief Determine the result of the carry flag for subtraction operation: op1 - op2
-/// @param op1 Subtraction operand
-/// @param op2 Subtraction operand
-/// @return State of carry flag after subtraction
-bool CarryFlagSubtraction(uint32_t op1, uint32_t op2)
+/// @brief Calculate the result of a THUMB sub or sub w/ carry operation, along with the carry and overflow flags.
+/// @param op1 First subtraction operand.
+/// @param op2 Second subtraction operand.
+/// @param result Result of subtraction (op1 - op2), returned by reference.
+/// @param carry Carry flag, defaults to 1 meaning non SBC operation.
+/// @return Pair of {carry_flag, overflow_flag}.
+std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 1)
 {
-    return op1 >= op2;
+    uint32_t carryVal = carry ? 0 : 1;
+    carryVal = ~carryVal + 1;
+    auto [c, v] = Add32(op1, ~op2 + 1, result, carryVal);
+    v = SubtractionOverflow(op1, op2, result);
+    return {c, v};
 }
 }
 namespace CPU::THUMB
@@ -320,11 +334,14 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         {
             uint32_t op1 = cpu.registers_.ReadRegister(destIndex);
             uint32_t op2 = cpu.registers_.ReadRegister(srcIndex);
-            uint32_t result = op1 - op1;
-            cpu.registers_.SetOverflow(OverflowFlagSubtraction(op1, op2, result));
-            cpu.registers_.SetCarry(CarryFlagSubtraction(op1, op2));
+            uint32_t result;
+
+            auto [c, v] = Sub32(op1, op2, result);
+
             cpu.registers_.SetNegative(result & 0x8000'0000);
             cpu.registers_.SetZero(result == 0);
+            cpu.registers_.SetCarry(c);
+            cpu.registers_.SetOverflow(v);
             break;
         }
         case 0b10:  // MOV
@@ -459,16 +476,11 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         }
         case 0b0101:  // ADC
         {
-            uint64_t result64 = op1 + op2 + (carryOut ? 1 : 0);
-            result = result64 & MAX_U32;
-            carryOut = CarryFlagAddition(result64);
-            overflowOut = OverflowFlagAddition(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result, carryOut);
             break;
         }
         case 0b0110:  // SBC
-            result = op1 - op2 - (carryOut ? 0 : 1);
-            carryOut = CarryFlagSubtraction(op1, op2);
-            overflowOut = OverflowFlagSubtraction(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result, carryOut);
             break;
         case 0b0111:  // ROR
         {
@@ -500,22 +512,15 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
             updateOverflow = false;
             break;
         case 0b1001:  // NEG
-            result = 0 - op2;
-            carryOut = CarryFlagSubtraction(0, op2);
-            overflowOut = OverflowFlagSubtraction(0, op2, result);
+            std::tie(carryOut, overflowOut) = Sub32(0, op2, result);
             break;
         case 0b1010:  // CMP
-            result = op1 - op2;
-            carryOut = CarryFlagSubtraction(op1, op2);
-            overflowOut = OverflowFlagSubtraction(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
             storeResult = false;
             break;
         case 0b1011:  // CMN
         {
-            uint64_t result64 = op1 + op2;
-            result = result64 & MAX_U32;
-            carryOut = CarryFlagAddition(result64);
-            overflowOut = OverflowFlagAddition(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
             storeResult = false;
             break;
         }
@@ -574,7 +579,7 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
     bool updateAllFlags = true;
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rd);
     uint32_t op2 = instruction_.flags.Offset8;
-    uint64_t result;
+    uint32_t result;
 
     switch (instruction_.flags.Op)
     {
@@ -583,23 +588,14 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
             updateAllFlags = false;
             break;
         case 0b01:  // CMP
-            result = op1 - op2;
-            result &= CPU::MAX_U32;
-            overflowOut = OverflowFlagSubtraction(op1, op2, result);
-            carryOut = CarryFlagSubtraction(op1, op2);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
             saveResult = false;
             break;
         case 0b10:  // ADD
-            result = op1 + op2;
-            carryOut = CarryFlagAddition(result);
-            result &= CPU::MAX_U32;
-            overflowOut = OverflowFlagAddition(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
             break;
         case 0b11:  // SUB
-            result = op1 - op2;
-            result &= CPU::MAX_U32;
-            carryOut = CarryFlagSubtraction(op1, op2);
-            overflowOut = OverflowFlagSubtraction(op1, op2, result);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
             break;
     }
 
@@ -629,26 +625,23 @@ int AddSubtract::Execute(ARM7TDMI& cpu)
 
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rs);
     uint32_t op2 = instruction_.flags.I ? instruction_.flags.RnOffset3 : cpu.registers_.ReadRegister(instruction_.flags.RnOffset3);
-    uint64_t result64;
+    bool carryOut;
+    bool overflowOut;
     uint32_t result;
 
     if (instruction_.flags.Op)
     {
-        result64 = op1 - op2;
-        result = result64 & MAX_U32;
-        cpu.registers_.SetCarry(CarryFlagSubtraction(op1, op2));
-        cpu.registers_.SetOverflow(OverflowFlagSubtraction(op1, op2, result));
+        std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
     }
     else
     {
-        result64 = op1 + op2;
-        result = result64 & MAX_U32;
-        cpu.registers_.SetCarry(CarryFlagAddition(result64));
-        cpu.registers_.SetOverflow(OverflowFlagAddition(op1, op2, result));
+        std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
     }
 
     cpu.registers_.SetNegative(result & 0x8000'0000);
     cpu.registers_.SetZero(result == 0);
+    cpu.registers_.SetCarry(carryOut);
+    cpu.registers_.SetOverflow(overflowOut);
     cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
 
     return 1;

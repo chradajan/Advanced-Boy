@@ -4,80 +4,58 @@
 #include <Config.hpp>
 #include <bit>
 #include <cstdint>
-#include <format>
 #include <memory>
-#include <sstream>
-#include <string>
 #include <stdexcept>
+#include <utility>
 
 namespace
 {
-/// @brief Helper function to carry out subtraction operations for Data Processing.
-/// @param operand1 Left hand operand.
-/// @param operand2 Right hand operand.
-/// @param overflowOut Result of V flag after subtraction.
-/// @param carryOut Result of C flag after subtraction.
-/// @param useCarry Whether to include carry bit in subtraction.
-/// @param carry Value of carry bit.
-/// @return Result of subtraction operation.
-uint32_t DataProcessingSubtraction(uint32_t operand1,
-                                   uint32_t operand2,
-                                   bool& overflowOut,
-                                   bool& carryOut,
-                                   bool useCarry=false,
-                                   bool carry=false)
+/// @brief Determine the result of the overflow flag for addition operation: result = op1 + op2
+/// @param op1 Addition operand
+/// @param op2 Addition operand
+/// @param result Addition result
+/// @return State of overflow flag after addition
+bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    uint64_t result64;
-    uint8_t carryVal = carry ? 1 : 0;
-
-    if (useCarry)
-    {
-        result64 = operand1 - operand2 + carryVal - 1;
-    }
-    else
-    {
-        result64 = operand1 - operand2;
-    }
-
-    uint32_t result32 = result64 & CPU::MAX_U32;
-    overflowOut = ((operand1 & 0x8000'0000) != (operand2 & 0x8000'0000)) && ((operand2 & 0x8000'0000) == (result32 & 0x8000'0000));
-    carryOut = result64 > CPU::MAX_U32;
-
-    return result32;
+    return (~(op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
 }
 
-/// @brief Helper function to carry out addition operations for Data Processing.
-/// @param operand1 Left hand operand.
-/// @param operand2 Right hand operand.
-/// @param overflowOut Result of V flag after addition.
-/// @param carryOut Result of C flag after addition.
-/// @param useCarry Whether to include carry bit in addition.
-/// @param carry Value of carry bit.
-/// @return Result of addition operation.
-uint32_t DataProcessingAddition(uint32_t operand1,
-                                uint32_t operand2,
-                                bool& overflowOut,
-                                bool& carryOut,
-                                bool useCarry=false,
-                                bool carry=false)
+/// @brief Determine the result of the overflow flag for subtraction operation: result = op1 - op2
+/// @param op1 Subtraction operand
+/// @param op2 Subtraction operand
+/// @param result Subtraction result
+/// @return State of overflow flag after subtraction
+bool SubtractionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    uint64_t result64;
-    uint8_t carryVal = carry ? 1 : 0;
+    return ((op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
+}
 
-    if (useCarry)
-    {
-        result64 = operand1 + operand2 + carryVal;
-    }
-    else
-    {
-        result64 = operand1 + operand2;
-    }
+/// @brief Calculate the result of a THUMB add or add w/ carry operation, along with the carry and overflow flags.
+/// @param op1 First addition operand.
+/// @param op2 Second addition operand.
+/// @param result Result of addition, returned by reference.
+/// @param carry Carry flag, defaults to 0 meaning non ADC operation.
+/// @return Pair of {carry_flag, overflow_flag}.
+std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
+{
+    uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(op2) + static_cast<uint64_t>(carry);
+    result = result64 & CPU::MAX_U32;
+    bool c = (result64 > CPU::MAX_U32);
+    bool v = AdditionOverflow(op1, op2, result);
+    return {c, v};
+}
 
-    uint32_t result32 = result64 & CPU::MAX_U32;
-    overflowOut = ((operand1 & 0x8000'0000) == (operand2 & 0x8000'0000)) && ((operand1 & 0x8000'0000) != (result32 & 0x8000'0000));
-    carryOut = result64 > CPU::MAX_U32;
-
-    return result32;
+/// @brief Calculate the result of a THUMB sub or sub w/ carry operation, along with the carry and overflow flags.
+/// @param op1 First subtraction operand.
+/// @param op2 Second subtraction operand.
+/// @param result Result of subtraction (op1 - op2), returned by reference.
+/// @param carry Carry flag, defaults to 0 meaning non SBC operation.
+/// @return Pair of {carry_flag, overflow_flag}.
+std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
+{
+    auto [c, v] = Add32(op1, ~op2, result, carry);
+    v = SubtractionOverflow(op1, op2, result);
+    return {c, v};
 }
 }
 
@@ -576,38 +554,36 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    uint32_t operand1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
-    uint32_t operand2;
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint32_t op2;
     uint8_t destIndex = instruction_.flags.Rd;
 
-    bool negativeOut = cpu.registers_.IsNegative();
-    bool zeroOut = cpu.registers_.IsZero();
     bool carryOut = cpu.registers_.IsCarry();
     bool overflowOut = cpu.registers_.IsOverflow();
 
     if (instruction_.flags.I)
     {
         // Operand 2 is an immediate value
-        operand2 = instruction_.rotatedImmediate.Imm;
+        op2 = instruction_.rotatedImmediate.Imm;
         uint8_t rotateAmount = instruction_.rotatedImmediate.RotateAmount << 1;
-        operand2 = std::rotr(operand2, rotateAmount);
+        op2 = std::rotr(op2, rotateAmount);
     }
     else
     {
         // Operand 2 is a register
-        operand2 = cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rm);
+        op2 = cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rm);
 
         ++cycles;
 
         // If R15 is used as an operand and a register specified shift amount is used, PC will be 12 bytes ahead.
         if (instruction_.flags.Rn == PC_INDEX)
         {
-            operand1 += 4;
+            op1 += 4;
         }
 
         if (instruction_.shiftRegByReg.Rm == PC_INDEX)
         {
-            operand2 += 4;
+            op2 += 4;
         }
 
         bool shiftByReg = (instruction_.flags.Operand2 & 0x10);
@@ -626,12 +602,12 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                 else if (shiftAmount > 32)
                 {
                     carryOut = false;
-                    operand2 = 0;
+                    op2 = 0;
                 }
                 else
                 {
-                    carryOut = (operand2 & (0x8000'0000 >> (shiftAmount - 1)));
-                    operand2 <<= shiftAmount;
+                    carryOut = (op2 & (0x8000'0000 >> (shiftAmount - 1)));
+                    op2 <<= shiftAmount;
                 }
                 break;
             }
@@ -646,25 +622,25 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                     else
                     {
                         // LSR #0 -> LSR #32
-                        carryOut = (operand2 & 0x8000'0000);
-                        operand2 = 0;
+                        carryOut = (op2 & 0x8000'0000);
+                        op2 = 0;
                     }
                 }
                 else if (shiftAmount > 32)
                 {
                     carryOut = false;
-                    operand2 = 0;
+                    op2 = 0;
                 }
                 else
                 {
-                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
-                    operand2 >>= shiftAmount;
+                    carryOut = (op2 & (0x01 << (shiftAmount - 1)));
+                    op2 >>= shiftAmount;
                 }
                 break;
             }
             case 0b10:  // ASR
             {
-                bool msbSet = operand2 & 0x8000'0000;
+                bool msbSet = op2 & 0x8000'0000;
 
                 if (shiftAmount == 0)
                 {
@@ -676,22 +652,22 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                     {
                         // ASR #0 -> ASR #32
                         carryOut = msbSet;
-                        operand2 = msbSet ? 0xFFFF'FFFF : 0;
+                        op2 = msbSet ? 0xFFFF'FFFF : 0;
                     }
                 }
                 else if (shiftAmount > 32)
                 {
                     carryOut = msbSet;
-                    operand2 = msbSet ? 0xFFFF'FFFF : 0;
+                    op2 = msbSet ? 0xFFFF'FFFF : 0;
                 }
                 else
                 {
-                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
+                    carryOut = (op2 & (0x01 << (shiftAmount - 1)));
 
                     for (int i = 0; i < shiftAmount; ++i)
                     {
-                        operand2 >>= 1;
-                        operand2 |= (msbSet ? 0x8000'0000 : 0);
+                        op2 >>= 1;
+                        op2 |= (msbSet ? 0x8000'0000 : 0);
                     }
                 }
                 break;
@@ -712,15 +688,15 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                     else
                     {
                         // ROR #0 -> RRX
-                        carryOut = operand2 & 0x01;
-                        operand2 >>= 1;
-                        operand2 |= cpu.registers_.IsCarry() ? 0x8000'0000 : 0;
+                        carryOut = op2 & 0x01;
+                        op2 >>= 1;
+                        op2 |= cpu.registers_.IsCarry() ? 0x8000'0000 : 0;
                     }
                 }
                 else
                 {
-                    carryOut = (operand2 & (0x01 << (shiftAmount - 1)));
-                    operand2 = std::rotr(operand2, shiftAmount);
+                    carryOut = (op2 & (0x01 << (shiftAmount - 1)));
+                    op2 = std::rotr(op2, shiftAmount);
                 }
                 break;
             }
@@ -729,7 +705,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     if constexpr (Config::LOGGING_ENABLED)
     {
-        SetMnemonic(operand2);
+        SetMnemonic(op2);
     }
 
     if (!cpu.ArmConditionMet(instruction_.flags.Cond))
@@ -744,61 +720,58 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
     switch (instruction_.flags.OpCode)
     {
         case 0b0000:  // AND
-            result = operand1 & operand2;
+            result = op1 & op2;
             break;
         case 0b0001:  // EOR
-            result = operand1 & operand2;
+            result = op1 & op2;
             break;
         case 0b0010:  // SUB
-            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
             break;
         case 0b0011:  // RSB
-            result = DataProcessingSubtraction(operand2, operand1, overflowOut, carryOut);
+            std::tie(carryOut, overflowOut) = Sub32(op2, op1, result);
             break;
         case 0b0100:  // ADD
-            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut);
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
             break;
         case 0b0101:  // ADC
-            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result, cpu.registers_.IsCarry());
             break;
         case 0b0110:  // SBC
-            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result, cpu.registers_.IsCarry());
             break;
         case 0b0111:  // RSC
-            result = DataProcessingSubtraction(operand2, operand1, overflowOut, carryOut, true, cpu.registers_.IsCarry());
+            std::tie(carryOut, overflowOut) = Sub32(op2, op1, result, cpu.registers_.IsCarry());
             break;
         case 0b1000:  // TST
-            result = operand1 & operand2;
+            result = op1 & op2;
             writeResult = false;
             break;
         case 0b1001:  // TEQ
-            result = operand1 & operand2;
+            result = op1 & op2;
             writeResult = false;
             break;
         case 0b1010:  // CMP
-            result = DataProcessingSubtraction(operand1, operand2, overflowOut, carryOut);
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
             writeResult = false;
             break;
         case 0b1011:  // CMN
-            result = DataProcessingAddition(operand1, operand2, overflowOut, carryOut);
+            std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
             writeResult = false;
             break;
         case 0b1100:  // ORR
-            result = operand1 | operand2;
+            result = op1 | op2;
             break;
         case 0b1101:  // MOV
-            result = operand2;
+            result = op2;
             break;
         case 0b1110:  // BIC
-            result = operand1 & ~operand2;
+            result = op1 & ~op2;
             break;
         case 0b1111:  // MVN
-            result = ~operand2;
+            result = ~op2;
             break;
     }
-
-    negativeOut = (result & 0x8000'0000);
-    zeroOut = (result == 0);
 
     if (writeResult)
     {
@@ -819,8 +792,8 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     if (updateFlags)
     {
-        cpu.registers_.SetNegative(negativeOut);
-        cpu.registers_.SetZero(zeroOut);
+        cpu.registers_.SetNegative(result & 0x8000'0000);
+        cpu.registers_.SetZero(result == 0);
         cpu.registers_.SetCarry(carryOut);
         cpu.registers_.SetOverflow(overflowOut);
     }
