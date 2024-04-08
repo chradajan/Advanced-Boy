@@ -101,7 +101,7 @@ void BlockDataTransfer::SetMnemonic()
     std::string op;
     std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     uint8_t const addrReg = instruction_.flags.Rn;
-    bool isStackOp = addrReg == 13;
+    bool isStackOp = (addrReg == SP_INDEX);
 
     std::string addr = isStackOp ? "SP" : std::format("R{}", addrReg);
 

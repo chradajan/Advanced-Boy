@@ -267,7 +267,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
             {
                 uint32_t regValue = cpu.registers_.ReadRegister(regIndex, mode);
 
-                if (regIndex == 15)
+                if (regIndex == PC_INDEX)
                 {
                     regValue += 4;
                 }
@@ -398,7 +398,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
     if (instruction_.flags.L)  // Load
     {
-        cpu.flushPipeline_ = (instruction_.flags.Rd == 15);
+        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
 
         if (instruction_.flags.S)
         {
@@ -447,7 +447,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         uint8_t srcIndex = instruction_.flags.Rd;
         uint16_t halfWord = cpu.registers_.ReadRegister(srcIndex);
 
-        if (srcIndex == 15)
+        if (srcIndex == PC_INDEX)
         {
             halfWord += 4;
         }
@@ -490,7 +490,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
     if (instruction_.flags.L)  // Load
     {
-        cpu.flushPipeline_ = (instruction_.flags.Rd == 15);
+        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
 
         if (instruction_.flags.S)
         {
@@ -539,7 +539,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         uint8_t srcIndex = instruction_.flags.Rd;
         uint16_t halfWord = cpu.registers_.ReadRegister(srcIndex);
 
-        if (srcIndex == 15)
+        if (srcIndex == PC_INDEX)
         {
             halfWord += 4;
         }
@@ -600,12 +600,12 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         ++cycles;
 
         // If R15 is used as an operand and a register specified shift amount is used, PC will be 12 bytes ahead.
-        if (instruction_.flags.Rn == 15)
+        if (instruction_.flags.Rn == PC_INDEX)
         {
             operand1 += 4;
         }
 
-        if (instruction_.shiftRegByReg.Rm == 15)
+        if (instruction_.shiftRegByReg.Rm == PC_INDEX)
         {
             operand2 += 4;
         }
@@ -802,7 +802,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     if (writeResult)
     {
-        if (destIndex == 15)
+        if (destIndex == PC_INDEX)
         {
             ++cycles;
             cpu.flushPipeline_ = true;

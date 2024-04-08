@@ -7,6 +7,10 @@
 
 namespace CPU
 {
+constexpr uint8_t SP_INDEX = 13;
+constexpr uint8_t LR_INDEX = 14;
+constexpr uint8_t PC_INDEX = 15;
+
 class Registers
 {
 public:

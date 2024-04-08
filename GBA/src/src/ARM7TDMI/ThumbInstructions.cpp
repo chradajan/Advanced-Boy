@@ -309,7 +309,7 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
             uint32_t result = cpu.registers_.ReadRegister(destIndex) + cpu.registers_.ReadRegister(srcIndex);
             cpu.registers_.WriteRegister(destIndex, result);
 
-            if (destIndex == 15)
+            if (destIndex == PC_INDEX)
             {
                 cpu.flushPipeline_ = true;
             }
@@ -330,7 +330,7 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         case 0b10:  // MOV
             cpu.registers_.WriteRegister(destIndex, cpu.registers_.ReadRegister(srcIndex));
 
-            if (destIndex == 15)
+            if (destIndex == PC_INDEX)
             {
                 cpu.flushPipeline_ = true;
             }

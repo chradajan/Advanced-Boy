@@ -67,6 +67,12 @@ void Registers::WriteRegister(uint8_t index, uint32_t value)
 
 void Registers::WriteRegister(uint8_t index, uint32_t value, OperatingMode mode)
 {
+    if (index == PC_INDEX)
+    {
+        // Force align PC to either word or halfword depending on operating state.
+        value &= (GetOperatingState() == OperatingState::ARM) ? 0xFFFF'FFFC : 0xFFFF'FFFE;
+    }
+
     switch (mode)
     {
         case OperatingMode::User:
