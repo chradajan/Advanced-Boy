@@ -210,8 +210,30 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
 
 int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreHalfword");
+    int cycles = 1;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + instruction_.flags.Offset5;
+
+    if (instruction_.flags.L)
+    {
+        ++cycles;
+        auto [value, readCycles] = cpu.ReadMemory(addr, 2);
+        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        cycles += readCycles;
+    }
+    else
+    {
+        uint16_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd) & MAX_U16;
+        int writeCycles = cpu.WriteMemory(addr, value, 2);
+        cycles += writeCycles;
+    }
+
+    return cycles;
 }
 
 int SPRelativeLoadStore::Execute(ARM7TDMI& cpu)

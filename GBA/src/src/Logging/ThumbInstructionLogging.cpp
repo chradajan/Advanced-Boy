@@ -44,7 +44,12 @@ void PushPopRegisters::SetMnemonic()
 
 void LoadStoreHalfword::SetMnemonic()
 {
+    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint8_t baseIndex = instruction_.flags.Rb;
+    uint8_t offset = instruction_.flags.Offset5;
 
+    std::string op = instruction_.flags.L ? "LDRH" : "STRH";
+    mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, #{}]", instruction_.halfword, op, srcDestIndex, baseIndex, offset);
 }
 
 void SPRelativeLoadStore::SetMnemonic()
