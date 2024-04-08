@@ -595,72 +595,60 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         {
             case 0b00:  // LSL
             {
-                if (shiftAmount == 0)
-                {
-                    carryOut = cpu.registers_.IsCarry();
-                }
-                else if (shiftAmount > 32)
+                if (shiftAmount > 32)
                 {
                     carryOut = false;
                     op2 = 0;
                 }
-                else
+                else if (shiftAmount == 32)
+                {
+                    carryOut = (op2 & 0x01);
+                    op2 = 0;
+                }
+                else if (shiftAmount > 0)
                 {
                     carryOut = (op2 & (0x8000'0000 >> (shiftAmount - 1)));
                     op2 <<= shiftAmount;
                 }
+
                 break;
             }
             case 0b01:  // LSR
             {
-                if (shiftAmount == 0)
-                {
-                    if (shiftByReg)
-                    {
-                        carryOut = cpu.registers_.IsCarry();
-                    }
-                    else
-                    {
-                        // LSR #0 -> LSR #32
-                        carryOut = (op2 & 0x8000'0000);
-                        op2 = 0;
-                    }
-                }
-                else if (shiftAmount > 32)
+                if (shiftAmount > 32)
                 {
                     carryOut = false;
                     op2 = 0;
                 }
-                else
+                else if (shiftAmount == 32)
+                {
+                    carryOut = (op2 & 0x8000'0000);
+                    op2 = 0;
+                }
+                else if (shiftAmount > 0)
                 {
                     carryOut = (op2 & (0x01 << (shiftAmount - 1)));
                     op2 >>= shiftAmount;
                 }
+                else if (!shiftByReg)
+                {
+                    // LSR #0 -> LSR #32
+                    carryOut = (op2 & 0x8000'0000);
+                    op2 = 0;
+                }
+
                 break;
             }
             case 0b10:  // ASR
             {
                 bool msbSet = op2 & 0x8000'0000;
 
-                if (shiftAmount == 0)
-                {
-                    if (shiftByReg)
-                    {
-                        carryOut = cpu.registers_.IsCarry();
-                    }
-                    else
-                    {
-                        // ASR #0 -> ASR #32
-                        carryOut = msbSet;
-                        op2 = msbSet ? 0xFFFF'FFFF : 0;
-                    }
-                }
-                else if (shiftAmount > 32)
+                if (shiftAmount >= 32)
                 {
                     carryOut = msbSet;
                     op2 = msbSet ? 0xFFFF'FFFF : 0;
                 }
-                else
+                else if (shiftAmount > 0)
                 {
                     carryOut = (op2 & (0x01 << (shiftAmount - 1)));
 
@@ -670,6 +658,13 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
                         op2 |= (msbSet ? 0x8000'0000 : 0);
                     }
                 }
+                else if (!shiftByReg)
+                {
+                    // ASR #0 -> ASR #32
+                    carryOut = msbSet;
+                    op2 = msbSet ? 0xFFFF'FFFF : 0;
+                }
+
                 break;
             }
             case 0b11:  // ROR, RRX
@@ -681,11 +676,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
                 if (shiftAmount == 0)
                 {
-                    if (shiftByReg)
-                    {
-                        carryOut = cpu.registers_.IsCarry();
-                    }
-                    else
+                    if (!shiftByReg)
                     {
                         // ROR #0 -> RRX
                         carryOut = op2 & 0x01;

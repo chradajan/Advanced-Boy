@@ -418,6 +418,11 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 carryOut = false;
                 result = 0;
             }
+            else if (op2 == 32)
+            {
+                carryOut = (op1 & 0x01);
+                result = 0;
+            }
             else if (op2 != 0)
             {
                 carryOut = (op1 & (0x8000'0000 >> (op2 - 1)));
@@ -437,6 +442,11 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 carryOut = false;
                 result = 0;
             }
+            else if (op2 == 32)
+            {
+                carryOut = (op1 & 0x8000'0000);
+                result = 0;
+            }
             else if (op2 != 0)
             {
                 carryOut = (op1 & (0x01 << (op2 - 1)));
@@ -453,12 +463,12 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 
             bool msbSet = op1 & 0x8000'0000;
 
-            if (op2 > 32)
+            if (op2 >= 32)
             {
                 carryOut = msbSet;
                 result = msbSet ? 0xFFFF'FFFF : 0;
             }
-            else
+            else if (op2 > 0)
             {
                 carryOut = (op1 & (0x01 << (op2 - 1)));
 
