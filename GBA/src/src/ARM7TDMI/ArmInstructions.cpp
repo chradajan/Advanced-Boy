@@ -53,8 +53,10 @@ std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
 /// @return Pair of {carry_flag, overflow_flag}.
 std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
 {
-    auto [c, v] = Add32(op1, ~op2, result, carry);
-    v = SubtractionOverflow(op1, op2, result);
+    uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2) + static_cast<uint64_t>(carry);
+    result = result64 & CPU::MAX_U32;
+    bool c = op1 >= op2;
+    bool v = SubtractionOverflow(op1, op2, result);
     return {c, v};
 }
 }
