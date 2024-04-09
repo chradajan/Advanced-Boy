@@ -5,8 +5,6 @@
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
-#include <sstream>
-
 namespace Memory
 {
 MemoryManager::MemoryManager(fs::path const biosPath)

@@ -2,6 +2,7 @@
 
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Memory/MemoryManager.hpp>
+#include <Graphics/PPU.hpp>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -31,6 +32,7 @@ public:
 private:
     Memory::MemoryManager memMgr_;
     CPU::ARM7TDMI cpu_;
+    Graphics::PPU ppu_;
 
     bool biosLoaded_;
     bool gamePakLoaded_;
