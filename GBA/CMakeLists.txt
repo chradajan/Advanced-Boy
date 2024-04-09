@@ -1,20 +1,8 @@
 project(GbaLib)
 
-set(GBA_SOURCES
-    src/src/AdvancedBoy.cpp
-    src/src/ARM7TDMI/ARM7TDMI.cpp
-    src/src/ARM7TDMI/ArmInstructions.cpp
-    src/src/ARM7TDMI/Registers.cpp
-    src/src/ARM7TDMI/ThumbInstructions.cpp
-    src/src/Logging/ArmInstructionLogging.cpp
-    src/src/Logging/Logging.cpp
-    src/src/Logging/ThumbInstructionLogging.cpp
-    src/src/Memory/GamePak.cpp
-    src/src/Memory/MemoryManager.cpp
-    src/src/System/GameBoyAdvance.cpp
-)
+add_library(${PROJECT_NAME} STATIC)
 
-add_library(${PROJECT_NAME} STATIC ${GBA_SOURCES})
+add_subdirectory(src/src)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 20

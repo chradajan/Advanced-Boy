@@ -1,10 +1,10 @@
 project(AdvancedBoy)
 
-set(APPLICATION_SOURCES
+add_executable(${PROJECT_NAME})
+
+target_sources(${PROJECT_NAME} PRIVATE
     main.cpp
 )
-
-add_executable(${PROJECT_NAME} ${APPLICATION_SOURCES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 20
