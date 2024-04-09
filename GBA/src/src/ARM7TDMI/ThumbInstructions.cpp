@@ -410,6 +410,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         case 0b0010:  // LSL
         {
             op2 &= 0xFF;
+            result = op1;
             ++cycles;
             updateOverflow = false;
 
@@ -426,7 +427,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
             else if (op2 != 0)
             {
                 carryOut = (op1 & (0x8000'0000 >> (op2 - 1)));
-                result = op1 << op2;
+                result <<= op2;
             }
 
             break;
@@ -434,6 +435,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         case 0b0011:  // LSR
         {
             op2 &= 0xFF;
+            result = op1;
             ++cycles;
             updateOverflow = false;
 
@@ -450,7 +452,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
             else if (op2 != 0)
             {
                 carryOut = (op1 & (0x01 << (op2 - 1)));
-                result = op1 >> op2;
+                result >>= op2;
             }
 
             break;
@@ -458,6 +460,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         case 0b0100:  // ASR
         {
             op2 &= 0xFF;
+            result = op1;
             ++cycles;
             updateOverflow = false;
 
@@ -474,12 +477,10 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 
                 while (op2 > 0)
                 {
-                    op1 >>= 1;
-                    op1 |= (msbSet ? 0x8000'0000 : 0);
+                    result >>= 1;
+                    result |= (msbSet ? 0x8000'0000 : 0);
                     --op2;
                 }
-
-                result = op1;
             }
 
             break;
@@ -495,6 +496,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         case 0b0111:  // ROR
         {
             op2 &= 0xFF;
+            result = op1;
             ++cycles;
             updateOverflow = false;
 
@@ -506,11 +508,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
             if (op2)
             {
                 carryOut = (op1 & (0x01 << (op2 - 1)));
-                result = std::rotr(op1, op2);
-            }
-            else
-            {
-                result = op1;
+                result = std::rotr(result, op2);
             }
 
             break;
