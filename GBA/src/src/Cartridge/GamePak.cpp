@@ -33,7 +33,7 @@ GamePak::GamePak(fs::path const romPath)
 
     for (size_t charIndex = 0; charIndex < 12; ++charIndex)
     {
-        uint8_t titleChar = ROM_[0x00A0 + charIndex];
+        uint8_t titleChar = ROM_.at(0x00A0 + charIndex);
 
         if (titleChar == 0)
         {
@@ -116,7 +116,7 @@ uint8_t* GamePak::GetPointerToMem(uint32_t const addr, uint8_t const accessSize,
             throw std::runtime_error(exceptionMsg.str());
         }
 
-        return &ROM_[adjustedIndex];
+        return &ROM_.at(adjustedIndex);
     }
 
     adjustedIndex = addr - GAME_PAK_SRAM_ADDR_MIN;
@@ -128,6 +128,6 @@ uint8_t* GamePak::GetPointerToMem(uint32_t const addr, uint8_t const accessSize,
         throw std::runtime_error(exceptionMsg.str());
     }
 
-    return &SRAM_[adjustedIndex];
+    return &SRAM_.at(adjustedIndex);
 }
 }

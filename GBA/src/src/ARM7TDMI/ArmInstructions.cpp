@@ -2,6 +2,7 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
+#include <MemoryMap.hpp>
 #include <bit>
 #include <cstdint>
 #include <memory>
@@ -39,8 +40,8 @@ bool SubtractionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
 {
     uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(op2) + static_cast<uint64_t>(carry);
-    result = result64 & CPU::MAX_U32;
-    bool c = (result64 > CPU::MAX_U32);
+    result = result64 & MAX_U32;
+    bool c = (result64 > MAX_U32);
     bool v = AdditionOverflow(op1, op2, result);
     return {c, v};
 }
@@ -54,7 +55,7 @@ std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
 std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
 {
     uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2) + static_cast<uint64_t>(carry);
-    result = result64 & CPU::MAX_U32;
+    result = result64 & MAX_U32;
     bool c = op1 >= op2;
     bool v = SubtractionOverflow(op1, op2, result);
     return {c, v};

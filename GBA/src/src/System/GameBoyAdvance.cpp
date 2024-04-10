@@ -1,11 +1,14 @@
 #include <System/GameBoyAdvance.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
+#include <MemoryMap.hpp>
+#include <System/Scheduler.hpp>
 #include <array>
 #include <filesystem>
 #include <format>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 
 namespace fs = std::filesystem;
@@ -13,8 +16,10 @@ namespace fs = std::filesystem;
 GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     cpu_(std::bind(&ReadMemory,  this, std::placeholders::_1, std::placeholders::_2),
          std::bind(&WriteMemory, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
+    ppu_(paletteRAM_, VRAM_, OAM_),
     biosLoaded_(biosPath != ""),
-    gamePakLoaded_(false)
+    gamePakLoaded_(false),
+    ppuCatchupCycles_(0)
 {
     if constexpr (Config::LOGGING_ENABLED)
     {
@@ -40,7 +45,8 @@ void GameBoyAdvance::Run()
 
     while (true)
     {
-        cpu_.Clock();
+        int cpuCycles = cpu_.Tick();
+        Scheduler.Tick(cpuCycles);
     }
 }
 
@@ -67,37 +73,37 @@ std::pair<uint8_t*, int> GameBoyAdvance::GetPointerToMem(uint32_t addr, uint8_t 
     {
         adjustedIndex = addr;
         maxIndex = BIOS_ADDR_MAX;
-        mappedPtr = &BIOS_[adjustedIndex];
+        mappedPtr = &BIOS_.at(adjustedIndex);
     }
     else if ((addr >= WRAM_ON_BOARD_ADDR_MIN) && (addr <= WRAM_ON_BOARD_ADDR_MAX))
     {
         adjustedIndex = addr - WRAM_ON_BOARD_ADDR_MIN;
         maxIndex = WRAM_ON_BOARD_ADDR_MAX;
-        mappedPtr = &onBoardWRAM_[adjustedIndex];
+        mappedPtr = &onBoardWRAM_.at(adjustedIndex);
     }
     else if ((addr >= WRAM_ON_CHIP_ADDR_MIN) && (addr <= WRAM_ON_CHIP_ADDR_MAX))
     {
         adjustedIndex = addr - WRAM_ON_CHIP_ADDR_MIN;
         maxIndex = WRAM_ON_CHIP_ADDR_MAX;
-        mappedPtr = &onChipWRAM_[adjustedIndex];
+        mappedPtr = &onChipWRAM_.at(adjustedIndex);
     }
     else if ((addr >= PALETTE_RAM_ADDR_MIN) && (addr <= PALETTE_RAM_ADDR_MAX))
     {
         adjustedIndex = addr - PALETTE_RAM_ADDR_MIN;
         maxIndex = PALETTE_RAM_ADDR_MAX;
-        mappedPtr = &paletteRAM_[adjustedIndex];
+        mappedPtr = &paletteRAM_.at(adjustedIndex);
     }
     else if ((addr >= VRAM_ADDR_MIN) && (addr <= VRAM_ADDR_MAX))
     {
         adjustedIndex = addr - VRAM_ADDR_MIN;
         maxIndex = VRAM_ADDR_MAX;
-        mappedPtr = &VRAM_[adjustedIndex];
+        mappedPtr = &VRAM_.at(adjustedIndex);
     }
     else if ((addr >= OAM_ADDR_MIN) && (addr <= OAM_ADDR_MAX))
     {
         adjustedIndex = addr - OAM_ADDR_MIN;
         maxIndex = OAM_ADDR_MAX;
-        mappedPtr = &OAM_[adjustedIndex];
+        mappedPtr = &OAM_.at(adjustedIndex);
     }
 
     if ((adjustedIndex + accessSize - 1) > maxIndex)

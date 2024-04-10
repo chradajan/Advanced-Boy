@@ -27,8 +27,8 @@ Registers::Registers()
     SetPC(0x08000000);
     SetCarry(true);
 
-    *systemAndUserRegistersLUT_[13] = 0x0300'7F00;
-    *systemAndUserRegistersLUT_[14] = 0x0800'0000;
+    *systemAndUserRegistersLUT_.at(13) = 0x0300'7F00;
+    *systemAndUserRegistersLUT_.at(14) = 0x0800'0000;
 }
 
 uint32_t Registers::ReadRegister(uint8_t index) const
@@ -43,17 +43,17 @@ uint32_t Registers::ReadRegister(uint8_t index, OperatingMode mode) const
     {
         case OperatingMode::User:
         case OperatingMode::System:
-            return *systemAndUserRegistersLUT_[index];
+            return *systemAndUserRegistersLUT_.at(index);
         case OperatingMode::FIQ:
-            return *fiqRegistersLUT_[index];
+            return *fiqRegistersLUT_.at(index);
         case OperatingMode::Supervisor:
-            return *supervisorRegistersLUT_[index];
+            return *supervisorRegistersLUT_.at(index);
         case OperatingMode::Abort:
-            return *abortRegistersLUT_[index];
+            return *abortRegistersLUT_.at(index);
         case OperatingMode::IRQ:
-            return *irqRegistersLUT_[index];
+            return *irqRegistersLUT_.at(index);
         case OperatingMode::Undefined:
-            return *undefinedRegistersLUT_[index];
+            return *undefinedRegistersLUT_.at(index);
         default:
             return 0;
     }
@@ -77,22 +77,22 @@ void Registers::WriteRegister(uint8_t index, uint32_t value, OperatingMode mode)
     {
         case OperatingMode::User:
         case OperatingMode::System:
-            *systemAndUserRegistersLUT_[index] = value;
+            *systemAndUserRegistersLUT_.at(index) = value;
             break;
         case OperatingMode::FIQ:
-            *fiqRegistersLUT_[index] = value;
+            *fiqRegistersLUT_.at(index) = value;
             break;
         case OperatingMode::Supervisor:
-            *supervisorRegistersLUT_[index] = value;
+            *supervisorRegistersLUT_.at(index) = value;
             break;
         case OperatingMode::Abort:
-            *abortRegistersLUT_[index] = value;
+            *abortRegistersLUT_.at(index) = value;
             break;
         case OperatingMode::IRQ:
-            *irqRegistersLUT_[index] = value;
+            *irqRegistersLUT_.at(index) = value;
             break;
         case OperatingMode::Undefined:
-            *undefinedRegistersLUT_[index] = value;
+            *undefinedRegistersLUT_.at(index) = value;
             break;
     }
 }
@@ -103,17 +103,17 @@ uint32_t Registers::GetSP() const
     {
         case OperatingMode::User:
         case OperatingMode::System:
-            return *systemAndUserRegistersLUT_[13];
+            return *systemAndUserRegistersLUT_.at(13);
         case OperatingMode::FIQ:
-            return *fiqRegistersLUT_[13];
+            return *fiqRegistersLUT_.at(13);
         case OperatingMode::Supervisor:
-            return *supervisorRegistersLUT_[13];
+            return *supervisorRegistersLUT_.at(13);
         case OperatingMode::Abort:
-            return *abortRegistersLUT_[13];
+            return *abortRegistersLUT_.at(13);
         case OperatingMode::IRQ:
-            return *irqRegistersLUT_[13];
+            return *irqRegistersLUT_.at(13);
         case OperatingMode::Undefined:
-            return *undefinedRegistersLUT_[13];
+            return *undefinedRegistersLUT_.at(13);
         default:
             return 0;
     }
@@ -125,17 +125,17 @@ uint32_t Registers::GetLR() const
     {
         case OperatingMode::User:
         case OperatingMode::System:
-            return *systemAndUserRegistersLUT_[14];
+            return *systemAndUserRegistersLUT_.at(14);
         case OperatingMode::FIQ:
-            return *fiqRegistersLUT_[14];
+            return *fiqRegistersLUT_.at(14);
         case OperatingMode::Supervisor:
-            return *supervisorRegistersLUT_[14];
+            return *supervisorRegistersLUT_.at(14);
         case OperatingMode::Abort:
-            return *abortRegistersLUT_[14];
+            return *abortRegistersLUT_.at(14);
         case OperatingMode::IRQ:
-            return *irqRegistersLUT_[14];
+            return *irqRegistersLUT_.at(14);
         case OperatingMode::Undefined:
-            return *undefinedRegistersLUT_[14];
+            return *undefinedRegistersLUT_.at(14);
         default:
             return 0;
     }

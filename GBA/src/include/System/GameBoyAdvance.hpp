@@ -3,7 +3,9 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Cartridge/GamePak.hpp>
 #include <Graphics/PPU.hpp>
+#include <MemoryMap.hpp>
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 
@@ -27,6 +29,10 @@ public:
     /// @param romPath Path to ROM file.
     /// @return Whether the GamePak was valid and successfully loaded.
     bool LoadGamePak(fs::path romPath);
+
+    /// @brief Access the raw frame buffer data.
+    /// @return Raw pointer to frame buffer.
+    uint8_t* GetRawFrameBuffer() { return ppu_.GetRawFrameBuffer(); }
 
     /// @brief Run GBA indefinitely.
     void Run();
@@ -84,4 +90,5 @@ private:
 
     bool biosLoaded_;
     bool gamePakLoaded_;
+    int ppuCatchupCycles_;
 };

@@ -3,13 +3,20 @@
 int main(int argc, char** argv)
 {
     Initialize("");
+    bool gamePakSuccessfullyLoaded = false;
 
     if (argc > 1)
     {
-        InsertCartridge(argv[1]);
+        gamePakSuccessfullyLoaded = InsertCartridge(argv[1]);
     }
 
-    PowerOn();
+    if (gamePakSuccessfullyLoaded)
+    {
+        while (true)
+        {
+            PowerOn();
+        }
+    }
 
     return 0;
 }

@@ -4,6 +4,8 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
+#include <MemoryMap.hpp>
+#include <System/Scheduler.hpp>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -19,10 +21,14 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> Re
     ReadMemory(ReadMemory),
     WriteMemory(WriteMemory)
 {
+    Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
 }
 
-void ARM7TDMI::Clock()
+int ARM7TDMI::Tick()
 {
+    int executionCycles = 1;
+    int fetchCycles = 1;
+    bool instructionExecuted = false;
     bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
     uint8_t const accessSize = isArmState ? 4 : 2;
     uint32_t undecodedInstruction = MAX_U32;
@@ -39,7 +45,8 @@ void ARM7TDMI::Clock()
             regString = registers_.GetRegistersString();
         }
 
-        decodedInstruction_->Execute(*this);
+        executionCycles = decodedInstruction_->Execute(*this);
+        instructionExecuted = true;
 
         if constexpr (Config::LOGGING_ENABLED)
         {
@@ -53,13 +60,15 @@ void ARM7TDMI::Clock()
     {
         flushPipeline_ = false;
         fetchedInstructions_ = std::queue<uint32_t>();
-        return;
+        return executionCycles;
     }
 
     // Fetch
     if (fetchedInstructions_.empty())
     {
-        fetchedInstructions_.push(ReadMemory(registers_.GetPC(), accessSize).first);
+        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), accessSize);
+        fetchCycles = readCycles;
+        fetchedInstructions_.push(fetchedInstruction);
         registers_.AdvancePC();
     }
     else
@@ -67,7 +76,9 @@ void ARM7TDMI::Clock()
         undecodedInstruction = fetchedInstructions_.front();
         fetchedInstructions_.pop();
 
-        fetchedInstructions_.push(ReadMemory(registers_.GetPC(), accessSize).first);
+        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), accessSize);
+        fetchCycles = readCycles;
+        fetchedInstructions_.push(fetchedInstruction);
         registers_.AdvancePC();
     }
 
@@ -85,6 +96,8 @@ void ARM7TDMI::Clock()
             decodedInstruction_ = THUMB::DecodeInstruction(undecodedInstruction);
         }
     }
+
+    return instructionExecuted ? executionCycles : fetchCycles;
 }
 
 bool ARM7TDMI::ArmConditionMet(uint8_t condition)
@@ -124,5 +137,10 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
     }
 
     throw std::runtime_error("Illegal ARM condition");
+}
+
+void ARM7TDMI::IRQ(int extraCycles)
+{
+    (void)extraCycles;
 }
 }

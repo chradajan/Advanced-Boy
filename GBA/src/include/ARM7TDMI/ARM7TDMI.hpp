@@ -65,14 +65,19 @@ public:
     ARM7TDMI& operator=(ARM7TDMI&&) = delete;
     ~ARM7TDMI() = default;
 
-    /// @brief Advance the CPU by one clock cycle. For now, always run at 1CPI.
-    void Clock();
+    /// @brief Execute a CPU instruction.
+    /// @return Number of cycles CPU spent executing instruction.
+    int Tick();
 
 private:
     /// @brief Determine whether the command should execute based on its condition.
     /// @param condition 4-bit condition.
     /// @return True if command should be executed, false otherwise
     bool ArmConditionMet(uint8_t condition);
+
+    /// @brief Callback function for an IRQ event.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void IRQ(int extraCycles);
 
     // F/D/E cycle state
     std::queue<uint32_t> fetchedInstructions_;
