@@ -1,5 +1,5 @@
-#include <Memory/GamePak.hpp>
-#include <Memory/Memory.hpp>
+#include <Cartridge/GamePak.hpp>
+#include <MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -7,9 +7,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
-namespace Memory
+namespace Cartridge
 {
 GamePak::GamePak(fs::path const romPath)
 {
@@ -51,25 +52,27 @@ GamePak::~GamePak()
     // TODO
 }
 
-uint32_t GamePak::ReadMemory(uint32_t addr, uint8_t accessSize)
+std::pair<uint32_t, int> GamePak::ReadMemory(uint32_t addr, uint8_t accessSize)
 {
+    // TODO Implement actual access times
     auto bytePtr = GetPointerToMem(addr, accessSize, false);
 
     switch (accessSize)
     {
         case 1:
-            return *bytePtr;
+            return {*bytePtr, 1};
         case 2:
-            return *reinterpret_cast<uint16_t*>(bytePtr);
+            return {*reinterpret_cast<uint16_t*>(bytePtr), 1};
         case 4:
-            return *reinterpret_cast<uint32_t*>(bytePtr);
+            return {*reinterpret_cast<uint32_t*>(bytePtr), 1};
         default:
             throw std::runtime_error("Illegal Read ROM Memory access size");
     }
 }
 
-void GamePak::WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize)
+int GamePak::WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize)
 {
+    // TODO Implement actual access times
     auto bytePtr = GetPointerToMem(addr, accessSize, false);
 
     if (bytePtr)
@@ -89,6 +92,8 @@ void GamePak::WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize)
                 throw std::runtime_error("Illegal Write SRAM Memory access size");
         }
     }
+
+    return 1;
 }
 
 uint8_t* GamePak::GetPointerToMem(uint32_t const addr, uint8_t const accessSize, bool const isWrite)

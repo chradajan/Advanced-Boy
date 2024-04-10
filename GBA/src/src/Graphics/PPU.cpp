@@ -1,5 +1,5 @@
 #include <Graphics/PPU.hpp>
-#include <Memory/Memory.hpp>
+#include <MemoryMap.hpp>
 #include <cstdint>
 #include <stdexcept>
 #include <utility>
@@ -17,7 +17,7 @@ PPU::PPU() :
 
 std::pair<uint32_t, int> PPU::ReadLcdReg(uint32_t addr, uint8_t accessSize)
 {
-    uint8_t* bytePtr = &lcdRegisters_[addr - Memory::LCD_IO_ADDR_MIN];
+    uint8_t* bytePtr = &lcdRegisters_[addr - LCD_IO_ADDR_MIN];
     uint32_t regValue;
 
     switch (accessSize)
@@ -41,7 +41,7 @@ std::pair<uint32_t, int> PPU::ReadLcdReg(uint32_t addr, uint8_t accessSize)
 
 int PPU::WriteLcdReg(uint32_t addr, uint32_t val, uint8_t accessSize)
 {
-    uint8_t* bytePtr = &lcdRegisters_[addr - Memory::LCD_IO_ADDR_MIN];
+    uint8_t* bytePtr = &lcdRegisters_[addr - LCD_IO_ADDR_MIN];
 
     switch (accessSize)
     {

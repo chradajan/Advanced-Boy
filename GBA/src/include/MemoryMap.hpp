@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-namespace Memory
-{
 // Useful constants
 constexpr uint32_t KiB = 1024;
 constexpr uint32_t MiB = KiB * KiB;
@@ -61,4 +59,3 @@ constexpr uint32_t SERIAL_COMMUNICATION_2_IO_ADDR_MAX = 0x0400'01FF;
 
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MIN = 0x0400'0200;
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0804;
-}

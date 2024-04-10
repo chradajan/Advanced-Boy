@@ -1,15 +1,16 @@
 #pragma once
 
-#include <Memory/Memory.hpp>
+#include <MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
 
-namespace Memory
+namespace Cartridge
 {
 class GamePak
 {
@@ -34,14 +35,15 @@ public:
     /// @brief Read from memory.
     /// @param addr Aligned address.
     /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Value from specified address.
-    uint32_t ReadMemory(uint32_t addr, uint8_t accessSize);
+    /// @return Value from specified address and number of cycles taken to read.
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, uint8_t accessSize);
 
     /// @brief Write to memory.
     /// @param addr Aligned address.
-    /// @param val Value to write to specified address.
+    /// @param value Value to write to specified address.
     /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    void WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize);
+    /// @return Number of cycles taken to write.
+    int WriteMemory(uint32_t addr, uint32_t value, uint8_t accessSize);
 
 private:
     /// @brief Determine which region of memory an address points to.
