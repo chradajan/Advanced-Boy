@@ -45,6 +45,15 @@ public:
     /// @return Number of cycles taken to write.
     int WriteMemory(uint32_t addr, uint32_t value, uint8_t accessSize);
 
+    /// @brief Get value of WAITCNT register.
+    /// @return Value of WAITCNT and number of cycles to read it.
+    std::pair<uint32_t, int> ReadWAITCNT() { return {WAITCNT_, 1}; }
+
+    /// @brief Set value of WAITCNT register.
+    /// @param value Value to set WAITCNT to.
+    /// @return Number of cycles to write it.
+    int WriteWAITCNT(uint32_t value) { WAITCNT_ = value; return 1; }
+
 private:
     /// @brief Determine which region of memory an address points to.
     /// @param addr Address to determine mapping of.
@@ -53,10 +62,15 @@ private:
     /// @return Pointer to mapped location in memory.
     uint8_t* GetPointerToMem(uint32_t addr, uint8_t accessSize, bool isWrite);
 
+    // ROM Info
     bool romLoaded_;
     std::string romTitle_;
 
+    // Memory
     std::vector<uint8_t> ROM_;
     std::array<uint8_t, 64 * KiB> SRAM_;
+
+    // Registers
+    uint16_t WAITCNT_;
 };
 }

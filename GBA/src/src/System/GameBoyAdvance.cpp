@@ -2,6 +2,7 @@
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <MemoryMap.hpp>
+#include <System/InterruptManager.hpp>
 #include <System/Scheduler.hpp>
 #include <array>
 #include <filesystem>
@@ -191,6 +192,14 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadIoReg(uint32_t addr, int accessSize
     {
         return ppu_.ReadLcdReg(addr, accessSize);
     }
+    else if (addr == WAITCNT_ADDR)
+    {
+        return gamePak_->ReadWAITCNT();
+    }
+    else if ((addr >= INT_WTST_PWRDWN_IO_ADDR_MIN) && (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX))
+    {
+        return InterruptMgr.ReadIoReg(addr, accessSize);
+    }
     else
     {
         // TODO Implement memory mirroring for 4000800h every 64K.
@@ -215,6 +224,14 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, int accessSize)
     if ((addr >= LCD_IO_ADDR_MIN) && (addr <= LCD_IO_ADDR_MAX))
     {
         return ppu_.WriteLcdReg(addr, value, accessSize);
+    }
+    else if (addr == WAITCNT_ADDR)
+    {
+        return gamePak_->WriteWAITCNT(value);
+    }
+    else if ((addr >= INT_WTST_PWRDWN_IO_ADDR_MIN) && (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX))
+    {
+        return InterruptMgr.WriteIoReg(addr, value, accessSize);
     }
     else
     {
