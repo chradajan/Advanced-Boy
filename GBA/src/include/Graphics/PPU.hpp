@@ -51,6 +51,12 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VBlank(int extraCycles);
 
+    /// @brief Render a scanline in BG Mode 3.
+    void RenderMode3Scanline();
+
+    /// @brief Render a scanline in BG Mode 4.
+    void RenderMode4Scanline();
+
     // Frame status
     FrameBuffer frameBuffer_;
     int scanline_;
