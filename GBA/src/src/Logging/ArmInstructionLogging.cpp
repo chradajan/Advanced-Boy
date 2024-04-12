@@ -192,9 +192,96 @@ void Undefined::SetMnemonic()
 
 }
 
-void SingleDataTransfer::SetMnemonic()
+void SingleDataTransfer::SetMnemonic(uint32_t offset)
 {
+    std::string op = instruction_.flags.L ? "LDR" : "STR";
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    std::string xfer = instruction_.flags.B ? "B" : "";
+    op = op + cond + xfer;
+    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint8_t baseIndex = instruction_.flags.Rn;
+    std::string address;
+    std::string expression;
 
+    if (instruction_.flags.I)
+    {
+        std::string shiftExpression;
+        std::string shiftType;
+        uint8_t shiftRegIndex = instruction_.registerOffset.Rm;
+        uint8_t shiftAmount = instruction_.registerOffset.ShiftAmount;
+
+        // Shift operation
+        switch (instruction_.registerOffset.ShiftType)
+        {
+            case 0b00:
+                shiftType = "LSL";
+                break;
+            case 0b01:
+                shiftType = "LSR";
+                shiftAmount = (shiftAmount == 0) ? 32 : shiftAmount;
+                break;
+            case 0b10:
+                shiftType = "ASR";
+                shiftAmount = (shiftAmount == 0) ? 32 : shiftAmount;
+                break;
+            case 0b11:
+                shiftType = (shiftAmount == 0) ? "RRX" : "ROR";
+                break;
+        }
+
+        if (shiftType == "RRX")
+        {
+            shiftExpression = std::format("R{}, RRX", shiftRegIndex);
+        }
+        else if ((shiftType == "LSL") && (shiftAmount == 0))
+        {
+            shiftExpression = std::format("R{}", shiftRegIndex);
+        }
+        else
+        {
+            shiftExpression = std::format("R{}, {} #{}", shiftRegIndex, shiftType, shiftAmount);
+        }
+
+        expression = std::format("{}{}", instruction_.flags.U ? "" : "-", shiftExpression);
+    }
+    else
+    {
+        if (offset == 0)
+        {
+            expression = "";
+        }
+        else
+        {
+            expression = std::format("#{}{}", instruction_.flags.U ? "" : "-", offset);
+        }
+    }
+
+    if (instruction_.flags.P)
+    {
+        // Pre-indexed
+        if (expression == "")
+        {
+            address = std::format("[R{}]", baseIndex);
+        }
+        else
+        {
+            address = std::format("[R{}, {}]{}", baseIndex, expression, instruction_.flags.W ? "!" : "");
+        }
+    }
+    else
+    {
+        // Post-indexed
+        if (expression == "")
+        {
+            address = std::format("[R{}]", baseIndex);
+        }
+        else
+        {
+            address = std::format("[R{}], {}", baseIndex, expression);
+        }
+    }
+
+    mnemonic_ = std::format("{:08X} -> {} R{}, {}", instruction_.word, op, srcDestIndex, address);
 }
 
 void SingleDataSwap::SetMnemonic()
@@ -334,12 +421,12 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
     else
     {
         std::string shiftType;
-        bool const shiftByReg = instruction_.flags.Operand2 & 0x10;
-        bool const isRRX = !shiftByReg && (instruction_.shiftRegByImm.ShiftAmount == 0);
+        bool shiftByReg = instruction_.flags.Operand2 & 0x10;
+        bool isRRX = !shiftByReg && (instruction_.shiftRegByImm.ShiftAmount == 0);
 
-        uint8_t const Rm = instruction_.shiftRegByReg.Rm;
-        uint8_t const Rs = instruction_.shiftRegByReg.Rs;
-        uint8_t const shiftAmount = instruction_.shiftRegByImm.ShiftAmount;
+        uint8_t Rm = instruction_.shiftRegByReg.Rm;
+        uint8_t Rs = instruction_.shiftRegByReg.Rs;
+        uint8_t shiftAmount = instruction_.shiftRegByImm.ShiftAmount;
 
         switch (instruction_.shiftRegByReg.ShiftType)
         {
@@ -348,9 +435,11 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
                 break;
             case 0b01:
                 shiftType = "LSR";
+                shiftAmount = (shiftAmount == 0) ? 32 : shiftAmount;
                 break;
             case 0b10:
                 shiftType = "ASR";
+                shiftAmount = (shiftAmount == 0) ? 32 : shiftAmount;
                 break;
             case 0b11:
                 shiftType = isRRX ? "RRX" : "ROR";

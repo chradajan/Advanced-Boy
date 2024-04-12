@@ -137,7 +137,7 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
 
     if (!cpu.ArmConditionMet(instruction_.flags.Cond))
     {
-        return cycles;
+        return 1;
     }
 
     uint32_t newPC = cpu.registers_.ReadRegister(instruction_.flags.Rn);
@@ -170,7 +170,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
     if (!cpu.ArmConditionMet(instruction_.flags.Cond))
     {
-        return cycles;
+        return 1;
     }
 
     uint16_t regList = instruction_.flags.RegisterList;
@@ -284,11 +284,6 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
 int Branch::Execute(ARM7TDMI& cpu)
 {
-    // Branch instructions contain a signed 2's complement 24 bit offset. This is shifted left
-    // two bits, sign extended to 32 bits, and added to the PC. The instruction can therefore
-    // specify a branch of +/- 32Mbytes. The branch offset must take account of the prefetch
-    // operation, which causes the PC to be 2 words (8 bytes) ahead of the current
-    // instruction.
     int32_t signedOffset = instruction_.flags.Offset << 2;
 
     if (signedOffset & 0x0200'0000)
@@ -303,20 +298,18 @@ int Branch::Execute(ARM7TDMI& cpu)
         SetMnemonic(newPC);
     }
 
-    if (cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
     {
-        // Branch with Link (BL) writes the old PC into the link register (R14) of the current bank.
-        // The PC value written into R14 is adjusted to allow for the prefetch, and contains the
-        // address of the instruction following the branch and link instruction. Note that the CPSR
-        // is not saved with the PC and R14[1:0] are always cleared.
-        if (instruction_.flags.L)
-        {
-            cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
-        }
-
-        cpu.registers_.SetPC(newPC);
-        cpu.flushPipeline_ = true;
+        return 1;
     }
+
+    if (instruction_.flags.L)
+    {
+        cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
+    }
+
+    cpu.registers_.SetPC(newPC);
+    cpu.flushPipeline_ = true;
 
     return 1;
 }
@@ -335,8 +328,130 @@ int Undefined::Execute(ARM7TDMI& cpu)
 
 int SingleDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataTransfer");
+    int cycles = 1;
+
+    uint8_t baseIndex = instruction_.flags.Rn;
+    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint32_t offset;
+
+    if (!instruction_.flags.I)
+    {
+        offset = instruction_.flags.Offset;
+    }
+    else
+    {
+        uint8_t shiftAmount = instruction_.registerOffset.ShiftAmount;
+        offset = cpu.registers_.ReadRegister(instruction_.registerOffset.Rm);
+
+        switch (instruction_.registerOffset.ShiftType)
+        {
+            case 0b00:  // LSL
+                offset <<= shiftAmount;
+                break;
+            case 0b01:  // LSR
+                offset = (shiftAmount == 0) ? 0 : (offset >> shiftAmount);
+                break;
+            case 0b10:  // ASR
+            {
+                bool msbSet = offset & 0x8000'0000;
+
+                if (shiftAmount == 0)
+                {
+                    offset = msbSet ? 0xFFFF'FFFF : 0;
+                }
+                else
+                {
+                    for (int i = 0; i < shiftAmount; ++i)
+                    {
+                        offset >>= 1;
+                        offset |= (msbSet ? 0x8000'0000 : 0);
+                    }
+                }
+
+                break;
+            }
+            case 0b11:  // ROR, RRX
+            {
+                if (shiftAmount == 0)
+                {
+                    offset >>= 1;
+                    offset |= (cpu.registers_.IsCarry() ? 0x8000'0000 : 0);
+                }
+                else
+                {
+                    offset = std::rotr(offset, shiftAmount);
+                }
+                break;
+            }
+        }
+    }
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(offset);
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    int32_t signedOffset = (instruction_.flags.U ? offset : -offset);
+    uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
+    bool preIndex = instruction_.flags.P;
+    bool postIndex = !preIndex;
+
+    if (preIndex)
+    {
+        addr += signedOffset;
+    }
+
+    if (instruction_.flags.L)
+    {
+        // Load
+        int accessSize = instruction_.flags.B ? 1 : 4;
+        auto [value, readCycles] = cpu.ReadMemory(addr, accessSize);
+        cycles += readCycles;
+
+        cpu.registers_.WriteRegister(srcDestIndex, value);
+
+        if (srcDestIndex == PC_INDEX)
+        {
+            cpu.flushPipeline_ = true;
+            ++cycles;
+        }
+    }
+    else
+    {
+        // Store
+        uint32_t value = cpu.registers_.ReadRegister(srcDestIndex);
+        int accessSize = 4;
+
+        if (srcDestIndex == PC_INDEX)
+        {
+            value += 4;
+        }
+
+        if (instruction_.flags.B)
+        {
+            value &= MAX_U8;
+            accessSize = 1;
+        }
+
+        cycles += cpu.WriteMemory(addr, value, accessSize);
+    }
+
+    if (postIndex)
+    {
+        addr += signedOffset;
+    }
+
+    if (instruction_.flags.W)
+    {
+        cpu.registers_.WriteRegister(baseIndex, addr);
+    }
+
+    return cycles;
 }
 
 int SingleDataSwap::Execute(ARM7TDMI& cpu)
@@ -370,6 +485,11 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
     if constexpr (Config::LOGGING_ENABLED)
     {
         SetMnemonic(unsignedOffset);
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
     }
 
     if (preIndex)
@@ -462,6 +582,11 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
     if constexpr (Config::LOGGING_ENABLED)
     {
         SetMnemonic(unsignedOffset);
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
     }
 
     if (preIndex)
@@ -704,7 +829,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     if (!cpu.ArmConditionMet(instruction_.flags.Cond))
     {
-        return cycles;
+        return 1;
     }
 
     uint32_t result = 0;

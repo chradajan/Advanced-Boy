@@ -244,7 +244,8 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param offset Offset to add/subtract to base address.
+    void SetMnemonic(uint32_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
@@ -267,6 +268,15 @@ private:
             uint32_t : 2;
             uint32_t Cond : 4;
         } flags;
+
+        struct
+        {
+            uint32_t Rm : 4;
+            uint32_t : 1;
+            uint32_t ShiftType : 2;
+            uint32_t ShiftAmount : 5;
+            uint32_t : 20;
+        } registerOffset;
 
         uint32_t word;
     } instruction_;
