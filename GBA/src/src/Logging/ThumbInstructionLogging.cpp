@@ -41,9 +41,10 @@ void LongBranchWithLink::SetMnemonic(uint32_t newPC)
     }
 }
 
-void AddOffsetToStackPointer::SetMnemonic()
+void AddOffsetToStackPointer::SetMnemonic(uint16_t offset)
 {
-
+    std::string imm = std::format("#{}{}", instruction_.flags.S ? "-" : "", offset);
+    mnemonic_ = std::format("{:04X} -> ADD SP, {}", instruction_.halfword, imm);
 }
 
 void PushPopRegisters::SetMnemonic()

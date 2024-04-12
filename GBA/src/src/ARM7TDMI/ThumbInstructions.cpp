@@ -221,7 +221,11 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
 
         uint32_t lr = cpu.registers_.GetPC() + offset;
         cpu.registers_.WriteRegister(LR_INDEX, lr);
-        SetMnemonic(0);
+
+        if constexpr (Config::LOGGING_ENABLED)
+        {
+            SetMnemonic(0);
+        }
     }
     else
     {
@@ -231,7 +235,10 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t newPC = cpu.registers_.ReadRegister(LR_INDEX) + offset;
         uint32_t lr = (cpu.registers_.GetPC() - 2) | 0x01;
 
-        SetMnemonic(newPC);
+        if constexpr (Config::LOGGING_ENABLED)
+        {
+            SetMnemonic(newPC);
+        }
 
         cpu.registers_.WriteRegister(LR_INDEX, lr);
         cpu.registers_.SetPC(newPC);
@@ -243,8 +250,18 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
 
 int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_AddOffsetToStackPointer");
+    uint16_t offset = instruction_.flags.SWord7;
+    offset <<= 2;
+    int16_t signedOffset = instruction_.flags.S ? -offset : offset;
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic(offset);
+    }
+
+    uint32_t sp = cpu.registers_.GetSP();
+    cpu.registers_.WriteRegister(SP_INDEX, sp + signedOffset);
+    return 1;
 }
 
 int PushPopRegisters::Execute(ARM7TDMI& cpu)
