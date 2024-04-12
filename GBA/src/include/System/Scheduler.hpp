@@ -11,6 +11,9 @@ constexpr int SCHEDULE_NOW = 0;
 ///        the same time (lower value = higher priority).
 enum class EventType
 {
+    // External
+    REFRESH_SCREEN,
+
     // Interrupts
     IRQ,
 

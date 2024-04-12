@@ -14,7 +14,7 @@
 
 namespace fs = std::filesystem;
 
-GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
+GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)> refreshScreenCallback) :
     cpu_(std::bind(&ReadMemory,  this, std::placeholders::_1, std::placeholders::_2),
          std::bind(&WriteMemory, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
     ppu_(paletteRAM_, VRAM_, OAM_),
@@ -26,6 +26,8 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     {
         Logging::InitializeLogging();
     }
+
+    Scheduler.RegisterEvent(EventType::REFRESH_SCREEN, refreshScreenCallback);
 }
 
 bool GameBoyAdvance::LoadGamePak(fs::path romPath)

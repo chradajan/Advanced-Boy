@@ -1,22 +1,21 @@
 #include <AdvancedBoy.hpp>
+#include <MainWindow.hpp>
+#include <EmuThread.hpp>
+#include <QtCore/QtCore>
+#include <QtWidgets/QApplication>
 
 int main(int argc, char** argv)
 {
-    Initialize("");
-    bool gamePakSuccessfullyLoaded = false;
+    QApplication app(argc, argv);
 
-    if (argc > 1)
-    {
-        gamePakSuccessfullyLoaded = InsertCartridge(argv[1]);
-    }
+    MainWindow mainWindow;
+    EmuThread* gbaThread = new EmuThread(argc, argv, mainWindow);
 
-    if (gamePakSuccessfullyLoaded)
-    {
-        while (true)
-        {
-            PowerOn();
-        }
-    }
+    gbaThread->start();
+    mainWindow.show();
+    app.exec();
+
+    delete gbaThread;
 
     return 0;
 }

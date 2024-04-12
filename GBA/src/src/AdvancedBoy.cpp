@@ -1,6 +1,7 @@
 #include <AdvancedBoy.hpp>
 #include <System/GameBoyAdvance.hpp>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 
@@ -12,10 +13,10 @@ bool gamePakLoaded;
 
 // Public header definitions
 
-void Initialize(fs::path biosPath)
+void Initialize(fs::path biosPath, std::function<void(int)> refreshScreenCallback)
 {
     gba.reset();
-    gba = std::make_unique<GameBoyAdvance>(biosPath);
+    gba = std::make_unique<GameBoyAdvance>(biosPath, refreshScreenCallback);
 }
 
 bool InsertCartridge(fs::path romPath)

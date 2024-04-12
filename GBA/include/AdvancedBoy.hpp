@@ -2,12 +2,14 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 
 namespace fs = std::filesystem;
 
 /// @brief Initialize the GBA before use.
 /// @param[in] biosPath Path to GBA BIOS file.
-void Initialize(fs::path biosPath);
+/// @param[in] refreshScreenCallback Function callback to use when screen is ready to be refreshed.
+void Initialize(fs::path biosPath, std::function<void(int)> refreshScreenCallback);
 
 /// @brief Load a GBA ROM.
 /// @param[in] romPath GBA ROM file to be loaded.

@@ -7,6 +7,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 
 namespace fs = std::filesystem;
@@ -16,7 +17,8 @@ class GameBoyAdvance
 public:
     /// @brief Initialize the Game Boy Advance.
     /// @param biosPath Path to GBA BIOS file.
-    GameBoyAdvance(fs::path biosPath);
+    /// @param refreshScreenCallback Function callback to use when screen is ready to be refreshed.
+    GameBoyAdvance(fs::path biosPath, std::function<void(int)> refreshScreenCallback);
 
     GameBoyAdvance() = delete;
     GameBoyAdvance(GameBoyAdvance const&) = delete;

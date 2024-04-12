@@ -108,6 +108,22 @@ void PPU::VDraw(int extraCycles)
     // Event Scheduling
     int cyclesUntilHBlank = 960 - extraCycles;
     Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
+}
+
+void PPU::HBlank(int extraCycles)
+{
+    // HBlank register updates
+    lcdStatus_.flags_.hBlank = 1;
+
+    if (lcdStatus_.flags_.hBlankIrqEnable)
+    {
+        InterruptMgr.RequestInterrupt(InterruptType::LCD_HBLANK);
+    }
+
+    // Event scheduling
+    int cyclesUntilNextEvent = 272 - extraCycles;
+    EventType nextEvent = (scanline_ == 159) ? EventType::VBlank : EventType::VDraw;
+    Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
 
     // Draw scanline
     uint8_t bgMode = lcdControl_.flags_.bgMode;
@@ -125,22 +141,6 @@ void PPU::VDraw(int extraCycles)
     }
 }
 
-void PPU::HBlank(int extraCycles)
-{
-    // HBlank register updates
-    lcdStatus_.flags_.hBlank = 1;
-
-    if (lcdStatus_.flags_.hBlankIrqEnable)
-    {
-        InterruptMgr.RequestInterrupt(InterruptType::LCD_HBLANK);
-    }
-
-    // Event scheduling
-    int cyclesUntilNextEvent = 272 - extraCycles;
-    EventType nextEvent = (scanline_ == 159) ? EventType::VBlank : EventType::VDraw;
-    Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
-}
-
 void PPU::VBlank(int extraCycles)
 {
     // VBlank register updates
@@ -148,9 +148,16 @@ void PPU::VBlank(int extraCycles)
     lcdStatus_.flags_.vBlank = 1;
     verticalCounter_.flags_.currentScanline = scanline_;
 
-    if (lcdStatus_.flags_.vBlankIrqEnable)
+    if (scanline_ == 160)
     {
-        InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
+        // First time entering VBlank
+        Scheduler.ScheduleEvent(EventType::REFRESH_SCREEN, SCHEDULE_NOW);
+        frameBuffer_.ResetFrameIndex();
+
+        if (lcdStatus_.flags_.vBlankIrqEnable)
+        {
+            InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
+        }
     }
 
     if (scanline_ == lcdStatus_.flags_.vCountSetting)
