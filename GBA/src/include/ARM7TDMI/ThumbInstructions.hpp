@@ -75,6 +75,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param newPC New PC to branch to.
     void SetMnemonic(uint32_t newPC);
 
     static constexpr uint16_t FORMAT =      0b1110'0000'0000'0000;
@@ -114,6 +115,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param newPC New PC to branch to.
     void SetMnemonic(uint32_t newPC);
 
     static constexpr uint16_t FORMAT =      0b1101'0000'0000'0000;
@@ -195,7 +197,8 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param value New PC value to branch to when H=1.
+    void SetMnemonic(uint32_t newPC);
 
     static constexpr uint16_t FORMAT =      0b1111'0000'0000'0000;
     static constexpr uint16_t FORMAT_MASK = 0b1111'0000'0000'0000;
@@ -400,6 +403,8 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param destIndex Register index to store address.
+    /// @param offset Offset added to PC/SP.
     void SetMnemonic(uint8_t destIndex, uint16_t offset);
 
     static constexpr uint16_t FORMAT =      0b1010'0000'0000'0000;
@@ -612,6 +617,8 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param destIndex Register index to save result to.
+    /// @param srcIndex Register index source of operand.
     void SetMnemonic(uint8_t destIndex, uint8_t srcIndex);
 
     static constexpr uint16_t FORMAT =      0b0100'0100'0000'0000;

@@ -176,8 +176,6 @@ int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 
 int ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     int16_t signedOffset = instruction_.flags.SOffset8 << 1;
 
     if (signedOffset & 0x0100)
@@ -198,7 +196,7 @@ int ConditionalBranch::Execute(ARM7TDMI& cpu)
         cpu.flushPipeline_ = true;
     }
 
-    return cycles;
+    return 1;
 }
 
 int MultipleLoadStore::Execute(ARM7TDMI& cpu)
@@ -209,8 +207,38 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
 
 int LongBranchWithLink::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_LongBranchWithLink");
+    uint32_t offset = instruction_.flags.Offset;
+
+    if (!instruction_.flags.H)
+    {
+        // Instruction 1
+        offset <<= 12;
+
+        if (offset & 0x0040'0000)
+        {
+            offset |= 0xFF80'0000;
+        }
+
+        uint32_t lr = cpu.registers_.GetPC() + offset;
+        cpu.registers_.WriteRegister(LR_INDEX, lr);
+        SetMnemonic(0);
+    }
+    else
+    {
+        // Instruction 2
+        offset <<= 1;
+
+        uint32_t newPC = cpu.registers_.ReadRegister(LR_INDEX) + offset;
+        uint32_t lr = (cpu.registers_.GetPC() - 2) | 0x01;
+
+        SetMnemonic(newPC);
+
+        cpu.registers_.WriteRegister(LR_INDEX, lr);
+        cpu.registers_.SetPC(newPC);
+        cpu.flushPipeline_ = true;
+    }
+
+    return 1;
 }
 
 int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)

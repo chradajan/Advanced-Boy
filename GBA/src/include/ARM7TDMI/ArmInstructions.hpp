@@ -430,6 +430,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param offset Offset to add to transfer address.
     void SetMnemonic(uint32_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
@@ -481,6 +482,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param offset Offset to add to transfer address.
     void SetMnemonic(uint8_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
@@ -629,6 +631,7 @@ public:
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param operand2 Second operand of data processing operation.
     void SetMnemonic(uint32_t operand2);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;

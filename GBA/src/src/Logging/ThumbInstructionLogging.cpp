@@ -27,9 +27,18 @@ void MultipleLoadStore::SetMnemonic()
 
 }
 
-void LongBranchWithLink::SetMnemonic()
+void LongBranchWithLink::SetMnemonic(uint32_t newPC)
 {
-
+    if (!instruction_.flags.H)
+    {
+        // Instruction 1
+        mnemonic_ = std::format("{:04X} -> BL", instruction_.halfword);
+    }
+    else
+    {
+        // Instruction 2
+        mnemonic_ = std::format("{:04X} -> BL 0x{:08X}", instruction_.halfword, newPC);
+    }
 }
 
 void AddOffsetToStackPointer::SetMnemonic()
