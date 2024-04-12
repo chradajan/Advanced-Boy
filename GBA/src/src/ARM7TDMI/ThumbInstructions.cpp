@@ -297,7 +297,17 @@ int LoadAddress::Execute(ARM7TDMI& cpu)
         SetMnemonic(destIndex, offset);
     }
 
-    uint32_t addr = instruction_.flags.SP ? cpu.registers_.GetSP() : cpu.registers_.GetPC();
+    uint32_t addr;
+
+    if (instruction_.flags.SP)
+    {
+        addr = cpu.registers_.GetSP();
+    }
+    else
+    {
+        addr = (cpu.registers_.GetPC() & 0xFFFF'FFFD);
+    }
+
     addr += offset;
     cpu.registers_.WriteRegister(destIndex, addr);
     return 1;
