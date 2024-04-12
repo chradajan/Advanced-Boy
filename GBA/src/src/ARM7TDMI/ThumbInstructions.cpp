@@ -419,13 +419,13 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
             if (newPC & 0x01)
             {
                 cpu.registers_.SetOperatingState(OperatingState::THUMB);
-                newPC &= 0xFFFF'FFFE;
             }
             else
             {
                 cpu.registers_.SetOperatingState(OperatingState::ARM);
-                newPC &= 0xFFFF'FFFC;
             }
+
+            cpu.registers_.WriteRegister(PC_INDEX, newPC);
 
             break;
         }
