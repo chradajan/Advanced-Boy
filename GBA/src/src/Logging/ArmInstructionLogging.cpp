@@ -243,7 +243,7 @@ void SingleDataTransfer::SetMnemonic(uint32_t offset)
             shiftExpression = std::format("R{}, {} #{}", shiftRegIndex, shiftType, shiftAmount);
         }
 
-        expression = std::format("{}{}", instruction_.flags.U ? "" : "-", shiftExpression);
+        expression = std::format("{}{}", instruction_.flags.U ? "+" : "-", shiftExpression);
     }
     else
     {
@@ -253,7 +253,7 @@ void SingleDataTransfer::SetMnemonic(uint32_t offset)
         }
         else
         {
-            expression = std::format("#{}{}", instruction_.flags.U ? "" : "-", offset);
+            expression = std::format("#{}{}", instruction_.flags.U ? "+" : "-", offset);
         }
     }
 

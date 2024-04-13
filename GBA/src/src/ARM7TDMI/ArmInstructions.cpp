@@ -572,7 +572,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    uint32_t unsignedOffset = (instruction_.flags.Rm);
+    uint32_t unsignedOffset = cpu.registers_.ReadRegister(instruction_.flags.Rm);
     int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
     bool preIndex = instruction_.flags.P;
     bool postIndex = !preIndex;

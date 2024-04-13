@@ -73,6 +73,9 @@ std::pair<uint8_t*, int> GameBoyAdvance::GetPointerToMem(uint32_t addr, uint8_t 
     size_t adjustedIndex = 0;
     size_t maxIndex = 0;
 
+    // Force align address
+    addr &= (accessSize == 4) ? 0xFFFF'FFFC : 0xFFFF'FFFE;
+
     // TODO Implement actual access times
     int cycles = 1;
 
