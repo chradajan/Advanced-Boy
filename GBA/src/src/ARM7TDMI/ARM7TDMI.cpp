@@ -50,7 +50,7 @@ int ARM7TDMI::Tick()
 
         if constexpr (Config::LOGGING_ENABLED)
         {
-            Logging::LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
+            Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
         }
     }
 

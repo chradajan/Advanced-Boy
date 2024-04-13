@@ -22,11 +22,6 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     gamePakLoaded_(false),
     ppuCatchupCycles_(0)
 {
-    if constexpr (Config::LOGGING_ENABLED)
-    {
-        Logging::InitializeLogging();
-    }
-
     Scheduler.RegisterEvent(EventType::REFRESH_SCREEN, refreshScreenCallback);
 }
 
@@ -48,8 +43,17 @@ void GameBoyAdvance::Run()
 
     while (true)
     {
-        int cpuCycles = cpu_.Tick();
-        Scheduler.Tick(cpuCycles);
+        try
+        {
+            int cpuCycles = cpu_.Tick();
+            Scheduler.Tick(cpuCycles);
+        }
+        catch (std::runtime_error const& error)
+        {
+            Logging::LogMgr.LogException(error);
+            Logging::LogMgr.DumpLogs();
+            throw;
+        }
     }
 }
 

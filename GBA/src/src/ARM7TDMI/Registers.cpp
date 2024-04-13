@@ -200,7 +200,7 @@ std::string Registers::GetRegistersString() const
     std::stringstream regStream;
     bool const isThumbState = GetOperatingState() == OperatingState::THUMB;
 
-    for (int i = 0; i < 15; ++i)
+    for (int i = 0; i < 16; ++i)
     {
         regStream << std::format("r{} {:08X}  ", i, ReadRegister(i));
     }
