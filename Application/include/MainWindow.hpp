@@ -25,6 +25,9 @@ private:
     /// @brief Initialize the central widget used to display LCD output.
     void InitializeLCD();
 
+    /// @brief Resize the window to a fixed size based on window scale property.
+    void ResizeWindow();
+
     // Menu bar drop downs
     QMenu* fileMenu_;
     QMenu* emulationMenu_;
@@ -32,4 +35,5 @@ private:
 
     // Display
     QLabel lcd_;
+    int screenScale_;
 };

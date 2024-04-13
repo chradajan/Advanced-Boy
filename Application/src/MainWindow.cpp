@@ -6,9 +6,10 @@
 
 MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
-    lcd_(this)
+    lcd_(this),
+    screenScale_(4)
 {
-    setMinimumSize(240, 160);
+    ResizeWindow();
     InitializeMenuBar();
     InitializeLCD();
 }
@@ -25,8 +26,17 @@ void MainWindow::InitializeLCD()
     setCentralWidget(&lcd_);
 }
 
+void MainWindow::ResizeWindow()
+{
+    int width = 240 * screenScale_;
+    int lcdHeight = 160 * screenScale_;
+    int windowHeight = menuBar()->height() + lcdHeight;
+    setFixedSize(width, windowHeight);
+    lcd_.resize(width, lcdHeight);
+}
+
 void MainWindow::RefreshScreen()
 {
     auto image = QImage(GetRawFrameBuffer(), 240, 160, QImage::Format_RGB888);
-    lcd_.setPixmap(QPixmap::fromImage(image).scaled(240, 160));
+    lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
 }
