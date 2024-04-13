@@ -45,7 +45,20 @@ int ARM7TDMI::Tick()
             regString = registers_.GetRegistersString();
         }
 
-        executionCycles = decodedInstruction_->Execute(*this);
+        try
+        {
+            executionCycles = decodedInstruction_->Execute(*this);
+        }
+        catch (std::runtime_error const& error)
+        {
+            if constexpr (Config::LOGGING_ENABLED)
+            {
+                Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
+            }
+
+            throw;
+        }
+
         instructionExecuted = true;
 
         if constexpr (Config::LOGGING_ENABLED)

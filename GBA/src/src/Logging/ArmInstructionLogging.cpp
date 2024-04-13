@@ -71,7 +71,7 @@ std::string HalfwordDataTransferHelper(bool load,
 /// @param regIndex Current index of register not included in operation.
 void BlockDataTransferHelper(std::stringstream& regStream, int consecutiveRegisters, uint8_t regIndex)
 {
-    if (consecutiveRegisters <= 3)
+    if (consecutiveRegisters <= 2)
     {
         for (int r = regIndex - consecutiveRegisters; r < regIndex; ++r)
         {
@@ -184,7 +184,8 @@ void Branch::SetMnemonic(uint32_t newPC)
 
 void SoftwareInterrupt::SetMnemonic()
 {
-
+    uint32_t comment = instruction_.flags.CommentField;
+    mnemonic_ = std::format("{:08X} -> SWI #{:06X}", instruction_.word, comment);
 }
 
 void Undefined::SetMnemonic()
@@ -291,7 +292,21 @@ void SingleDataSwap::SetMnemonic()
 
 void Multiply::SetMnemonic()
 {
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    std::string s = instruction_.flags.S ? "S" : "";
+    uint8_t rd = instruction_.flags.Rd;
+    uint8_t rm = instruction_.flags.Rm;
+    uint8_t rs = instruction_.flags.Rs;
+    uint8_t rn = instruction_.flags.Rn;
 
+    if (instruction_.flags.A)
+    {
+        mnemonic_ = std::format("{:08X} -> MLA{}{} R{}, R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs, rn);
+    }
+    else
+    {
+        mnemonic_ = std::format("{:08X} -> MUL{}{} R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs);
+    }
 }
 
 void MultiplyLong::SetMnemonic()
@@ -422,7 +437,7 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
     {
         std::string shiftType;
         bool shiftByReg = instruction_.flags.Operand2 & 0x10;
-        bool isRRX = !shiftByReg && (instruction_.shiftRegByImm.ShiftAmount == 0);
+        bool isRRX = !shiftByReg && (instruction_.shiftRegByImm.ShiftAmount == 0) && (instruction_.shiftRegByReg.ShiftType == 3);
 
         uint8_t Rm = instruction_.shiftRegByReg.Rm;
         uint8_t Rs = instruction_.shiftRegByReg.Rs;
@@ -457,6 +472,10 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
             if (isRRX)
             {
                 operand2Str = std::format("R{}, {}", Rm, shiftType);
+            }
+            else if ((shiftType == "LSL") && (instruction_.shiftRegByImm.ShiftAmount == 0))
+            {
+                operand2Str = std::format("R{}", Rm);
             }
             else
             {

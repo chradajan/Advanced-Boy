@@ -4,6 +4,7 @@
 #include <Config.hpp>
 #include <MemoryMap.hpp>
 #include <bit>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -54,7 +55,17 @@ std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
 /// @return Pair of {carry_flag, overflow_flag}.
 std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
 {
-    uint64_t result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2) + static_cast<uint64_t>(carry);
+    uint64_t result64;
+
+    if (carry)
+    {
+        result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2) + static_cast<uint64_t>(carry);
+    }
+    else
+    {
+        result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2 + 1);
+    }
+
     result = result64 & MAX_U32;
     bool c = op1 >= op2;
     bool v = SubtractionOverflow(op1, op2, result);
@@ -316,8 +327,40 @@ int Branch::Execute(ARM7TDMI& cpu)
 
 int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
+    // Until BIOS support is added, implement BIOS calls by HLE.
+
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    switch (instruction_.flags.CommentField)
+    {
+        case 0x060000:  // Signed division
+        {
+            int32_t r0 = cpu.registers_.ReadRegister(0);
+            int32_t r1 = cpu.registers_.ReadRegister(1);
+
+            int32_t quotient = r0 / r1;
+            int32_t mod = r0 % r1;
+            uint32_t absQuotient = std::abs(quotient);
+
+            cpu.registers_.WriteRegister(0, quotient);
+            cpu.registers_.WriteRegister(1, mod);
+            cpu.registers_.WriteRegister(3, absQuotient);
+            break;
+        }
+        default:
+            throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
+
+    }
+
+    return 1;
 }
 
 int Undefined::Execute(ARM7TDMI& cpu)
@@ -446,7 +489,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W)
+    if (instruction_.flags.W || postIndex)
     {
         cpu.registers_.WriteRegister(baseIndex, addr);
     }
@@ -462,8 +505,61 @@ int SingleDataSwap::Execute(ARM7TDMI& cpu)
 
 int Multiply::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_Multiply");
+    if constexpr (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint32_t rm = cpu.registers_.ReadRegister(instruction_.flags.Rm);
+    uint32_t rs = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint32_t rn = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    int64_t result;
+
+    int cycles;
+
+    if (((rs & 0xFFFF'FF00) == 0xFFFF'FF00) || ((rs & 0xFFFF'FF00) == 0))
+    {
+        cycles = 1;
+    }
+    else if (((rs & 0xFFFF'0000) == 0xFFFF'0000) || ((rs & 0xFFFF'0000) == 0))
+    {
+        cycles = 2;
+    }
+    else if (((rs & 0xFF00'0000) == 0xFF00'0000) || ((rs & 0xFF00'0000) == 0))
+    {
+        cycles = 3;
+    }
+    else
+    {
+        cycles = 4;
+    }
+
+    if (instruction_.flags.A)
+    {
+        // MLA
+        result = (rm * rs) + rn;
+        ++cycles;
+    }
+    else
+    {
+        // MUL
+        result = rm * rs;
+    }
+
+    if (instruction_.flags.S)
+    {
+        cpu.registers_.SetNegative(result & 0x8000'0000);
+        cpu.registers_.SetZero(result == 0);
+    }
+
+    cpu.registers_.WriteRegister(destIndex, result & MAX_U32);
+    return cycles;
 }
 
 int MultiplyLong::Execute(ARM7TDMI& cpu)
@@ -561,7 +657,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W)
+    if (instruction_.flags.W || postIndex)
     {
         cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
     }
@@ -658,7 +754,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W)
+    if (instruction_.flags.W || postIndex)
     {
         cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
     }
