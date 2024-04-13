@@ -14,9 +14,19 @@ EmuThread::EmuThread(int argc, char** argv, MainWindow const& mainWindow)
 
     gamePakSuccessfullyLoaded_ = false;
 
-    if (argc > 1)
+    for (int i = 1; i < argc; ++i)
     {
-        gamePakSuccessfullyLoaded_ = InsertCartridge(argv[1]);
+        switch (i)
+        {
+            case 1:
+                gamePakSuccessfullyLoaded_ = InsertCartridge(argv[1]);
+                break;
+            case 2:
+                EnableLogging(static_cast<bool>(argv[2]));
+                break;
+            default:
+                break;
+        }
     }
 }
 

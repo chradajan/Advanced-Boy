@@ -24,3 +24,7 @@ void PowerOn();
 /// @return Raw pointer to frame buffer.
 /// @pre Initialize must have been previously called.
 uint8_t* GetRawFrameBuffer();
+
+/// @brief Enable/Disable logging of CPU instructions.
+/// @param enable Whether to enable or disable logging.
+void EnableLogging(bool enable);

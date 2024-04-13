@@ -1,4 +1,6 @@
 #include <AdvancedBoy.hpp>
+#include <Config.hpp>
+#include <Logging/Logging.hpp>
 #include <System/GameBoyAdvance.hpp>
 #include <filesystem>
 #include <functional>
@@ -48,4 +50,14 @@ uint8_t* GetRawFrameBuffer()
     }
 
     return gba->GetRawFrameBuffer();
+}
+
+void EnableLogging(bool enable)
+{
+    Config::LOGGING_ENABLED = enable;
+
+    if (enable)
+    {
+        Logging::LogMgr.Initialize();
+    }
 }

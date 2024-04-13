@@ -20,8 +20,11 @@ std::string ConditionMnemonic(uint8_t condition);
 class LogManager
 {
 public:
-    /// @brief Initialize Logging if enabled in config.
+    /// @brief Initialize with logging disabled.
     LogManager();
+
+    /// @brief Initialize LogManager and prepare to log.
+    void Initialize();
 
     /// @brief Save a logged instruction into buffer.
     /// @param pc PC value of logged instruction.

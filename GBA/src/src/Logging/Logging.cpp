@@ -18,9 +18,13 @@ LogManager::LogManager() :
     bufferIndex_(0),
     loggingInitialized_(false)
 {
+}
+
+void LogManager::Initialize()
+{
     logPath_ = LOG_PATH;
 
-    if (!logPath_.empty() && Config::LOGGING_ENABLED)
+    if (!logPath_.empty() && Config::LOGGING_ENABLED && !loggingInitialized_)
     {
         if (!fs::exists(logPath_))
         {

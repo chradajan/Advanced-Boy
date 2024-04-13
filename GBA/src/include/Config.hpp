@@ -12,8 +12,7 @@ namespace fs = std::filesystem;
 
 namespace Config
 {
-constexpr bool LOGGING_ENABLED = true;
+inline bool LOGGING_ENABLED;
 constexpr size_t LOG_BUFFER_SIZE = 20000;
-
 constexpr bool ASSERTS_ENABLED = true;
 }

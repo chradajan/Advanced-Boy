@@ -39,7 +39,7 @@ int ARM7TDMI::Tick()
         uint32_t loggedPC;
         std::string regString;
 
-        if constexpr (Config::LOGGING_ENABLED)
+        if (Config::LOGGING_ENABLED)
         {
             loggedPC = isArmState ? registers_.GetPC() - 8 : registers_.GetPC() - 4;
             regString = registers_.GetRegistersString();
@@ -51,7 +51,7 @@ int ARM7TDMI::Tick()
         }
         catch (std::runtime_error const& error)
         {
-            if constexpr (Config::LOGGING_ENABLED)
+            if (Config::LOGGING_ENABLED)
             {
                 Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
             }
@@ -61,7 +61,7 @@ int ARM7TDMI::Tick()
 
         instructionExecuted = true;
 
-        if constexpr (Config::LOGGING_ENABLED)
+        if (Config::LOGGING_ENABLED)
         {
             Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
         }

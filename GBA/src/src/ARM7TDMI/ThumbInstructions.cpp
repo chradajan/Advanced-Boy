@@ -163,7 +163,7 @@ int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(newPC);
     }
@@ -185,7 +185,7 @@ int ConditionalBranch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(newPC);
     }
@@ -222,7 +222,7 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t lr = cpu.registers_.GetPC() + offset;
         cpu.registers_.WriteRegister(LR_INDEX, lr);
 
-        if constexpr (Config::LOGGING_ENABLED)
+        if (Config::LOGGING_ENABLED)
         {
             SetMnemonic(0);
         }
@@ -235,7 +235,7 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t newPC = cpu.registers_.ReadRegister(LR_INDEX) + offset;
         uint32_t lr = (cpu.registers_.GetPC() - 2) | 0x01;
 
-        if constexpr (Config::LOGGING_ENABLED)
+        if (Config::LOGGING_ENABLED)
         {
             SetMnemonic(newPC);
         }
@@ -254,7 +254,7 @@ int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
     offset <<= 2;
     int16_t signedOffset = instruction_.flags.S ? -offset : offset;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(offset);
     }
@@ -274,7 +274,7 @@ int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -309,7 +309,7 @@ int LoadAddress::Execute(ARM7TDMI& cpu)
     uint8_t destIndex = instruction_.flags.Rd;
     uint16_t offset = (instruction_.flags.Word8 << 2);
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(destIndex, offset);
     }
@@ -369,7 +369,7 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         srcIndex += 8;
     }
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(destIndex, srcIndex);
     }
@@ -438,7 +438,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -634,7 +634,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 
 int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -684,7 +684,7 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 
 int AddSubtract::Execute(ARM7TDMI& cpu)
 {
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -715,7 +715,7 @@ int AddSubtract::Execute(ARM7TDMI& cpu)
 
 int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }

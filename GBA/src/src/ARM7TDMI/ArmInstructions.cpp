@@ -141,7 +141,7 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -174,7 +174,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
     int cycles = 1;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -304,7 +304,7 @@ int Branch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(newPC);
     }
@@ -329,7 +329,7 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
     // Until BIOS support is added, implement BIOS calls by HLE.
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -429,7 +429,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(offset);
     }
@@ -505,7 +505,7 @@ int SingleDataSwap::Execute(ARM7TDMI& cpu)
 
 int Multiply::Execute(ARM7TDMI& cpu)
 {
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
     }
@@ -578,7 +578,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
     bool postIndex = !preIndex;
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(unsignedOffset);
     }
@@ -675,7 +675,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
     bool postIndex = !preIndex;
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(unsignedOffset);
     }
@@ -918,7 +918,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if constexpr (Config::LOGGING_ENABLED)
+    if (Config::LOGGING_ENABLED)
     {
         SetMnemonic(op2);
     }
