@@ -179,10 +179,10 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, int accessSize)
         switch (accessSize)
         {
             case 1:
-                *bytePtr = value;
+                *bytePtr = (value & MAX_U8);
                 break;
             case 2:
-                *reinterpret_cast<uint16_t*>(bytePtr) = value;
+                *reinterpret_cast<uint16_t*>(bytePtr) = (value & MAX_U16);
                 break;
             case 4:
                 *reinterpret_cast<uint32_t*>(bytePtr) = value;

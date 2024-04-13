@@ -80,7 +80,15 @@ void LoadStoreWithImmediateOffset::SetMnemonic()
 
 void LoadStoreWithRegisterOffset::SetMnemonic()
 {
+    std::string op = instruction_.flags.L ? "LDR" : "STR";
+    std::string b = instruction_.flags.B ? "B" : "";
+    op = op + b;
 
+    uint8_t ro = instruction_.flags.Ro;
+    uint8_t rb = instruction_.flags.Rb;
+    uint8_t rd = instruction_.flags.Rd;
+
+    mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, R{}]", instruction_.halfword, op, rd,  rb, ro);
 }
 
 void LoadStoreSignExtendedByteHalfword::SetMnemonic()

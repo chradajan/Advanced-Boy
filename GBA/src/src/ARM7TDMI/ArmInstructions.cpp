@@ -456,6 +456,11 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         auto [value, readCycles] = cpu.ReadMemory(addr, accessSize);
         cycles += readCycles;
 
+        if (addr & 0x03)
+        {
+            value = std::rotr(value, ((addr & 0x03) * 8));
+        }
+
         cpu.registers_.WriteRegister(srcDestIndex, value);
 
         if (srcDestIndex == PC_INDEX)
