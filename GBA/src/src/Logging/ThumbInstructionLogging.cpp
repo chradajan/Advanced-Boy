@@ -115,7 +115,9 @@ void HiRegisterOperationsBranchExchange::SetMnemonic(uint8_t destIndex, uint8_t 
 
 void PCRelativeLoad::SetMnemonic()
 {
-
+    uint8_t destIndex = instruction_.flags.Rd;
+    uint16_t offset = instruction_.flags.Word8 << 2;
+    mnemonic_ = std::format("{:04X} -> LDR R{}, [PC, #{}]",instruction_.halfword, destIndex, offset);
 }
 
 void ALUOperations::SetMnemonic()

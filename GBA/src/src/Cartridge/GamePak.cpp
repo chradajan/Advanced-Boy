@@ -12,7 +12,8 @@
 
 namespace Cartridge
 {
-GamePak::GamePak(fs::path const romPath)
+GamePak::GamePak(fs::path const romPath) :
+    WAITCNT_(0)
 {
     romLoaded_ = false;
 

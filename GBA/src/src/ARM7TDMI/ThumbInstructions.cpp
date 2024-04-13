@@ -350,8 +350,18 @@ int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 
 int PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_PCRelativeLoad");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    uint32_t addr = (cpu.registers_.GetPC() & 0xFFFF'FFFC) + (instruction_.flags.Word8 << 2);
+    auto [value, readCycles] = cpu.ReadMemory(addr, 4);
+    cycles += readCycles;
+    cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+    return cycles;
 }
 
 int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
