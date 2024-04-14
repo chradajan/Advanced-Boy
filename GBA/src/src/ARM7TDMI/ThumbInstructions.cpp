@@ -375,8 +375,21 @@ int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 
 int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreSignExtendedByteHalfword");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + cpu.registers_.ReadRegister(instruction_.flags.Ro);
+
+    if (instruction_.flags.S)
+    {
+        // Load sign extended byte/halfword
+    }
+
+    return cycles;
 }
 
 int PCRelativeLoad::Execute(ARM7TDMI& cpu)

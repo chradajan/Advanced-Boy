@@ -93,7 +93,31 @@ void LoadStoreWithRegisterOffset::SetMnemonic()
 
 void LoadStoreSignExtendedByteHalfword::SetMnemonic()
 {
+    uint8_t ro = instruction_.flags.Ro;
+    uint8_t rb = instruction_.flags.Rb;
+    uint8_t rd = instruction_.flags.Rd;
+    std::string regString = std::format("R{}, [R{}, R{}]", rd, rb, ro);
 
+    std::string op;
+    uint8_t sh = (instruction_.flags.S << 1) | (instruction_.flags.H);
+
+    switch (sh)
+    {
+        case 0b00:  // S = 0, H = 0
+            op = "STRH";
+            break;
+        case 0b01:  // S = 0, H = 1
+            op = "LDRH";
+            break;
+        case 0b10:  // S = 1, H = 0
+            op = "LDSB";
+            break;
+        case 0b11:  // S = 1, H = 1
+            op = "LDSH";
+            break;
+    }
+
+    mnemonic_ = std::format("{:04X} -> {} {}", instruction_.halfword, op, regString);
 }
 
 void HiRegisterOperationsBranchExchange::SetMnemonic(uint8_t destIndex, uint8_t srcIndex)
