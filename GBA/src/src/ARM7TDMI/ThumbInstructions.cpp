@@ -390,11 +390,76 @@ int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
     }
 
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + cpu.registers_.ReadRegister(instruction_.flags.Ro);
+    bool isLoad = false;
 
     if (instruction_.flags.S)
     {
-        // Load sign extended byte/halfword
+        uint32_t value;
+        int readCycles;
+        isLoad = true;
+        bool h = instruction_.flags.H;
+
+        if (h && (addr & 0x01))
+        {
+            // Convert LDRSH into LDRSB
+            h = false;
+        }
+
+        if (h)
+        {
+            // LDSH
+            std::tie(value, readCycles) = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+
+            if (value & 0x8000)
+            {
+                value |= 0xFFFF'0000;
+            }
+        }
+        else
+        {
+            // LDSB
+            std::tie(value, readCycles) = cpu.ReadMemory(addr, AccessSize::BYTE);
+
+            if (value & 0x80)
+            {
+                value |= 0xFFFF'FF00;
+            }
+        }
+
+        cycles += readCycles;
+        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
     }
+    else
+    {
+        if (instruction_.flags.H)
+        {
+            // LDRH
+            isLoad = true;
+            auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+            cycles += readCycles;
+
+            if (addr & 0x01)
+            {
+                value = std::rotr(value, 8);
+            }
+
+            cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        }
+        else
+        {
+            // STRH
+            uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+            int writeCycles = cpu.WriteMemory(addr, value, AccessSize::HALFWORD);
+            cycles += writeCycles;
+        }
+    }
+
+    if (isLoad)
+    {
+        ++cycles;
+        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
+    }
+
 
     return cycles;
 }
@@ -447,11 +512,7 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         {
             uint32_t result = cpu.registers_.ReadRegister(destIndex) + cpu.registers_.ReadRegister(srcIndex);
             cpu.registers_.WriteRegister(destIndex, result);
-
-            if (destIndex == PC_INDEX)
-            {
-                cpu.flushPipeline_ = true;
-            }
+            cpu.flushPipeline_ = (destIndex == PC_INDEX);
 
             break;
         }
@@ -471,11 +532,7 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         }
         case 0b10:  // MOV
             cpu.registers_.WriteRegister(destIndex, cpu.registers_.ReadRegister(srcIndex));
-
-            if (destIndex == PC_INDEX)
-            {
-                cpu.flushPipeline_ = true;
-            }
+            cpu.flushPipeline_ = (destIndex == PC_INDEX);
 
             break;
         case 0b11:  // BX
