@@ -55,11 +55,11 @@ public:
     /// @brief Advance the PC by either 2 or 4 depending on current operating state.
     void AdvancePC() { systemAndUserRegisters_.r15_ += (GetOperatingState() == OperatingState::ARM) ? 4 : 2; }
 
-    /// @brief Get the current stack pointer. Only intended for use in THUMB mode.
+    /// @brief Get the current stack pointer.
     /// @return Value of stack pointer.
     uint32_t GetSP() const;
 
-    /// @brief Get the current link register. Only intended for use in THUMB mode.
+    /// @brief Get the current link register.
     /// @return Value of link register.
     uint32_t GetLR() const;
 

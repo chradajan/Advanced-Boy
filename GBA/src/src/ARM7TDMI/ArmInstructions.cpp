@@ -172,7 +172,7 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
 
 int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
+    int cycles = instruction_.flags.L ? 2 : 1;
 
     if (Config::LOGGING_ENABLED)
     {
@@ -185,8 +185,23 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     }
 
     uint16_t regList = instruction_.flags.RegisterList;
+    bool emptyRlist = (regList == 0);
     bool r15InList = instruction_.flags.RegisterList & 0x8000;
+    bool wbIndexInList = ((instruction_.flags.W) && (regList & (0x01 << instruction_.flags.Rn)));
+    bool wbIndexFirstInList = true;
     OperatingMode mode = cpu.registers_.GetOperatingMode();
+
+    if (wbIndexInList && !instruction_.flags.L)
+    {
+        for (uint16_t i = 0x01; i < (0x01 << instruction_.flags.Rn); i <<= 1)
+        {
+            if (i & regList)
+            {
+                wbIndexFirstInList = false;
+                break;
+            }
+        }
+    }
 
     if (!regList)
     {
@@ -210,7 +225,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     }
 
     int regListSize = std::popcount(regList);
-    uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn) & 0xFFFF'FFFC;
+    uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
     uint32_t minAddr;
     uint32_t wbAddr;
     bool preIndexOffset = instruction_.flags.P;
@@ -263,6 +278,10 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
                 {
                     regValue += 4;
                 }
+                else if ((regIndex == instruction_.flags.Rn) && !wbIndexFirstInList)
+                {
+                    regValue = wbAddr;
+                }
 
                 int writeCycles = cpu.WriteMemory(addr, regValue, AccessSize::WORD);
                 cycles += writeCycles;
@@ -275,7 +294,12 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         regList >>= 1;
     }
 
-    if (instruction_.flags.W)
+    if (emptyRlist)
+    {
+        wbAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn) + (instruction_.flags.U ? 0x40 : -0x40);
+        cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
+    }
+    else if (instruction_.flags.W && !(wbIndexInList && instruction_.flags.L))
     {
         cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
     }

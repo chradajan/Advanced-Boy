@@ -1,6 +1,6 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
-#include <Config.hpp>
+#include <ARM7TDMI/Registers.hpp>
 #include <Logging/Logging.hpp>
 #include <cstdint>
 #include <format>
@@ -75,12 +75,23 @@ void BlockDataTransferHelper(std::stringstream& regStream, int consecutiveRegist
     {
         for (int r = regIndex - consecutiveRegisters; r < regIndex; ++r)
         {
-            regStream << "R" << r << ",";
+            if (r == ::CPU::LR_INDEX)
+            {
+                regStream << "LR, ";
+            }
+            else if (r == ::CPU::PC_INDEX)
+            {
+                regStream << "PC, ";
+            }
+            else
+            {
+                regStream << "R" << r << ", ";
+            }
         }
     }
     else
     {
-        regStream << "R" << (regIndex - consecutiveRegisters) << "-R" << (regIndex - 1) << ",";
+        regStream << "R" << (regIndex - consecutiveRegisters) << "-R" << (regIndex - 1) << ", ";
     }
 }
 }
@@ -166,7 +177,7 @@ void BlockDataTransfer::SetMnemonic()
 
     if (regStream.str().length() > 1)
     {
-        regStream.seekp(-1, regStream.cur);
+        regStream.seekp(-2, regStream.cur);
     }
 
     regStream << "}";

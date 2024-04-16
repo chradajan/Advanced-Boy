@@ -2,7 +2,30 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Logging/Logging.hpp>
 #include <format>
+#include <sstream>
 #include <string>
+
+namespace
+{
+/// @brief Help write Push/Pop formatted register string.
+/// @param regStream Stringstream to write to.
+/// @param consecutiveRegisters How many consecutive registers were included in the operation.
+/// @param regIndex Current index of register not included in operation.
+void PushPopHelper(std::stringstream& regStream, int consecutiveRegisters, uint8_t regIndex)
+{
+    if (consecutiveRegisters <= 2)
+    {
+        for (int r = regIndex - consecutiveRegisters; r < regIndex; ++r)
+        {
+            regStream << "R" << r << ", ";
+        }
+    }
+    else
+    {
+        regStream << "R" << (regIndex - consecutiveRegisters) << "-R" << (regIndex - 1) << ", ";
+    }
+}
+}
 
 namespace CPU::THUMB
 {
@@ -49,7 +72,59 @@ void AddOffsetToStackPointer::SetMnemonic(uint16_t offset)
 
 void PushPopRegisters::SetMnemonic()
 {
+    std::string op = instruction_.flags.L ? "POP" : "PUSH";
+    std::string r = "";
 
+    if (instruction_.flags.R)
+    {
+        r = instruction_.flags.L ? "PC" : "LR";
+    }
+
+    uint8_t regIndex = 0;
+    std::stringstream regStream;
+    uint8_t regList = instruction_.flags.Rlist;
+    int consecutiveRegisters = 0;
+    regStream << "{";
+
+    while (regList != 0)
+    {
+        if (regList & 0x01)
+        {
+            ++consecutiveRegisters;
+        }
+        else if (consecutiveRegisters > 0)
+        {
+            PushPopHelper(regStream, consecutiveRegisters, regIndex);
+            consecutiveRegisters = 0;
+        }
+
+        ++regIndex;
+        regList >>= 1;
+    }
+
+    if (consecutiveRegisters > 0)
+    {
+        PushPopHelper(regStream, consecutiveRegisters, regIndex);
+    }
+
+    if (regStream.str().length() > 1)
+    {
+        if (r != "")
+        {
+            regStream << r;
+        }
+        else
+        {
+            regStream.seekp(-2, regStream.cur);
+        }
+    }
+    else
+    {
+        regStream << r;
+    }
+
+    regStream << "}";
+    mnemonic_ = std::format("{:04X} -> {} {}", instruction_.halfword, op, regStream.str());
 }
 
 void LoadStoreHalfword::SetMnemonic()

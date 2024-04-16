@@ -266,8 +266,93 @@ int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 
 int PushPopRegisters::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_PushPopRegisters");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    // Full Descending stack - Decrement SP and then push, or pop and then increment SP
+    uint8_t regList = instruction_.flags.Rlist;
+    bool emptyRlist = (regList == 0) && !instruction_.flags.R;
+    uint32_t addr = cpu.registers_.GetSP();
+
+    if (instruction_.flags.L)
+    {
+        // POP
+        ++cycles;
+        uint8_t regIndex = 0;
+
+        while (regList != 0)
+        {
+            if (regList & 0x01)
+            {
+                auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+                cycles += readCycles;
+                cpu.registers_.WriteRegister(regIndex, value);
+                addr += 4;
+            }
+
+            ++regIndex;
+            regList >>= 1;
+        }
+
+        if (instruction_.flags.R || emptyRlist)
+        {
+            auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+            cycles += readCycles;
+            cpu.registers_.WriteRegister(PC_INDEX, value);
+            addr += 4;
+            cpu.flushPipeline_ = true;
+        }
+    }
+    else
+    {
+        // PUSH
+        if (instruction_.flags.R)
+        {
+            addr -= 4;
+            uint32_t value = cpu.registers_.ReadRegister(LR_INDEX);
+            int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+            cycles += writeCycles;
+        }
+        else if (emptyRlist)
+        {
+            addr -= 4;
+            uint32_t value = cpu.registers_.GetPC() + 2;
+            int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+            cycles += writeCycles;
+        }
+
+        uint8_t regIndex = 7;
+
+        while (regList != 0)
+        {
+            if (regList & 0x80)
+            {
+                addr -= 4;
+                uint32_t value = cpu.registers_.ReadRegister(regIndex);
+                int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+                cycles += writeCycles;
+            }
+
+            --regIndex;
+            regList <<= 1;
+        }
+    }
+
+    if (emptyRlist)
+    {
+        uint32_t newSP = cpu.registers_.GetSP() + (instruction_.flags.L ? 0x40 : -0x40);
+        cpu.registers_.WriteRegister(SP_INDEX, newSP);
+    }
+    else
+    {
+        cpu.registers_.WriteRegister(SP_INDEX, addr);
+    }
+
+    return cycles;
 }
 
 int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
