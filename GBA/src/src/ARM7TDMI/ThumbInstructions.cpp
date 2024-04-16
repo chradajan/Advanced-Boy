@@ -339,8 +339,40 @@ int LoadAddress::Execute(ARM7TDMI& cpu)
 
 int LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_LoadStoreWithImmediateOffset");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    AccessSize alignment = (instruction_.flags.B) ? AccessSize::BYTE : AccessSize::WORD;
+    uint8_t offset = (instruction_.flags.B) ? instruction_.flags.Offset5 : (instruction_.flags.Offset5 << 2);
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + offset;
+
+    if (instruction_.flags.L)
+    {
+        // Load
+        ++cycles;
+        auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
+        cycles += readCycles;
+
+        if ((alignment == AccessSize::WORD) && (addr & 0x03))
+        {
+            value = std::rotr(value, ((addr & 0x03) * 8));
+        }
+
+        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+    }
+    else
+    {
+        // Store
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+        int writeCycles = cpu.WriteMemory(addr, value, alignment);
+        cycles += writeCycles;
+    }
+
+    return cycles;
 }
 
 int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)

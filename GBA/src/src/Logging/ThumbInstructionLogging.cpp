@@ -75,7 +75,15 @@ void LoadAddress::SetMnemonic(uint8_t destIndex, uint16_t offset)
 
 void LoadStoreWithImmediateOffset::SetMnemonic()
 {
+    std::string op = instruction_.flags.L ? "LDR" : "STR";
+    std::string b = instruction_.flags.B ? "B" : "";
+    op = op + b;
 
+    uint8_t rb = instruction_.flags.Rb;
+    uint8_t rd = instruction_.flags.Rd;
+    uint8_t imm = (instruction_.flags.Offset5 << 2);
+
+    mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, #{}]", instruction_.halfword, op, rd, rb, imm);
 }
 
 void LoadStoreWithRegisterOffset::SetMnemonic()
@@ -88,7 +96,7 @@ void LoadStoreWithRegisterOffset::SetMnemonic()
     uint8_t rb = instruction_.flags.Rb;
     uint8_t rd = instruction_.flags.Rd;
 
-    mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, R{}]", instruction_.halfword, op, rd,  rb, ro);
+    mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, R{}]", instruction_.halfword, op, rd, rb, ro);
 }
 
 void LoadStoreSignExtendedByteHalfword::SetMnemonic()
