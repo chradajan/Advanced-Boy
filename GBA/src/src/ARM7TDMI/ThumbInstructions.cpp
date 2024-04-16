@@ -1,7 +1,7 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Config.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <bit>
 #include <cstdint>
 #include <memory>
@@ -284,14 +284,14 @@ int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
     if (instruction_.flags.L)
     {
         ++cycles;
-        auto [value, readCycles] = cpu.ReadMemory(addr, 2);
+        auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
         cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
         cycles += readCycles;
     }
     else
     {
         uint16_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd) & MAX_U16;
-        int writeCycles = cpu.WriteMemory(addr, value, 2);
+        int writeCycles = cpu.WriteMemory(addr, value, AccessSize::HALFWORD);
         cycles += writeCycles;
     }
 
@@ -346,13 +346,13 @@ int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
     }
 
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + cpu.registers_.ReadRegister(instruction_.flags.Ro);
-    int accessSize = (instruction_.flags.B) ? 1 : 4;
+    AccessSize alignment = (instruction_.flags.B) ? AccessSize::BYTE : AccessSize::WORD;
 
     if (instruction_.flags.L)
     {
         // Load
         ++cycles;
-        auto [value, readCycles] = cpu.ReadMemory(addr, accessSize);
+        auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
         cycles += readCycles;
 
         if (addr & 0x03)
@@ -366,7 +366,7 @@ int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
     {
         // Store
         uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
-        int writeCycles = cpu.WriteMemory(addr, value, accessSize);
+        int writeCycles = cpu.WriteMemory(addr, value, alignment);
         cycles += writeCycles;
     }
 
@@ -402,7 +402,7 @@ int PCRelativeLoad::Execute(ARM7TDMI& cpu)
     }
 
     uint32_t addr = (cpu.registers_.GetPC() & 0xFFFF'FFFC) + (instruction_.flags.Word8 << 2);
-    auto [value, readCycles] = cpu.ReadMemory(addr, 4);
+    auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
     cycles += readCycles;
     cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
     return cycles;

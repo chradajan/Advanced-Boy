@@ -1,15 +1,16 @@
 #pragma once
 
+#include <System/MemoryMap.hpp>
+#include <array>
 #include <cstdint>
-#include <utility>
+#include <tuple>
 
 constexpr uint32_t IE_ADDR  = 0x0400'0200;
 constexpr uint32_t IF_ADDR  = 0x0400'0202;
 constexpr uint32_t IME_ADDR = 0x0400'0208;
 constexpr uint32_t POSTFLG_ADDR = 0x0400'0300;
 constexpr uint32_t HALTCNT_ADDR = 0x0400'0301;
-constexpr uint32_t UNDOCUMENTED0_ADDR = 0x0400'0410;
-constexpr uint32_t UNDOCUMENTED1_ADDR = 0x0400'0800;
+constexpr uint32_t MIRRORED_IO_ADDR = 0x0400'0800;
 
 enum class InterruptType : uint16_t
 {
@@ -42,30 +43,32 @@ public:
 
     /// @brief Read an I/O register managed by this.
     /// @param addr Address of memory mapped I/O register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Value of specified register and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadIoReg(uint32_t addr, int accessSize);
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value of specified register, number of cycles taken to read, and whether this read triggered open bus behavior.
+    std::tuple<uint32_t, int, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write an I/O register managed by this.
     /// @param addr Address of memory mapped I/O register.
     /// @param value Value to write to register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Number of cycles taken to write.
-    int WriteIoReg(uint32_t addr, uint32_t value, int accessSize);
+    int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
 private:
+    /// @brief Check if interrupts and enabled and if an interrupt type is both enabled and requested. If so, schedule an IRQ.
     void CheckForInterrupt() const;
 
+    // Interrupt, wait state, and power down controls
+    std::array<uint8_t, 0x604> intWtstPwdDownRegisters_;
+
     // Interrupt registers
-    uint16_t IE_;   // Interrupt Enable
-    uint16_t IF_;   // Interrupt Request / IRQ Acknowledge
-    uint16_t IME_;  // Interrupt Master Enable
+    uint16_t& IE_;   // Interrupt Enable
+    uint16_t& IF_;   // Interrupt Request / IRQ Acknowledge
+    uint16_t& IME_;  // Interrupt Master Enable
 
     // Undocumented registers
-    uint8_t POSTFLG_;
-    uint8_t HALTCNT_;
-    uint32_t UNDOCUMENTED0_;
-    uint32_t UNDOCUMENTED1_;
+    uint8_t& POSTFLG_;
+    uint8_t& HALTCNT_;
 };
 
 extern InterruptManager InterruptMgr;

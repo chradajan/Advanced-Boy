@@ -2,7 +2,7 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -251,7 +251,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         {
             if (instruction_.flags.L)
             {
-                auto [readValue, readCycles] = cpu.ReadMemory(addr, 4);
+                auto [readValue, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
                 cycles += readCycles;
                 cpu.registers_.WriteRegister(regIndex, readValue, mode);
             }
@@ -264,7 +264,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
                     regValue += 4;
                 }
 
-                int writeCycles = cpu.WriteMemory(addr, regValue, 4);
+                int writeCycles = cpu.WriteMemory(addr, regValue, AccessSize::WORD);
                 cycles += writeCycles;
             }
 
@@ -452,13 +452,13 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
     if (instruction_.flags.L)
     {
         // Load
-        int accessSize = instruction_.flags.B ? 1 : 4;
-        auto [value, readCycles] = cpu.ReadMemory(addr, accessSize);
+        AccessSize alignment = instruction_.flags.B ? AccessSize::BYTE : AccessSize::WORD;
+        auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
         cycles += readCycles;
 
         if (addr & 0x03)
         {
-            value = std::rotr(value, ((addr & 0x03) * 8));
+            value = std::rotr(value, (addr & 0x03) * 8);
         }
 
         cpu.registers_.WriteRegister(srcDestIndex, value);
@@ -473,7 +473,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
     {
         // Store
         uint32_t value = cpu.registers_.ReadRegister(srcDestIndex);
-        int accessSize = 4;
+        AccessSize alignment = AccessSize::WORD;
 
         if (srcDestIndex == PC_INDEX)
         {
@@ -483,10 +483,10 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         if (instruction_.flags.B)
         {
             value &= MAX_U8;
-            accessSize = 1;
+            alignment = AccessSize::BYTE;
         }
 
-        cycles += cpu.WriteMemory(addr, value, accessSize);
+        cycles += cpu.WriteMemory(addr, value, alignment);
     }
 
     if (postIndex)
@@ -598,18 +598,30 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
+    bool misaligned = addr & 0x01;
+
     if (instruction_.flags.L)  // Load
     {
+        bool s = instruction_.flags.S;
+        bool h = instruction_.flags.H;
         cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
 
-        if (instruction_.flags.S)
+        // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8
+        // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]
+
+        if (s)
         {
             uint32_t signExtendedWord;
 
-            if (instruction_.flags.H)
+            // if (misaligned)
+            // {
+            //     h = 0;
+            // }
+
+            if (h)
             {
                 // S = 1, H = 1
-                auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+                auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
                 signExtendedWord = halfWord;
 
                 if (halfWord & 0x8000)
@@ -623,7 +635,13 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
             else
             {
                 // S = 1, H = 0
-                auto [byte, readCycles] = cpu.ReadMemory(addr, 1);
+                auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
+
+                if (misaligned)
+                {
+
+                }
+
                 signExtendedWord = byte;
 
                 if (byte & 0x80)
@@ -638,7 +656,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         else
         {
             // S = 0, H = 1
-            auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+            auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
             cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
             cycles += readCycles;
         }
@@ -654,7 +672,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
             halfWord += 4;
         }
 
-        cycles += cpu.WriteMemory(addr, halfWord, 2);
+        cycles += cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
     }
 
     if (postIndex)
@@ -706,7 +724,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             if (instruction_.flags.H)
             {
                 // S = 1, H = 1
-                auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+                auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
                 signExtendedWord = halfWord;
 
                 if (halfWord & 0x8000)
@@ -720,7 +738,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             else
             {
                 // S = 1, H = 0
-                auto [byte, readCycles] = cpu.ReadMemory(addr, 1);
+                auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
                 signExtendedWord = byte;
 
                 if (byte & 0x80)
@@ -735,7 +753,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         else
         {
             // S = 0, H = 1
-            auto [halfWord, readCycles] = cpu.ReadMemory(addr, 2);
+            auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
             cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
             cycles += readCycles;
         }
@@ -751,7 +769,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             halfWord += 4;
         }
 
-        cycles += cpu.WriteMemory(addr, halfWord, 2);
+        cycles += cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
     }
 
     if (postIndex)

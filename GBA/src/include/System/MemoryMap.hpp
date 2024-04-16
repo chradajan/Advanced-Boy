@@ -8,6 +8,13 @@ constexpr uint32_t KiB = 1024;
 constexpr uint32_t MiB = KiB * KiB;
 constexpr uint32_t MAX_ROM_SIZE = 32 * MiB;
 
+enum class AccessSize : uint8_t
+{
+    BYTE = 1,
+    HALFWORD = 2,
+    WORD = 4
+};
+
 // Useful 32-bit constants
 constexpr uint32_t MSB_32 = 0b1000'0000'0000'0000'0000'0000'0000'0000;
 constexpr uint32_t MAX_U32 = std::numeric_limits<uint32_t>::max();
@@ -71,6 +78,6 @@ constexpr uint32_t SERIAL_COMMUNICATION_2_IO_ADDR_MIN = 0x0400'0134;
 constexpr uint32_t SERIAL_COMMUNICATION_2_IO_ADDR_MAX = 0x0400'01FF;
 
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MIN = 0x0400'0200;
-constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0804;
+constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0803;
 
 constexpr uint32_t WAITCNT_ADDR = 0x0400'0204;

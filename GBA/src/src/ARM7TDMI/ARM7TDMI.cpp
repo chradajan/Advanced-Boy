@@ -4,7 +4,7 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 #include <cstdint>
 #include <functional>
@@ -14,8 +14,8 @@
 
 namespace CPU
 {
-ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory,
-                   std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory) :
+ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
+                   std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory) :
     decodedInstruction_(nullptr),
     flushPipeline_(false),
     ReadMemory(ReadMemory),
@@ -30,7 +30,7 @@ int ARM7TDMI::Tick()
     int fetchCycles = 1;
     bool instructionExecuted = false;
     bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
-    uint8_t const accessSize = isArmState ? 4 : 2;
+    AccessSize alignment = isArmState ? AccessSize::WORD : AccessSize::HALFWORD;
     uint32_t undecodedInstruction = MAX_U32;
 
     // Execute
@@ -79,7 +79,7 @@ int ARM7TDMI::Tick()
     // Fetch
     if (fetchedInstructions_.empty())
     {
-        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), accessSize);
+        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), alignment);
         fetchCycles = readCycles;
         fetchedInstructions_.push(fetchedInstruction);
         registers_.AdvancePC();
@@ -89,7 +89,7 @@ int ARM7TDMI::Tick()
         undecodedInstruction = fetchedInstructions_.front();
         fetchedInstructions_.pop();
 
-        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), accessSize);
+        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), alignment);
         fetchCycles = readCycles;
         fetchedInstructions_.push(fetchedInstruction);
         registers_.AdvancePC();

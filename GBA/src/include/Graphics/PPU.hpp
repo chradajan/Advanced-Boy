@@ -2,11 +2,11 @@
 
 #include <Graphics/FrameBuffer.hpp>
 #include <Graphics/Registers.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <functional>
-#include <utility>
+#include <tuple>
 
 namespace Graphics
 {
@@ -27,16 +27,20 @@ public:
 
     /// @brief Read a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Value of specified register and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadLcdReg(uint32_t addr, uint8_t accessSize);
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value of specified register, number of cycles taken to read, and whether this read triggered open bus behavior.
+    std::tuple<uint32_t, int, bool> ReadLcdReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
     /// @param val Value to write to register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Number of cycles taken to write.
-    int WriteLcdReg(uint32_t addr, uint32_t val, uint8_t accessSize);
+    int WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    /// @brief Return the current background mode.
+    /// @return Current background mode.
+    uint8_t BgMode() const { return lcdControl_.flags_.bgMode; }
 
 private:
     /// @brief Callback function for an enter VDraw event.

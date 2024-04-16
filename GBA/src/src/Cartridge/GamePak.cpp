@@ -1,19 +1,22 @@
 #include <Cartridge/GamePak.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
+#include <System/Utilities.hpp>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <utility>
+#include <tuple>
 #include <vector>
 
 namespace Cartridge
 {
 GamePak::GamePak(fs::path const romPath) :
-    WAITCNT_(0)
+    waitStateControl_(0)
 {
     romLoaded_ = false;
 
@@ -53,82 +56,131 @@ GamePak::~GamePak()
     // TODO
 }
 
-std::pair<uint32_t, int> GamePak::ReadMemory(uint32_t addr, uint8_t accessSize)
+std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize alignment)
 {
-    // TODO Implement actual access times
-    auto bytePtr = GetPointerToMem(addr, accessSize, false);
+    addr = AlignAddress(addr, alignment);
+    uint8_t page = (addr & 0xFF00'0000) >> 24;
+    uint8_t waitState;
 
-    switch (accessSize)
+    switch (page)
     {
-        case 1:
-            return {*bytePtr, 1};
-        case 2:
-            return {*reinterpret_cast<uint16_t*>(bytePtr), 1};
-        case 4:
-            return {*reinterpret_cast<uint32_t*>(bytePtr), 1};
+        case 0x08 ... 0x09:
+            waitState = 0;
+            break;
+        case 0x0A ... 0x0B:
+            waitState = 1;
+            break;
+        case 0x0C ... 0x0D:
+            waitState = 2;
+            break;
         default:
-            throw std::runtime_error("Illegal Read ROM Memory access size");
+            throw std::runtime_error(std::format("Illegal wait state region on ROM read. Addr: {:08X}, Page: {:02X}", addr,page));
     }
+
+    int cycles = WaitStateCycles(waitState);
+    size_t index = addr % MAX_ROM_SIZE;
+
+    if (index >= ROM_.size())
+    {
+        return {0, cycles, true};
+    }
+    else if (index + static_cast<uint8_t>(alignment) >= ROM_.size())
+    {
+        return {0, cycles, false};
+    }
+
+    uint8_t* bytePtr = &(ROM_.at(index));
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    return {value, cycles, false};
 }
 
-int GamePak::WriteMemory(uint32_t addr, uint32_t val, uint8_t accessSize)
+std::pair<uint32_t, int> GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
 {
-    // TODO Implement actual access times
-    auto bytePtr = GetPointerToMem(addr, accessSize, false);
-
-    if (bytePtr)
+    if (addr > GAME_PAK_SRAM_ADDR_MAX)
     {
-        switch (accessSize)
-        {
-            case 1:
-                *bytePtr = val;
-                break;
-            case 2:
-                *reinterpret_cast<uint16_t*>(bytePtr) = val;
-                break;
-            case 4:
-                *reinterpret_cast<uint32_t*>(bytePtr) = val;
-                break;
-            default:
-                throw std::runtime_error("Illegal Write SRAM Memory access size");
-        }
+        addr = GAME_PAK_ROM_ADDR_MIN + (addr % (64 * KiB));
+    }
+
+    addr = AlignAddress(addr, alignment);
+    size_t index = addr - GAME_PAK_SRAM_ADDR_MIN;
+    uint8_t* bytePtr = &(SRAM_.at(index));
+    uint32_t value = ReadPointer(bytePtr, AccessSize::BYTE);
+    int cycles = WaitStateCycles(3);
+
+    if (alignment == AccessSize::HALFWORD)
+    {
+        value *= 0x0101;
+    }
+    else if (alignment == AccessSize::WORD)
+    {
+        value *= 0x0101'0101;
+    }
+
+    return {value, cycles};
+}
+
+int GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (addr > GAME_PAK_SRAM_ADDR_MAX)
+    {
+        addr = GAME_PAK_ROM_ADDR_MIN + (addr % (64 * KiB));
+    }
+
+    int cycles = WaitStateCycles(3);
+    uint32_t alignedAddr = AlignAddress(addr, alignment);
+    size_t index = alignedAddr - GAME_PAK_SRAM_ADDR_MIN;
+    uint8_t* bytePtr = &(SRAM_.at(index));
+
+    if (alignment != AccessSize::BYTE)
+    {
+        value = std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
+        alignment = AccessSize::BYTE;
+    }
+
+    WritePointer(bytePtr, value, alignment);
+    return cycles;
+}
+
+std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignment)
+{
+    uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
+    uint8_t offset = addr & 0x03;
+    uint32_t value;
+
+    switch (alignment)
+    {
+        case AccessSize::BYTE:
+            value = bytePtr[offset];
+            break;
+        case AccessSize::HALFWORD:
+            value = *reinterpret_cast<uint16_t*>(&bytePtr[offset]);
+            break;
+        case AccessSize::WORD:
+            value = *reinterpret_cast<uint32_t*>(&bytePtr[offset]);
+            break;
+    }
+
+    return {value, 1};
+}
+
+int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
+    uint8_t offset = addr & 0x03;
+
+    switch (alignment)
+    {
+        case AccessSize::BYTE:
+            bytePtr[offset] = value;
+            break;
+        case AccessSize::HALFWORD:
+            *reinterpret_cast<uint16_t*>(&bytePtr[offset]) = value;
+            break;
+        case AccessSize::WORD:
+            *reinterpret_cast<uint32_t*>(&bytePtr[offset]) = value;
+            break;
     }
 
     return 1;
-}
-
-uint8_t* GamePak::GetPointerToMem(uint32_t const addr, uint8_t const accessSize, bool const isWrite)
-{
-    size_t adjustedIndex = 0;
-
-    if (addr <= GAME_PAK_ROM_ADDR_MAX)
-    {
-        if (isWrite)
-        {
-            return nullptr;
-        }
-
-        adjustedIndex = addr % MAX_ROM_SIZE;
-
-        if ((adjustedIndex + accessSize - 1) > ROM_.size())
-        {
-            std::stringstream exceptionMsg;
-            exceptionMsg << "Illegal ROM memory access. Addr: " << (unsigned int)addr << " Size: " << (unsigned int)accessSize;
-            throw std::runtime_error(exceptionMsg.str());
-        }
-
-        return &ROM_.at(adjustedIndex);
-    }
-
-    adjustedIndex = addr - GAME_PAK_SRAM_ADDR_MIN;
-
-    if ((adjustedIndex + accessSize - 1) > SRAM_.size())
-    {
-        std::stringstream exceptionMsg;
-        exceptionMsg << "Illegal SRAM access. Addr: " << (unsigned int)addr << " Size: " << (unsigned int)accessSize;
-        throw std::runtime_error(exceptionMsg.str());
-    }
-
-    return &SRAM_.at(adjustedIndex);
 }
 }

@@ -3,12 +3,14 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Cartridge/GamePak.hpp>
 #include <Graphics/PPU.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <tuple>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -43,37 +45,42 @@ private:
     /// @brief Set all internal memory to 0.
     void ZeroMemory();
 
-    /// @brief Determine which region of memory an address points to.
-    /// @param addr Address to determine mapping of.
-    /// @param accessSize Size in bytes of access.
-    /// @return Pointer to mapped location in memory and number of cycles to access it.
-    std::pair<uint8_t*, int> GetPointerToMem(uint32_t addr, uint8_t accessSize);
-
     /// @brief Read from memory.
-    /// @param addr Aligned address.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
+    /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Value from specified address and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadMemory(uint32_t addr, int accessSize);
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
 
     /// @brief Write to memory.
-    /// @param addr Aligned address.
+    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
     /// @param value Value to write to specified address.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
+    /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Number of cycles taken to write.
-    int WriteMemory(uint32_t addr, uint32_t value, int accessSize);
+    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief Read a memory mapped I/O register.
-    /// @param addr Address of memory mapped register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Value of specified register and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadIoReg(uint32_t addr, int accessSize);
+    // Area specific R/W handling
+    std::pair<uint32_t, int> ReadBIOS(uint32_t addr, AccessSize alignment);
+    int WriteBIOS(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief Write a memory mapped I/O register.
-    /// @param addr Address of memory mapped register.
-    /// @param value Value to write to specified register.
-    /// @param accessSize 1 = Byte, 2 = Halfword, 4 = Word.
-    /// @return Number of cycles taken to write.
-    int WriteIoReg(uint32_t addr, uint32_t value, int accessSize);
+    std::pair<uint32_t, int> ReadOnBoardWRAM(uint32_t addr, AccessSize alignment);
+    int WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::pair<uint32_t, int> ReadOnChipWRAM(uint32_t addr, AccessSize alignment);
+    int WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::tuple<uint32_t, int, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
+    int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::pair<uint32_t, int> ReadPaletteRAM(uint32_t addr, AccessSize alignment);
+    int WritePaletteRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::pair<uint32_t, int> ReadVRAM(uint32_t addr, AccessSize alignment);
+    int WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
+    int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 
     // Components
     CPU::ARM7TDMI cpu_;

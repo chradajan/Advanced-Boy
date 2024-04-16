@@ -1,11 +1,13 @@
 #include <Graphics/PPU.hpp>
-#include <MemoryMap.hpp>
 #include <System/InterruptManager.hpp>
+#include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
+#include <System/Utilities.hpp>
 #include <cstdint>
 #include <format>
 #include <functional>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 
 namespace Graphics
@@ -33,52 +35,55 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
-std::pair<uint32_t, int> PPU::ReadLcdReg(uint32_t addr, uint8_t accessSize)
+std::tuple<uint32_t, int, bool> PPU::ReadLcdReg(uint32_t addr, AccessSize alignment)
 {
-    // TODO Ensure memory safety by checking that accessSize doesn't allow reads beyond registers array.
-    uint8_t* bytePtr = &lcdRegisters_.at(addr - LCD_IO_ADDR_MIN);
-    uint32_t regValue;
+    addr = AlignAddress(addr, alignment);
 
-    switch (accessSize)
+    if (((addr >= BG0HOFS_ADDR) && (addr < WININ_ADDR)) ||
+        ((addr >= MOSAIC_ADDR) && (addr < BLDCNT_ADDR)) ||
+        (addr >= BLDY_ADDR))
     {
-        case 1:
-            regValue = *bytePtr;
-            break;
-        case 2:
-            regValue = *reinterpret_cast<uint16_t*>(bytePtr);
-            break;
-        case 4:
-            regValue = *reinterpret_cast<uint32_t*>(bytePtr);
-            break;
-        default:
-            throw std::runtime_error("Illegal PPU register read access size");
+        // Write-only or unused regions
+        return {0, 1, true};
     }
 
-    // TODO Implement proper access times
-    return {regValue, 1};
+    size_t index = addr - LCD_IO_ADDR_MIN;
+    uint8_t* bytePtr = &(lcdRegisters_.at(index));
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    return {value, 1, false};
 }
 
-int PPU::WriteLcdReg(uint32_t addr, uint32_t val, uint8_t accessSize)
+int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    // TODO Ensure memory safety by checking that accessSize doesn't allow writes beyond registers array.
-    uint8_t* bytePtr = &lcdRegisters_.at(addr - LCD_IO_ADDR_MIN);
+    addr = AlignAddress(addr, alignment);
 
-    switch (accessSize)
+    if ((addr >= DISPSTAT_ADDR) && (addr < VCOUNT_ADDR))
     {
-        case 1:
-            *bytePtr = val;
-            break;
-        case 2:
-            *reinterpret_cast<uint16_t*>(bytePtr) = val;
-            break;
-        case 4:
-            *reinterpret_cast<uint32_t*>(bytePtr) = val;
-            break;
-        default:
-            throw std::runtime_error("Illegal PPU register write access size");
+        // Write to DISPSTAT; not all bits are writable. If writing a word, the next register is VCOUNT so don't write that either.
+        static constexpr uint16_t DISPSTAT_WRITABLE_MASK = 0b1111'1111'1011'1000;
+        value &= DISPSTAT_WRITABLE_MASK;
+
+        if (alignment == AccessSize::BYTE)
+        {
+            value &= MAX_U8;
+            lcdStatus_ = (lcdStatus_.halfword_ & ~(DISPSTAT_WRITABLE_MASK & MAX_U8)) | value;
+        }
+        else
+        {
+            lcdStatus_.halfword_ = (lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | value;
+        }
+
+        return 1;
+    }
+    else if ((addr >= VCOUNT_ADDR) && (addr < BG0CNT_ADDR))
+    {
+        // Write to VCOUNT which is read-only. VCOUNT is halfword aligned, so alignment must be byte or halfword.
+        return 1;
     }
 
-    // TODO Implement proper access times
+    size_t index = addr - LCD_IO_ADDR_MIN;
+    uint8_t* bytePtr = &(lcdRegisters_.at(index));
+    WritePointer(bytePtr, value, alignment);
     return 1;
 }
 

@@ -2,6 +2,7 @@
 
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/Registers.hpp>
+#include <System/MemoryMap.hpp>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -55,8 +56,8 @@ class ARM7TDMI
 {
 public:
     /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
-    ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory,
-             std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory);
+    ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
+             std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory);
 
     ARM7TDMI() = delete;
     ARM7TDMI(ARM7TDMI const&) = delete;
@@ -85,8 +86,8 @@ private:
     bool flushPipeline_;
 
     // R/W Functions
-    std::function<std::pair<uint32_t, int>(uint32_t, uint8_t)> ReadMemory;
-    std::function<int(uint32_t, uint32_t, uint8_t)> WriteMemory;
+    std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory;
+    std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory;
 
     // Registers
     Registers registers_;

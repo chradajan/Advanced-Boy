@@ -1,18 +1,23 @@
 #include <System/InterruptManager.hpp>
-#include <MemoryMap.hpp>
+#include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
+#include <System/Utilities.hpp>
 #include <cstdint>
 #include <stdexcept>
-#include <utility>
+#include <tuple>
 
 // Global Interrupt Manager instance
 InterruptManager InterruptMgr;
 
-InterruptManager::InterruptManager()
+InterruptManager::InterruptManager() :
+    intWtstPwdDownRegisters_(),
+    IE_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(0))),
+    IF_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(2))),
+    IME_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(8))),
+    POSTFLG_(intWtstPwdDownRegisters_.at(256)),
+    HALTCNT_(intWtstPwdDownRegisters_.at(257))
 {
-    IE_ = 0;
-    IF_ = 0;
-    IME_ = 0;
+    intWtstPwdDownRegisters_.fill(0);
 }
 
 void InterruptManager::RequestInterrupt(InterruptType interrupt)
@@ -21,95 +26,59 @@ void InterruptManager::RequestInterrupt(InterruptType interrupt)
     CheckForInterrupt();
 }
 
-std::pair<uint32_t, int> InterruptManager::ReadIoReg(uint32_t addr, int accessSize)
+std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, AccessSize alignment)
 {
-    // TODO Fix address alignment so that offset reads (ie addr = IE_ADDR - 1, accessSize = 4) work
-    // TODO Implement mirroring of UNDOCUMENTED1_ADDR
-    uint32_t value;
-    int cycles = 1;
-    uint32_t bitMask;
+    addr = AlignAddress(addr, alignment);
+    std::tuple<uint32_t, int, bool> openBusCondition = {0, 1, true};
+    std::tuple<uint32_t, int, bool> zeroCondition = {0, 1, false};
 
-    switch (accessSize)
+    if ((addr >= WAITCNT_ADDR) && (addr < IME_ADDR))
     {
-        case 1:
-            bitMask = MAX_U8;
-            break;
-        case 2:
-            bitMask = MAX_U16;
-            break;
-        case 4:
-            bitMask = MAX_U32;
-            break;
-        default:
-            throw std::runtime_error("Illegal Read Memory access size");
+        if ((addr >= 0x0400'0206))
+        {
+            return openBusCondition;
+        }
+        else if (alignment == AccessSize::WORD)
+        {
+            return zeroCondition;
+        }
+    }
+    else if ((addr >= IME_ADDR) && (addr < POSTFLG_ADDR))
+    {
+        if (addr >= 0x0400'020A)
+        {
+            return openBusCondition;
+        }
+        else if (alignment == AccessSize::WORD)
+        {
+            return zeroCondition;
+        }
+    }
+    else if ((addr >= POSTFLG_ADDR) && (addr < MIRRORED_IO_ADDR))
+    {
+        if (addr >= 0x0400'0302)
+        {
+            return openBusCondition;
+        }
+        else if ((alignment != AccessSize::BYTE) || (addr == HALTCNT_ADDR))
+        {
+            return zeroCondition;
+        }
     }
 
-    switch (addr)
-    {
-        case IE_ADDR:
-            value = IE_ & bitMask;
-            break;
-        case IF_ADDR:
-            value = IF_ & bitMask;
-            break;
-        case IME_ADDR:
-            value = IME_ & bitMask;
-            break;
-        case POSTFLG_ADDR:
-            value = POSTFLG_;
-            break;
-        case HALTCNT_ADDR:
-            value = HALTCNT_;
-            break;
-        case UNDOCUMENTED0_ADDR:
-            value = UNDOCUMENTED0_ & bitMask;
-            break;
-        case UNDOCUMENTED1_ADDR:
-            value = UNDOCUMENTED1_ & bitMask;
-            break;
-        default:
-            value = 0;
-            break;
-    }
-
-    return {value, cycles};
+    size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
+    uint8_t* bytePtr = &(intWtstPwdDownRegisters_.at(index));
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    return {value, 1, false};
 }
 
-int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, int accessSize)
+int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    // TODO Fix address alignment so that offset writes (ie addr = IE_ADDR - 1, accessSize = 4) work
-    // TODO Implement proper interrupt acknowledgement
-    // TODO Implement mirroring of UNDOCUMENTED1_ADDR
-    switch (addr)
-    {
-        case IE_ADDR:
-            IE_ = (accessSize == 1) ? (IE_ & 0xFF00) | (value & 0x00FF) : value;
-            CheckForInterrupt();
-            break;
-        case IF_ADDR:
-            IF_ = (accessSize == 1) ? (IF_ & 0xFF00) | (value & 0x00FF) : value;
-            CheckForInterrupt();
-            break;
-        case IME_ADDR:
-            IME_ = (accessSize == 1) ? (IME_ & 0xFF00) | (value & 0x00FF) : value;
-            CheckForInterrupt();
-            break;
-        case POSTFLG_ADDR:
-            POSTFLG_ = value;
-            break;
-        case HALTCNT_ADDR:
-            HALTCNT_ = value;
-            break;
-        case UNDOCUMENTED0_ADDR:
-            UNDOCUMENTED0_ = value;
-            break;
-        case UNDOCUMENTED1_ADDR:
-            UNDOCUMENTED1_ = value;
-            break;
-        default:
-            break;
-    }
-
+    addr = AlignAddress(addr, alignment);
+    size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
+    uint8_t* bytePtr = &(intWtstPwdDownRegisters_.at(index));
+    WritePointer(bytePtr, value, alignment);
+    CheckForInterrupt();
     return 1;
 }
 

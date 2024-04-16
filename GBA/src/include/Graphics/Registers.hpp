@@ -4,6 +4,15 @@
 
 namespace Graphics
 {
+constexpr uint32_t DISPSTAT_ADDR = 0x0400'0004;
+constexpr uint32_t VCOUNT_ADDR = 0x0400'0006;
+constexpr uint32_t BG0CNT_ADDR = 0x0400'0008;
+constexpr uint32_t BG0HOFS_ADDR = 0x0400'0010;
+constexpr uint32_t WININ_ADDR = 0x0400'0048;
+constexpr uint32_t MOSAIC_ADDR = 0x0400'004C;
+constexpr uint32_t BLDCNT_ADDR = 0x0400'0050;
+constexpr uint32_t BLDY_ADDR = 0x0400'0054;
+
 /// @brief LCD Control (R/W) - 0400'0000h
 union DISPCNT
 {
