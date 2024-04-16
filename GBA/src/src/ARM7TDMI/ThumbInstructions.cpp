@@ -284,7 +284,14 @@ int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
     if (instruction_.flags.L)
     {
         ++cycles;
+        bool misaligned = addr & 0x01;
         auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+
+        if (misaligned)
+        {
+            value = std::rotr(value, 8);
+        }
+
         cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
         cycles += readCycles;
     }
@@ -355,7 +362,7 @@ int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
         auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
         cycles += readCycles;
 
-        if (addr & 0x03)
+        if ((alignment == AccessSize::WORD) && (addr & 0x03))
         {
             value = std::rotr(value, ((addr & 0x03) * 8));
         }
@@ -403,6 +410,12 @@ int PCRelativeLoad::Execute(ARM7TDMI& cpu)
 
     uint32_t addr = (cpu.registers_.GetPC() & 0xFFFF'FFFC) + (instruction_.flags.Word8 << 2);
     auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+
+    if (addr & 0x03)
+    {
+        value = std::rotr(value, ((addr & 0x03) * 8));
+    }
+
     cycles += readCycles;
     cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
     return cycles;

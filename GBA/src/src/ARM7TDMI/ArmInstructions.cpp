@@ -456,7 +456,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
         cycles += readCycles;
 
-        if (addr & 0x03)
+        if ((alignment == AccessSize::WORD) && (addr & 0x03))
         {
             value = std::rotr(value, (addr & 0x03) * 8);
         }
@@ -598,12 +598,12 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    bool misaligned = addr & 0x01;
 
     if (instruction_.flags.L)  // Load
     {
         bool s = instruction_.flags.S;
         bool h = instruction_.flags.H;
+        bool misaligned = addr & 0x01;
         cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
 
         // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8
@@ -613,10 +613,11 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         {
             uint32_t signExtendedWord;
 
-            // if (misaligned)
-            // {
-            //     h = 0;
-            // }
+            if (misaligned && h)
+            {
+                // Convert LDRSH into LDRSB
+                h = false;
+            }
 
             if (h)
             {
@@ -637,11 +638,6 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 // S = 1, H = 0
                 auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
 
-                if (misaligned)
-                {
-
-                }
-
                 signExtendedWord = byte;
 
                 if (byte & 0x80)
@@ -657,6 +653,12 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         {
             // S = 0, H = 1
             auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+
+            if (misaligned)
+            {
+                halfWord = std::rotr(halfWord, 8);
+            }
+
             cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
             cycles += readCycles;
         }
@@ -715,13 +717,25 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
     if (instruction_.flags.L)  // Load
     {
+        bool s = instruction_.flags.S;
+        bool h = instruction_.flags.H;
+        bool misaligned = addr & 0x01;
         cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
 
-        if (instruction_.flags.S)
+        // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8
+        // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]
+
+        if (s)
         {
             uint32_t signExtendedWord;
 
-            if (instruction_.flags.H)
+            if (misaligned && h)
+            {
+                // Convert LDRSH into LDRSB
+                h = false;
+            }
+
+            if (h)
             {
                 // S = 1, H = 1
                 auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
@@ -754,6 +768,12 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         {
             // S = 0, H = 1
             auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+
+            if (misaligned)
+            {
+                halfWord = std::rotr(halfWord, 8);
+            }
+
             cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
             cycles += readCycles;
         }
