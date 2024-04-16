@@ -56,7 +56,7 @@ void LoadStoreHalfword::SetMnemonic()
 {
     uint8_t srcDestIndex = instruction_.flags.Rd;
     uint8_t baseIndex = instruction_.flags.Rb;
-    uint8_t offset = instruction_.flags.Offset5;
+    uint8_t offset = instruction_.flags.Offset5 << 1;
 
     std::string op = instruction_.flags.L ? "LDRH" : "STRH";
     mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, #{}]", instruction_.halfword, op, srcDestIndex, baseIndex, offset);
@@ -64,7 +64,10 @@ void LoadStoreHalfword::SetMnemonic()
 
 void SPRelativeLoadStore::SetMnemonic()
 {
-
+    std::string op = instruction_.flags.L ? "LDR" : "STR";
+    uint8_t rd = instruction_.flags.Rd;
+    uint16_t imm = instruction_.flags.Word8 << 2;
+    mnemonic_ = std::format("{:04X} -> {} R{}, [SP, #{}]",instruction_.halfword, op, rd, imm);
 }
 
 void LoadAddress::SetMnemonic(uint8_t destIndex, uint16_t offset)
@@ -81,7 +84,7 @@ void LoadStoreWithImmediateOffset::SetMnemonic()
 
     uint8_t rb = instruction_.flags.Rb;
     uint8_t rd = instruction_.flags.Rd;
-    uint8_t imm = (instruction_.flags.Offset5 << 2);
+    uint8_t imm = (instruction_.flags.B) ? instruction_.flags.Offset5 : (instruction_.flags.Offset5 << 2);
 
     mnemonic_ = std::format("{:04X} -> {} R{}, [R{}, #{}]", instruction_.halfword, op, rd, rb, imm);
 }

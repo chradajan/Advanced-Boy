@@ -307,8 +307,36 @@ int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 
 int SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_SPRelativeLoadStore");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    uint32_t addr = cpu.registers_.GetSP() + (instruction_.flags.Word8 << 2);
+
+    if (instruction_.flags.L)
+    {
+        ++cycles;
+        auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+        cycles += readCycles;
+
+        if (addr & 0x03)
+        {
+            value = std::rotr(value, ((addr & 0x03) * 8));
+        }
+
+        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+    }
+    else
+    {
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+        int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+        cycles += writeCycles;
+    }
+
+    return cycles;
 }
 
 int LoadAddress::Execute(ARM7TDMI& cpu)
