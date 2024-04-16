@@ -279,7 +279,7 @@ int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
         SetMnemonic();
     }
 
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + instruction_.flags.Offset5;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + (instruction_.flags.Offset5 << 1);
 
     if (instruction_.flags.L)
     {
