@@ -47,7 +47,43 @@ void ConditionalBranch::SetMnemonic(uint32_t newPC)
 
 void MultipleLoadStore::SetMnemonic()
 {
+    std::string op = instruction_.flags.L ? "LDMIA" : "STMIA";
+    uint8_t rb = instruction_.flags.Rb;
 
+    std::stringstream regStream;
+    uint8_t regIndex = 0;
+    uint8_t regList = instruction_.flags.Rlist;
+    int consecutiveRegisters = 0;
+    regStream << "{";
+
+    while (regList != 0)
+    {
+        if (regList & 0x01)
+        {
+            ++consecutiveRegisters;
+        }
+        else if (consecutiveRegisters > 0)
+        {
+            PushPopHelper(regStream, consecutiveRegisters, regIndex);
+            consecutiveRegisters = 0;
+        }
+
+        ++regIndex;
+        regList >>= 1;
+    }
+
+    if (consecutiveRegisters > 0)
+    {
+        PushPopHelper(regStream, consecutiveRegisters, regIndex);
+    }
+
+    if (regStream.str().length() > 1)
+    {
+        regStream.seekp(-2, regStream.cur);
+    }
+
+    regStream << "}";
+    mnemonic_ = std::format("{:04X} -> {} R{}!, {}", instruction_.halfword, op, rb, regStream.str());
 }
 
 void LongBranchWithLink::SetMnemonic(uint32_t newPC)

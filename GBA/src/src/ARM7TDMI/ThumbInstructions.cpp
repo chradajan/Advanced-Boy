@@ -201,8 +201,108 @@ int ConditionalBranch::Execute(ARM7TDMI& cpu)
 
 int MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_MultipleLoadStore");
+    int cycles = 1;
+
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    uint8_t regList = instruction_.flags.Rlist;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb);
+    uint32_t wbAddr = addr;
+    bool emptyRlist = (regList == 0);
+    bool rbInList = (regList & (0x01 << instruction_.flags.Rb));
+    bool rbFirstInList = true;
+
+    if (rbInList && !instruction_.flags.L)
+    {
+        for (uint8_t i = 0x01; i < (0x01 << instruction_.flags.Rb); i <<= 1)
+        {
+            if (i & regList)
+            {
+                rbFirstInList = false;
+                break;
+            }
+        }
+    }
+
+    if (!rbFirstInList)
+    {
+        wbAddr += (4 * std::popcount(regList));
+    }
+
+    if (instruction_.flags.L)
+    {
+        // Load
+        ++cycles;
+        uint8_t regIndex = 0;
+
+        while (regList != 0)
+        {
+            if (regList & 0x01)
+            {
+                auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+                cycles += readCycles;
+                cpu.registers_.WriteRegister(regIndex, value);
+                addr += 4;
+            }
+
+            ++regIndex;
+            regList >>= 1;
+        }
+
+        if (emptyRlist)
+        {
+            auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+            cycles += readCycles;
+            cpu.registers_.WriteRegister(PC_INDEX, value);
+            cpu.flushPipeline_ = true;
+        }
+    }
+    else
+    {
+        uint8_t regIndex = 0;
+
+        while (regList != 0)
+        {
+            if (regList & 0x01)
+            {
+                uint32_t value = cpu.registers_.ReadRegister(regIndex);
+
+                if (!rbFirstInList && (regIndex == instruction_.flags.Rb))
+                {
+                    value = wbAddr;
+                }
+
+                int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+                cycles += writeCycles;
+                addr += 4;
+            }
+
+            ++regIndex;
+            regList >>= 1;
+        }
+
+        if (emptyRlist)
+        {
+            uint32_t value = cpu.registers_.GetPC() + 2;
+            int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
+            cycles += writeCycles;
+        }
+    }
+
+    if (emptyRlist)
+    {
+        wbAddr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + 0x40;
+        cpu.registers_.WriteRegister(instruction_.flags.Rb, wbAddr);
+    }
+    else if (!(rbInList && instruction_.flags.L))
+    {
+        cpu.registers_.WriteRegister(instruction_.flags.Rb, addr);
+    }
+
+    return cycles;
 }
 
 int LongBranchWithLink::Execute(ARM7TDMI& cpu)
