@@ -95,6 +95,7 @@ void PPU::VDraw(int extraCycles)
     if (scanline_ == 228)
     {
         scanline_ = 0;
+        lcdStatus_.flags_.vBlank = 0;
     }
 
     verticalCounter_.flags_.currentScanline = scanline_;
@@ -109,9 +110,13 @@ void PPU::VDraw(int extraCycles)
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
+    else
+    {
+        lcdStatus_.flags_.vCounter = 0;
+    }
 
     // Event Scheduling
-    int cyclesUntilHBlank = 960 - extraCycles;
+    int cyclesUntilHBlank = (960 - extraCycles) + 46;
     Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
 }
 
@@ -126,7 +131,7 @@ void PPU::HBlank(int extraCycles)
     }
 
     // Event scheduling
-    int cyclesUntilNextEvent = 272 - extraCycles;
+    int cyclesUntilNextEvent = 226 - extraCycles;
     EventType nextEvent = (scanline_ == 159) ? EventType::VBlank : EventType::VDraw;
     Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
 
@@ -150,12 +155,13 @@ void PPU::VBlank(int extraCycles)
 {
     // VBlank register updates
     ++scanline_;
-    lcdStatus_.flags_.vBlank = 1;
     verticalCounter_.flags_.currentScanline = scanline_;
 
     if (scanline_ == 160)
     {
         // First time entering VBlank
+        lcdStatus_.flags_.vBlank = 1;
+        lcdStatus_.flags_.hBlank = 0;
         Scheduler.ScheduleEvent(EventType::REFRESH_SCREEN, SCHEDULE_NOW);
         frameBuffer_.ResetFrameIndex();
 
@@ -163,6 +169,10 @@ void PPU::VBlank(int extraCycles)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
         }
+    }
+    else if (scanline_ == 227)
+    {
+        lcdStatus_.flags_.vBlank = 0;
     }
 
     if (scanline_ == lcdStatus_.flags_.vCountSetting)
@@ -173,6 +183,10 @@ void PPU::VBlank(int extraCycles)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
+    }
+    else
+    {
+        lcdStatus_.flags_.vCounter = 0;
     }
 
     // Event Scheduling
@@ -196,11 +210,11 @@ void PPU::RenderMode3Scanline()
 void PPU::RenderMode4Scanline()
 {
     size_t vramIndex = scanline_ * 240;
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
 
     if (lcdControl_.flags_.displayFrameSelect)
     {
-        vramIndex += 0x9600;
+        vramIndex += 0xA000;
     }
 
     for (int i = 0; i < 240; ++i)
