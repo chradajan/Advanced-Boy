@@ -111,6 +111,30 @@ public:
     /// @param state New value to set V flag to.
     void SetOverflow(bool state) { cpsr_.flags_.v_ = state; }
 
+    /// @brief Set the entire CPSR register to a new value.
+    /// @param cpsr New value for CPSR register.
+    void SetCPSR(uint32_t cpsr) { cpsr_.word_ = cpsr; }
+
+    /// @brief Set all four flag bits simultaneously in CPSR.
+    /// @param flags New value for CPSR flags.
+    void SetAllFlagsCPSR(uint8_t flags) { cpsr_.merged_.mergedFlags_ = flags & 0x0F; }
+
+    /// @brief Set the entire SPSR register for the current operating mode to a new value.
+    /// @param spsr New value for SPSR register.
+    void SetSPSR(uint32_t spsr);
+
+    /// @brief Set all four flag bits simultaneously in the current operating mode's SPSR.
+    /// @param flags New value for SPSR flags.
+    void SetAllFlagsSPSR(uint8_t flags);
+
+    /// @brief Get the current value of CPSR.
+    /// @return Current CPSR.
+    uint32_t GetCPSR() const { return cpsr_.word_; }
+
+    /// @brief Get the current operating mode's SPSR value.
+    /// @return Current SPSR.
+    uint32_t GetSPSR() const;
+
     /// @brief Check if IRQ interrupts are disabled.
     /// @return Whether IRQ interrupts are currently disabled.
     bool IsIrqDisabled() const { return cpsr_.flags_.i_; }
@@ -153,6 +177,12 @@ private:
             uint32_t z_ : 1;
             uint32_t n_ : 1;
         } flags_;
+
+        struct
+        {
+            uint32_t : 28;
+            uint32_t mergedFlags_ : 4;
+        } merged_;
 
         uint32_t word_;
     };

@@ -12,7 +12,7 @@ namespace CPU
 Registers::Registers()
 {
     cpsr_.word_ = 0;
-    SetOperatingMode(OperatingMode::System);
+    SetOperatingMode(OperatingMode::User);
     SetOperatingState(OperatingState::ARM);
 
     systemAndUserRegisters_ = {};
@@ -141,10 +141,83 @@ uint32_t Registers::GetLR() const
     }
 }
 
+void Registers::SetSPSR(uint32_t spsr)
+{
+    auto mode = GetOperatingMode();
+
+    switch (mode)
+    {
+        case OperatingMode::FIQ:
+            fiqRegisters_.spsr_.word_ = spsr;
+            break;
+        case OperatingMode::Supervisor:
+            supervisorRegisters_.spsr_.word_ = spsr;
+            break;
+        case OperatingMode::Abort:
+            abortRegisters_.spsr_.word_ = spsr;
+            break;
+        case OperatingMode::IRQ:
+            irqRegisters_.spsr_.word_ = spsr;
+            break;
+        case OperatingMode::Undefined:
+            undefinedRegisters_.spsr_.word_ = spsr;
+            break;
+        default:
+            break;
+    }
+}
+
+void Registers::SetAllFlagsSPSR(uint8_t flags)
+{
+    auto mode = GetOperatingMode();
+    flags &= 0x0F;
+
+    switch (mode)
+    {
+        case OperatingMode::FIQ:
+            fiqRegisters_.spsr_.merged_.mergedFlags_ = flags;
+            break;
+        case OperatingMode::Supervisor:
+            supervisorRegisters_.spsr_.merged_.mergedFlags_ = flags;
+            break;
+        case OperatingMode::Abort:
+            abortRegisters_.spsr_.merged_.mergedFlags_ = flags;
+            break;
+        case OperatingMode::IRQ:
+            irqRegisters_.spsr_.merged_.mergedFlags_ = flags;
+            break;
+        case OperatingMode::Undefined:
+            undefinedRegisters_.spsr_.merged_.mergedFlags_ = flags;
+            break;
+        default:
+            break;
+    }
+}
+
+uint32_t Registers::GetSPSR() const
+{
+    auto mode = GetOperatingMode();
+
+    switch (mode)
+    {
+        case OperatingMode::FIQ:
+            return fiqRegisters_.spsr_.word_;
+        case OperatingMode::Supervisor:
+            return supervisorRegisters_.spsr_.word_;
+        case OperatingMode::Abort:
+            return abortRegisters_.spsr_.word_;
+        case OperatingMode::IRQ:
+            return irqRegisters_.spsr_.word_;
+        case OperatingMode::Undefined:
+            return undefinedRegisters_.spsr_.word_;
+        default:
+            return 0;
+    }
+}
+
 void Registers::SaveCPSR()
 {
     auto mode = GetOperatingMode();
-    assert((mode != OperatingMode::User) || (mode != OperatingMode::System));
 
     switch (mode)
     {
@@ -171,7 +244,6 @@ void Registers::SaveCPSR()
 void Registers::LoadSPSR()
 {
     auto mode = GetOperatingMode();
-    assert((mode != OperatingMode::User) || (mode != OperatingMode::System));
 
     switch (mode)
     {

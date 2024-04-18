@@ -2,6 +2,7 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/Registers.hpp>
 #include <Logging/Logging.hpp>
+#include <bit>
 #include <cstdint>
 #include <format>
 #include <sstream>
@@ -362,12 +363,44 @@ void HalfwordDataTransferImmediateOffset::SetMnemonic(uint8_t offset)
 
 void PSRTransferMRS::SetMnemonic()
 {
-
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    std::string psr = instruction_.flags.Ps ? "SPSR" : "CPSR";
+    uint8_t rd = instruction_.flags.Rd;
+    mnemonic_ = std::format("{:08X} -> MRS{} R{}, {}", instruction_.word, cond, rd, psr);
 }
 
 void PSRTransferMSR::SetMnemonic()
 {
+    std::string cond = Logging::ConditionMnemonic(instruction_.commonFlags_.Cond);
+    std::string expression;
 
+    if (instruction_.commonFlags_.XferAll)
+    {
+        // Transfer entire register contents from register to CPSR/SPSR
+        uint8_t rm = instruction_.xferAllFlags_.Rm;
+        std::string psr = instruction_.xferAllFlags_.Pd ? "SPSR_all" : "CPSR_all";
+        expression = std::format("{}, R{}", psr, rm);
+    }
+    else
+    {
+        std::string psrf = instruction_.xferAllFlags_.Pd ? "SPSR_flg" : "CPSR_flg";
+
+        if (instruction_.xferFlagsFromRegFlags_.I)
+        {
+            // Transfer flag bits from immediate to CPSR/SPSR
+            uint32_t imm = instruction_.xferFlagsFromImmFlags_.Imm;
+            imm = std::rotr(imm, instruction_.xferFlagsFromImmFlags_.Rotate * 2);
+            expression = std::format("{}, #{:08X}", psrf, imm);
+        }
+        else
+        {
+            // Transfer flag bits from register to CPSR/SPSR
+            uint8_t rm = instruction_.xferFlagsFromRegFlags_.Rm;
+            expression = std::format("{}, R{}", psrf, rm);
+        }
+    }
+
+    mnemonic_ = std::format("{:08X} -> MSR{} {}", instruction_.word, cond, expression);
 }
 
 void DataProcessing::SetMnemonic(uint32_t operand2)

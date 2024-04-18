@@ -831,14 +831,89 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
 int PSRTransferMRS::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMRS");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    uint32_t value = instruction_.flags.Ps ? cpu.registers_.GetSPSR() : cpu.registers_.GetCPSR();
+    cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+
+    return 1;
 }
 
 int PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_PSRTransferMSR");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.commonFlags_.Cond))
+    {
+        return 1;
+    }
+
+    if (instruction_.commonFlags_.XferAll)
+    {
+        // Transfer entire register contents from register to CPSR/SPSR
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.xferAllFlags_.Rm);
+
+        if (cpu.registers_.GetOperatingMode() == OperatingMode::User)
+        {
+            if (!instruction_.xferAllFlags_.Pd)
+            {
+                uint8_t flags = value >> 28;
+                cpu.registers_.SetAllFlagsCPSR(flags);
+            }
+        }
+        else
+        {
+            if (instruction_.xferAllFlags_.Pd)
+            {
+                cpu.registers_.SetSPSR(value);
+            }
+            else
+            {
+                cpu.registers_.SetCPSR(value);
+            }
+        }
+    }
+    else
+    {
+        uint8_t flags;
+
+        if (instruction_.xferFlagsFromRegFlags_.I)
+        {
+            // Transfer flag bits from immediate to CPSR/SPSR
+            uint32_t imm = instruction_.xferFlagsFromImmFlags_.Imm;
+            imm = std::rotr(imm, instruction_.xferFlagsFromImmFlags_.Rotate * 2);
+            flags = imm >> 28;
+
+        }
+        else
+        {
+            // Transfer flag bits from register to CPSR/SPSR
+            uint32_t value = cpu.registers_.ReadRegister(instruction_.xferFlagsFromRegFlags_.Rm);
+            flags = value >> 28;
+        }
+
+        if (instruction_.commonFlags_.Pd)
+        {
+            cpu.registers_.SetAllFlagsSPSR(flags);
+        }
+        else
+        {
+            cpu.registers_.SetAllFlagsCPSR(flags);
+        }
+    }
+
+    return 1;
 }
 
 int DataProcessing::Execute(ARM7TDMI& cpu)
