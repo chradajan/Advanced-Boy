@@ -470,6 +470,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
     bool preIndex = instruction_.flags.P;
     bool postIndex = !preIndex;
+    bool ignoreWriteback = false;
 
     if (preIndex)
     {
@@ -490,11 +491,8 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
 
         cpu.registers_.WriteRegister(srcDestIndex, value);
 
-        if (srcDestIndex == PC_INDEX)
-        {
-            cpu.flushPipeline_ = true;
-            ++cycles;
-        }
+        cpu.flushPipeline_ = (srcDestIndex == PC_INDEX);
+        ignoreWriteback = (srcDestIndex == baseIndex);
     }
     else
     {
@@ -521,7 +519,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W || postIndex)
+    if (!ignoreWriteback && (instruction_.flags.W || postIndex))
     {
         cpu.registers_.WriteRegister(baseIndex, addr);
     }
@@ -703,7 +701,10 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
     int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
     bool preIndex = instruction_.flags.P;
     bool postIndex = !preIndex;
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    bool ignoreWriteback = false;
+    uint8_t baseIndex = instruction_.flags.Rn;
+    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
     if (Config::LOGGING_ENABLED)
     {
@@ -720,13 +721,13 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-
     if (instruction_.flags.L)  // Load
     {
         bool s = instruction_.flags.S;
         bool h = instruction_.flags.H;
         bool misaligned = addr & 0x01;
-        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
+        cpu.flushPipeline_ = (srcDestIndex == PC_INDEX);
+        ignoreWriteback = (srcDestIndex == baseIndex);
 
         // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8
         // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]
@@ -752,7 +753,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                     signExtendedWord |= 0xFFFF'0000;
                 }
 
-                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
                 cycles += readCycles;
             }
             else
@@ -767,7 +768,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                     signExtendedWord |= 0xFFFF'FF00;
                 }
 
-                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
                 cycles += readCycles;
             }
         }
@@ -781,17 +782,16 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 halfWord = std::rotr(halfWord, 8);
             }
 
-            cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
+            cpu.registers_.WriteRegister(srcDestIndex, halfWord);
             cycles += readCycles;
         }
     }
     else  // Store
     {
         // S = 0, H = 1
-        uint8_t srcIndex = instruction_.flags.Rd;
-        uint16_t halfWord = cpu.registers_.ReadRegister(srcIndex);
+        uint16_t halfWord = cpu.registers_.ReadRegister(srcDestIndex);
 
-        if (srcIndex == PC_INDEX)
+        if (srcDestIndex == PC_INDEX)
         {
             halfWord += 4;
         }
@@ -804,9 +804,9 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W || postIndex)
+    if (!ignoreWriteback && (instruction_.flags.W || postIndex))
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
+        cpu.registers_.WriteRegister(baseIndex, addr);
     }
 
     return cycles;
@@ -820,7 +820,10 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
     int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
     bool preIndex = instruction_.flags.P;
     bool postIndex = !preIndex;
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    bool ignoreWriteback = false;
+    uint8_t baseIndex = instruction_.flags.Rn;
+    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
     if (Config::LOGGING_ENABLED)
     {
@@ -842,7 +845,8 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         bool s = instruction_.flags.S;
         bool h = instruction_.flags.H;
         bool misaligned = addr & 0x01;
-        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
+        cpu.flushPipeline_ = (srcDestIndex == PC_INDEX);
+        ignoreWriteback = (srcDestIndex == baseIndex);
 
         // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8
         // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]
@@ -868,7 +872,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                     signExtendedWord |= 0xFFFF'0000;
                 }
 
-                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
                 cycles += readCycles;
             }
             else
@@ -882,7 +886,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                     signExtendedWord |= 0xFFFF'FF00;
                 }
 
-                cpu.registers_.WriteRegister(instruction_.flags.Rd, signExtendedWord);
+                cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
                 cycles += readCycles;
             }
         }
@@ -896,17 +900,16 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                 halfWord = std::rotr(halfWord, 8);
             }
 
-            cpu.registers_.WriteRegister(instruction_.flags.Rd, halfWord);
+            cpu.registers_.WriteRegister(srcDestIndex, halfWord);
             cycles += readCycles;
         }
     }
     else  // Store
     {
         // S = 0, H = 1
-        uint8_t srcIndex = instruction_.flags.Rd;
-        uint16_t halfWord = cpu.registers_.ReadRegister(srcIndex);
+        uint16_t halfWord = cpu.registers_.ReadRegister(srcDestIndex);
 
-        if (srcIndex == PC_INDEX)
+        if (srcDestIndex == PC_INDEX)
         {
             halfWord += 4;
         }
@@ -919,9 +922,9 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.W || postIndex)
+    if (!ignoreWriteback && (instruction_.flags.W || postIndex))
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rn, addr);
+        cpu.registers_.WriteRegister(baseIndex, addr);
     }
 
     return cycles;
