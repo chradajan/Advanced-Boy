@@ -12,7 +12,7 @@ namespace CPU
 Registers::Registers()
 {
     cpsr_.word_ = 0;
-    SetOperatingMode(OperatingMode::User);
+    SetOperatingMode(OperatingMode::System);
     SetOperatingState(OperatingState::ARM);
 
     systemAndUserRegisters_ = {};

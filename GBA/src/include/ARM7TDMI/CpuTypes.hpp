@@ -23,8 +23,8 @@ enum class OperatingMode : uint32_t
     IRQ = 0b10010,  // Used for general-purpose interrupt handling
     Supervisor = 0b10011,  // Protected mode for the operating system
     Abort = 0b10111,  // Entered after a data or instruction prefetch abort
-    System = 0b11011,  // A privileged user mode for the operating system
-    Undefined = 0b11111  // Entered when an undefined instruction is executed
+    Undefined = 0b11011,  // Entered when an undefined instruction is executed
+    System = 0b11111  // A privileged user mode for the operating system
 };
 
 /// @brief Abstract base class of all ARM and THUMB instructions.
