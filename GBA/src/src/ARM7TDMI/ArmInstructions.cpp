@@ -935,6 +935,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         // Operand 2 is an immediate value
         op2 = instruction_.rotatedImmediate.Imm;
         uint8_t rotateAmount = instruction_.rotatedImmediate.RotateAmount << 1;
+        carryOut = (op2 & (0x01 << (rotateAmount - 1)));
         op2 = std::rotr(op2, rotateAmount);
     }
     else
@@ -944,21 +945,24 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
         ++cycles;
 
-        // If R15 is used as an operand and a register specified shift amount is used, PC will be 12 bytes ahead.
-        if (instruction_.flags.Rn == PC_INDEX)
-        {
-            op1 += 4;
-        }
-
-        if (instruction_.shiftRegByReg.Rm == PC_INDEX)
-        {
-            op2 += 4;
-        }
-
         bool shiftByReg = (instruction_.flags.Operand2 & 0x10);
         uint8_t shiftAmount =
             shiftByReg ? (cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rs) & 0xFF) :
             instruction_.shiftRegByImm.ShiftAmount;
+
+        if (shiftByReg)
+        {
+            // If R15 is used as an operand and a register specified shift amount is used, PC will be 12 bytes ahead.
+            if (instruction_.flags.Rn == PC_INDEX)
+            {
+                op1 += 4;
+            }
+
+            if (instruction_.shiftRegByReg.Rm == PC_INDEX)
+            {
+                op2 += 4;
+            }
+        }
 
         switch (instruction_.shiftRegByReg.ShiftType)
         {
@@ -1083,7 +1087,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             result = op1 & op2;
             break;
         case 0b0001:  // EOR
-            result = op1 & op2;
+            result = op1 ^ op2;
             break;
         case 0b0010:  // SUB
             std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
@@ -1108,7 +1112,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             writeResult = false;
             break;
         case 0b1001:  // TEQ
-            result = op1 & op2;
+            result = op1 ^ op2;
             writeResult = false;
             break;
         case 0b1010:  // CMP
@@ -1140,7 +1144,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             ++cycles;
             cpu.flushPipeline_ = true;
 
-            if (updateFlags)
+            if (instruction_.flags.S)
             {
                 updateFlags = false;
                 cpu.registers_.LoadSPSR();
