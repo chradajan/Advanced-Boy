@@ -409,7 +409,7 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
     std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     std::string s = instruction_.flags.S ? "S" : "";
 
-    if ((instruction_.flags.OpCode >= 8) || (instruction_.flags.OpCode <= 11))
+    if ((instruction_.flags.OpCode >= 8) && (instruction_.flags.OpCode <= 11))
     {
         s = "";
     }

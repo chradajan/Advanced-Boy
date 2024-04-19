@@ -51,23 +51,26 @@ std::pair<bool, bool> Add32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
 /// @param op1 First subtraction operand.
 /// @param op2 Second subtraction operand.
 /// @param result Result of subtraction (op1 - op2), returned by reference.
-/// @param carry Carry flag, defaults to 0 meaning non SBC operation.
+/// @param sbc Whether this is a subtract with carry operation.
+/// @param carry Current value of carry flag.
 /// @return Pair of {carry_flag, overflow_flag}.
-std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool carry = 0)
+std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool sbc = false, bool carry = 0)
 {
     uint64_t result64;
+    bool c;
 
-    if (carry)
+    if (sbc)
     {
         result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2) + static_cast<uint64_t>(carry);
+        c = (result64 > MAX_U32);
     }
     else
     {
         result64 = static_cast<uint64_t>(op1) + static_cast<uint64_t>(~op2 + 1);
+        c = op1 >= op2;
     }
 
     result = result64 & MAX_U32;
-    bool c = op1 >= op2;
     bool v = SubtractionOverflow(op1, op2, result);
     return {c, v};
 }
@@ -1095,10 +1098,10 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             std::tie(carryOut, overflowOut) = Add32(op1, op2, result, cpu.registers_.IsCarry());
             break;
         case 0b0110:  // SBC
-            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result, cpu.registers_.IsCarry());
+            std::tie(carryOut, overflowOut) = Sub32(op1, op2, result, true, cpu.registers_.IsCarry());
             break;
         case 0b0111:  // RSC
-            std::tie(carryOut, overflowOut) = Sub32(op2, op1, result, cpu.registers_.IsCarry());
+            std::tie(carryOut, overflowOut) = Sub32(op2, op1, result, true, cpu.registers_.IsCarry());
             break;
         case 0b1000:  // TST
             result = op1 & op2;
