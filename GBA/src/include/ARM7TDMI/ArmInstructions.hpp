@@ -599,45 +599,31 @@ private:
 
         struct
         {
-            uint32_t Rm : 4;
-            uint32_t : 18;
-            uint32_t Pd : 1;
-            uint32_t : 5;
-            uint32_t Cond : 4;
-        } xferAllFlags_;
-
-        struct
-        {
-            uint32_t Rm : 4;
-            uint32_t : 18;
+            uint32_t : 16;
+            uint32_t Control : 1;
+            uint32_t Extension : 1;
+            uint32_t Status : 1;
+            uint32_t Flags : 1;
+            uint32_t : 2;
             uint32_t Pd : 1;
             uint32_t : 2;
             uint32_t I : 1;
             uint32_t : 2;
             uint32_t Cond : 4;
-        } xferFlagsFromRegFlags_;
+        } commonFlags;
+
+        struct
+        {
+            uint8_t Rm : 4;
+            uint32_t : 28;
+        } regFlags;
 
         struct
         {
             uint32_t Imm : 8;
             uint32_t Rotate : 4;
-            uint32_t : 10;
-            uint32_t Pd : 1;
-            uint32_t : 2;
-            uint32_t I : 1;
-            uint32_t : 2;
-            uint32_t Cond : 4;
-        } xferFlagsFromImmFlags_;
-
-        struct
-        {
-            uint32_t : 16;
-            uint32_t XferAll : 1;
-            uint32_t : 5;
-            uint32_t Pd : 1;
-            uint32_t : 5;
-            uint32_t Cond : 4;
-        } commonFlags_;
+            uint32_t : 20;
+        } immFlag;
 
         uint32_t word;
     } instruction_;

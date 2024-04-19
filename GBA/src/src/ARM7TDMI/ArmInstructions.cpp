@@ -857,63 +857,55 @@ int PSRTransferMSR::Execute(ARM7TDMI& cpu)
         SetMnemonic();
     }
 
-    if (!cpu.ArmConditionMet(instruction_.commonFlags_.Cond))
+    if (!cpu.ArmConditionMet(instruction_.commonFlags.Cond))
     {
         return 1;
     }
 
-    if (instruction_.commonFlags_.XferAll)
-    {
-        // Transfer entire register contents from register to CPSR/SPSR
-        uint32_t value = cpu.registers_.ReadRegister(instruction_.xferAllFlags_.Rm);
+    uint32_t value;
 
-        if (cpu.registers_.GetOperatingMode() == OperatingMode::User)
-        {
-            if (!instruction_.xferAllFlags_.Pd)
-            {
-                uint8_t flags = value >> 28;
-                cpu.registers_.SetAllFlagsCPSR(flags);
-            }
-        }
-        else
-        {
-            if (instruction_.xferAllFlags_.Pd)
-            {
-                cpu.registers_.SetSPSR(value);
-            }
-            else
-            {
-                cpu.registers_.SetCPSR(value);
-            }
-        }
+    if (instruction_.commonFlags.I)
+    {
+        value = instruction_.immFlag.Imm;
+        value = std::rotr(value, instruction_.immFlag.Rotate * 2);
     }
     else
     {
-        uint8_t flags;
+        value = cpu.registers_.ReadRegister(instruction_.regFlags.Rm);
+    }
 
-        if (instruction_.xferFlagsFromRegFlags_.I)
-        {
-            // Transfer flag bits from immediate to CPSR/SPSR
-            uint32_t imm = instruction_.xferFlagsFromImmFlags_.Imm;
-            imm = std::rotr(imm, instruction_.xferFlagsFromImmFlags_.Rotate * 2);
-            flags = imm >> 28;
+    uint32_t mask = 0;
+    mask |= instruction_.commonFlags.Flags ? 0xFF00'0000 : 0;
 
-        }
-        else
-        {
-            // Transfer flag bits from register to CPSR/SPSR
-            uint32_t value = cpu.registers_.ReadRegister(instruction_.xferFlagsFromRegFlags_.Rm);
-            flags = value >> 28;
-        }
+    if (cpu.registers_.GetOperatingMode() != OperatingMode::User)
+    {
+        mask |= instruction_.commonFlags.Status ? 0x00FF'0000 : 0;
+        mask |= instruction_.commonFlags.Extension ? 0x0000'FF00 : 0;
+        mask |= instruction_.commonFlags.Control ? 0x0000'00FF : 0;
+    }
 
-        if (instruction_.commonFlags_.Pd)
-        {
-            cpu.registers_.SetAllFlagsSPSR(flags);
-        }
-        else
-        {
-            cpu.registers_.SetAllFlagsCPSR(flags);
-        }
+    if (mask == 0)
+    {
+        return 1;
+    }
+
+    value &= mask;
+
+    if (instruction_.commonFlags.Pd)
+    {
+        // Update SPSR
+        uint32_t spsr = cpu.registers_.GetSPSR();
+        spsr &= ~mask;
+        spsr |= value;
+        cpu.registers_.SetSPSR(spsr);
+    }
+    else
+    {
+        // Update CPSR
+        uint32_t cpsr = cpu.registers_.GetCPSR();
+        cpsr &= ~mask;
+        cpsr |= value;
+        cpu.registers_.SetCPSR(cpsr);
     }
 
     return 1;

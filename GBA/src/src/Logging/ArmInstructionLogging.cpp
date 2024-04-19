@@ -371,33 +371,30 @@ void PSRTransferMRS::SetMnemonic()
 
 void PSRTransferMSR::SetMnemonic()
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.commonFlags_.Cond);
+    std::string cond = Logging::ConditionMnemonic(instruction_.commonFlags.Cond);
+
+    std::stringstream fields;
+    fields << "_";
+    fields << (instruction_.commonFlags.Flags ? "f" : "");
+    fields << (instruction_.commonFlags.Status ? "s" : "");
+    fields << (instruction_.commonFlags.Extension ? "x" : "");
+    fields << (instruction_.commonFlags.Control ? "c" : "");
+    std::string fieldsStr = fields.str() == "_fsxc" ? "_all" : fields.str();
+
+    std::string psr = instruction_.commonFlags.Pd ? "SPSR" : "CPSR";
+    psr = psr + fieldsStr;
     std::string expression;
 
-    if (instruction_.commonFlags_.XferAll)
+    if (instruction_.commonFlags.I)
     {
-        // Transfer entire register contents from register to CPSR/SPSR
-        uint8_t rm = instruction_.xferAllFlags_.Rm;
-        std::string psr = instruction_.xferAllFlags_.Pd ? "SPSR_all" : "CPSR_all";
-        expression = std::format("{}, R{}", psr, rm);
+        uint32_t imm = instruction_.immFlag.Imm;
+        imm = std::rotr(imm, instruction_.immFlag.Rotate * 2);
+        expression = std::format("{}, #{:08X}", psr, imm);
     }
     else
     {
-        std::string psrf = instruction_.xferAllFlags_.Pd ? "SPSR_flg" : "CPSR_flg";
-
-        if (instruction_.xferFlagsFromRegFlags_.I)
-        {
-            // Transfer flag bits from immediate to CPSR/SPSR
-            uint32_t imm = instruction_.xferFlagsFromImmFlags_.Imm;
-            imm = std::rotr(imm, instruction_.xferFlagsFromImmFlags_.Rotate * 2);
-            expression = std::format("{}, #{:08X}", psrf, imm);
-        }
-        else
-        {
-            // Transfer flag bits from register to CPSR/SPSR
-            uint8_t rm = instruction_.xferFlagsFromRegFlags_.Rm;
-            expression = std::format("{}, R{}", psrf, rm);
-        }
+        uint8_t rm = instruction_.regFlags.Rm;
+        expression = std::format("{}, R{}", psr, rm);
     }
 
     mnemonic_ = std::format("{:08X} -> MSR{} {}", instruction_.word, cond, expression);
