@@ -170,12 +170,6 @@ private:
             uint32_t n_ : 1;
         } flags_;
 
-        struct
-        {
-            uint32_t : 28;
-            uint32_t mergedFlags_ : 4;
-        } merged_;
-
         uint32_t word_;
     };
 

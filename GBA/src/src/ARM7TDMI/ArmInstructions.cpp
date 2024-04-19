@@ -596,8 +596,103 @@ int Multiply::Execute(ARM7TDMI& cpu)
 
 int MultiplyLong::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_MultiplyLong");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    uint32_t rm = cpu.registers_.ReadRegister(instruction_.flags.Rm);
+    uint32_t rs = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint32_t rdHi = cpu.registers_.ReadRegister(instruction_.flags.RdHi);
+    uint32_t rdLo = cpu.registers_.ReadRegister(instruction_.flags.RdLo);
+    uint64_t rdHiLo = (static_cast<uint64_t>(rdHi) << 32) | rdLo;
+
+    uint64_t result;
+    int cycles = instruction_.flags.A ? 2 : 1;
+
+    if (instruction_.flags.U)
+    {
+        // Signed
+        if (((rs & 0xFFFF'FF00) == 0xFFFF'FF00) || ((rs & 0xFFFF'FF00) == 0))
+        {
+            cycles += 1;
+        }
+        else if (((rs & 0xFFFF'0000) == 0xFFFF'0000) || ((rs & 0xFFFF'0000) == 0))
+        {
+            cycles += 2;
+        }
+        else if (((rs & 0xFF00'0000) == 0xFF00'0000) || ((rs & 0xFF00'0000) == 0))
+        {
+            cycles += 3;
+        }
+        else
+        {
+            cycles += 4;
+        }
+
+        int64_t op1 = rm;
+        int64_t op2 = rs;
+        int64_t op3 = rdHiLo;
+
+        if (op1 & 0x8000'0000)
+        {
+            op1 |= 0xFFFF'FFFF'0000'0000;
+        }
+
+        if (op2 & 0x8000'0000)
+        {
+            op2 |= 0xFFFF'FFFF'0000'0000;
+        }
+
+        if (op3 & 0x8000'0000)
+        {
+            op3 |= 0xFFFF'FFFF'0000'0000;
+        }
+
+        int64_t signedResult = instruction_.flags.A ? ((op1 * op2) + op3) : (op1 * op2);
+        result = static_cast<uint64_t>(signedResult);
+    }
+    else
+    {
+        // Unsigned
+        if ((rs & 0xFFFF'FF00) == 0)
+        {
+            cycles += 1;
+        }
+        else if ((rs & 0xFFFF'0000) == 0)
+        {
+            cycles += 2;
+        }
+        else if ((rs & 0xFF00'0000) == 0)
+        {
+            cycles += 3;
+        }
+        else
+        {
+            cycles += 4;
+        }
+
+        uint64_t op1 = rm;
+        uint64_t op2 = rs;
+        uint64_t op3 = rdHiLo;
+        result = instruction_.flags.A ? ((op1 * op2) + op3) : (op1 * op2);
+    }
+
+    if (instruction_.flags.S)
+    {
+        cpu.registers_.SetNegative(result & 0x8000'0000'0000'0000);
+        cpu.registers_.SetZero(result == 0);
+    }
+
+    cpu.registers_.WriteRegister(instruction_.flags.RdHi, result >> 32);
+    cpu.registers_.WriteRegister(instruction_.flags.RdLo, result & MAX_U32);
+
+    return cycles;
 }
 
 int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)

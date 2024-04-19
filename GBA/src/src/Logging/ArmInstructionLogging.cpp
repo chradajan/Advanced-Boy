@@ -323,7 +323,23 @@ void Multiply::SetMnemonic()
 
 void MultiplyLong::SetMnemonic()
 {
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    std::string u = instruction_.flags.U ? "S" : "U";
+    std::string s = instruction_.flags.S ? "S" : "";
+    uint8_t rdHi = instruction_.flags.RdHi;
+    uint8_t rdLo = instruction_.flags.RdLo;
+    uint8_t rs = instruction_.flags.Rs;
+    uint8_t rm = instruction_.flags.Rm;
+    std::string regString = std::format("R{}, R{}, R{}, R{}", rdLo, rdHi, rm, rs);
 
+    if (instruction_.flags.A)
+    {
+        mnemonic_ = std::format("{:08X} -> {}MLAL{}{} {}", instruction_.word, u, cond, s, regString);
+    }
+    else
+    {
+        mnemonic_ = std::format("{:08X} -> {}MULL{}{} {}", instruction_.word, u, cond, s, regString);
+    }
 }
 
 void HalfwordDataTransferRegisterOffset::SetMnemonic(uint32_t offset)
