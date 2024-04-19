@@ -184,7 +184,7 @@ uint32_t Registers::GetSPSR() const
         case OperatingMode::Undefined:
             return undefinedRegisters_.spsr_.word_;
         default:
-            return 0;
+            return cpsr_.word_;
     }
 }
 
