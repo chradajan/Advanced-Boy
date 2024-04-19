@@ -167,33 +167,6 @@ void Registers::SetSPSR(uint32_t spsr)
     }
 }
 
-void Registers::SetAllFlagsSPSR(uint8_t flags)
-{
-    auto mode = GetOperatingMode();
-    flags &= 0x0F;
-
-    switch (mode)
-    {
-        case OperatingMode::FIQ:
-            fiqRegisters_.spsr_.merged_.mergedFlags_ = flags;
-            break;
-        case OperatingMode::Supervisor:
-            supervisorRegisters_.spsr_.merged_.mergedFlags_ = flags;
-            break;
-        case OperatingMode::Abort:
-            abortRegisters_.spsr_.merged_.mergedFlags_ = flags;
-            break;
-        case OperatingMode::IRQ:
-            irqRegisters_.spsr_.merged_.mergedFlags_ = flags;
-            break;
-        case OperatingMode::Undefined:
-            undefinedRegisters_.spsr_.merged_.mergedFlags_ = flags;
-            break;
-        default:
-            break;
-    }
-}
-
 uint32_t Registers::GetSPSR() const
 {
     auto mode = GetOperatingMode();

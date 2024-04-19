@@ -1071,15 +1071,17 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
     uint32_t result = 0;
     bool writeResult = true;
-    bool updateFlags = instruction_.flags.S;
+    bool updateOverflow = true;
 
     switch (instruction_.flags.OpCode)
     {
         case 0b0000:  // AND
             result = op1 & op2;
+            updateOverflow = false;
             break;
         case 0b0001:  // EOR
             result = op1 ^ op2;
+            updateOverflow = false;
             break;
         case 0b0010:  // SUB
             std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
@@ -1101,10 +1103,12 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             break;
         case 0b1000:  // TST
             result = op1 & op2;
+            updateOverflow = false;
             writeResult = false;
             break;
         case 0b1001:  // TEQ
             result = op1 ^ op2;
+            updateOverflow = false;
             writeResult = false;
             break;
         case 0b1010:  // CMP
@@ -1117,41 +1121,50 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             break;
         case 0b1100:  // ORR
             result = op1 | op2;
+            updateOverflow = false;
             break;
         case 0b1101:  // MOV
             result = op2;
+            updateOverflow = false;
             break;
         case 0b1110:  // BIC
             result = op1 & ~op2;
+            updateOverflow = false;
             break;
         case 0b1111:  // MVN
             result = ~op2;
+            updateOverflow = false;
             break;
+    }
+
+    if (instruction_.flags.S)
+    {
+        if (destIndex == PC_INDEX)
+        {
+            cpu.registers_.LoadSPSR();
+            cpu.flushPipeline_ = writeResult;
+        }
+        else
+        {
+            cpu.registers_.SetNegative(result & 0x8000'0000);
+            cpu.registers_.SetZero(result == 0);
+            cpu.registers_.SetCarry(carryOut);
+
+            if (updateOverflow)
+            {
+                cpu.registers_.SetOverflow(overflowOut);
+            }
+        }
     }
 
     if (writeResult)
     {
-        if (destIndex == PC_INDEX)
+        if (!instruction_.flags.S && (destIndex == PC_INDEX))
         {
-            ++cycles;
             cpu.flushPipeline_ = true;
-
-            if (instruction_.flags.S)
-            {
-                updateFlags = false;
-                cpu.registers_.LoadSPSR();
-            }
         }
 
         cpu.registers_.WriteRegister(destIndex, result);
-    }
-
-    if (updateFlags)
-    {
-        cpu.registers_.SetNegative(result & 0x8000'0000);
-        cpu.registers_.SetZero(result == 0);
-        cpu.registers_.SetCarry(carryOut);
-        cpu.registers_.SetOverflow(overflowOut);
     }
 
     return cycles;

@@ -111,29 +111,27 @@ public:
     /// @param state New value to set V flag to.
     void SetOverflow(bool state) { cpsr_.flags_.v_ = state; }
 
+    /// @brief Get the current value of CPSR.
+    /// @return Current CPSR.
+    uint32_t GetCPSR() const { return cpsr_.word_; }
+
     /// @brief Set the entire CPSR register to a new value.
     /// @param cpsr New value for CPSR register.
     void SetCPSR(uint32_t cpsr) { cpsr_.word_ = cpsr; }
 
-    /// @brief Set all four flag bits simultaneously in CPSR.
-    /// @param flags New value for CPSR flags.
-    void SetAllFlagsCPSR(uint8_t flags) { cpsr_.merged_.mergedFlags_ = flags & 0x0F; }
+    /// @brief Get the current operating mode's SPSR value.
+    /// @return Current SPSR.
+    uint32_t GetSPSR() const;
 
     /// @brief Set the entire SPSR register for the current operating mode to a new value.
     /// @param spsr New value for SPSR register.
     void SetSPSR(uint32_t spsr);
 
-    /// @brief Set all four flag bits simultaneously in the current operating mode's SPSR.
-    /// @param flags New value for SPSR flags.
-    void SetAllFlagsSPSR(uint8_t flags);
+    /// @brief Save the CPSR into the current operating mode's SPSR register.
+    void SaveCPSR();
 
-    /// @brief Get the current value of CPSR.
-    /// @return Current CPSR.
-    uint32_t GetCPSR() const { return cpsr_.word_; }
-
-    /// @brief Get the current operating mode's SPSR value.
-    /// @return Current SPSR.
-    uint32_t GetSPSR() const;
+    /// @brief Load the current operating mode's SPSR register into CPSR.
+    void LoadSPSR();
 
     /// @brief Check if IRQ interrupts are disabled.
     /// @return Whether IRQ interrupts are currently disabled.
@@ -150,12 +148,6 @@ public:
     /// @brief Set the FIQ disabled flag.
     /// @param state New value to set F flag to. true = disabled, false = enabled.
     void SetFiqDisabled(bool state) { cpsr_.flags_.f_ = state; }
-
-    /// @brief Save the CPSR into the current operating mode's SPSR register.
-    void SaveCPSR();
-
-    /// @brief Load the current operating mode's SPSR register into CPSR.
-    void LoadSPSR();
 
     /// @brief Convert CPU registers to a human readable format.
     /// @return String representing current register state.
