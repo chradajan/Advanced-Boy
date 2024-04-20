@@ -9,6 +9,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD_REQUIRED ON
     COMPILE_FLAGS "-Wall -Wextra -g"
     PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/AdvancedBoy.hpp
+    PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/Gamepad.hpp
     PREFIX ""
 )
 

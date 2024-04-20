@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Gamepad.hpp>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -19,6 +20,11 @@ bool InsertCartridge(fs::path romPath);
 /// @brief Run the GBA indefinitely.
 /// @pre Initialize must have been previously called and a GamePak must have been successfully loaded.
 void PowerOn();
+
+/// @brief Update the GBA gamepad status.
+/// @param gamepad Current gamepad buttons being pressed.
+/// @pre Initialize must have been previously called.
+void UpdateGamepad(Gamepad gamepad);
 
 /// @brief Access the raw frame buffer data.
 /// @return Raw pointer to frame buffer.

@@ -1,4 +1,5 @@
 #include <AdvancedBoy.hpp>
+#include <Gamepad.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <System/GameBoyAdvance.hpp>
@@ -40,6 +41,16 @@ void PowerOn()
     }
 
     gba->Run();
+}
+
+void UpdateGamepad(Gamepad gamepad)
+{
+    if (!gba)
+    {
+        throw std::runtime_error("Update gamepad of uninitialized GBA");
+    }
+
+    gba->UpdateGamepad(gamepad);
 }
 
 uint8_t* GetRawFrameBuffer()

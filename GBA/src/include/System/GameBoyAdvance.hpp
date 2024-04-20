@@ -2,6 +2,7 @@
 
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <Cartridge/GamePak.hpp>
+#include <Gamepad/GamepadManager.hpp>
 #include <Graphics/PPU.hpp>
 #include <System/MemoryMap.hpp>
 #include <array>
@@ -33,6 +34,10 @@ public:
     /// @param romPath Path to ROM file.
     /// @return Whether the GamePak was valid and successfully loaded.
     bool LoadGamePak(fs::path romPath);
+
+    /// @brief Update the KEYINPUT register based on current buttons being pressed.
+    /// @param gamepad Current gamepad status.
+    void UpdateGamepad(Gamepad gamepad);
 
     /// @brief Access the raw frame buffer data.
     /// @return Raw pointer to frame buffer.
@@ -84,6 +89,7 @@ private:
 
     // Components
     CPU::ARM7TDMI cpu_;
+    GamepadManager gamepad_;
     Graphics::PPU ppu_;
     std::unique_ptr<Cartridge::GamePak> gamePak_;
 

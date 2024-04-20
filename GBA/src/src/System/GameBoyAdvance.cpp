@@ -35,6 +35,11 @@ bool GameBoyAdvance::LoadGamePak(fs::path romPath)
     return gamePakLoaded_;
 }
 
+void GameBoyAdvance::UpdateGamepad(Gamepad gamepad)
+{
+    gamepad_.UpdateGamepad(gamepad);
+}
+
 void GameBoyAdvance::Run()
 {
     if (!biosLoaded_ && !gamePakLoaded_)
@@ -311,7 +316,7 @@ std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessS
     }
     else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return gamepad_.ReadGamepadReg(addr, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
     {
@@ -368,8 +373,7 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignme
     }
     else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
     {
-        WritePointer(bytePtr, value, alignment);
-        return 1;
+        return gamepad_.WriteGamepadReg(addr, value, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
     {
