@@ -84,7 +84,7 @@ std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize align
     {
         return {0, cycles, true};
     }
-    else if (index + static_cast<uint8_t>(alignment) >= ROM_.size())
+    else if (index + static_cast<uint8_t>(alignment) > ROM_.size())
     {
         return {0, cycles, false};
     }
