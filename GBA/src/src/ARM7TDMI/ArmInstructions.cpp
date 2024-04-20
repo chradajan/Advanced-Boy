@@ -245,6 +245,11 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         {
             wbAddr = minAddr + (4 * regListSize);
         }
+
+        if (emptyRlist)
+        {
+            wbAddr = baseAddr + 0x40;
+        }
     }
     else
     {
@@ -257,6 +262,12 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         {
             minAddr = baseAddr - (4 * (regListSize - 1));
             wbAddr = minAddr - 4;
+        }
+
+        if (emptyRlist)
+        {
+            minAddr = baseAddr - (preIndexOffset ? 0x40 : 0x3C);
+            wbAddr = baseAddr - 0x40;
         }
     }
 
@@ -272,6 +283,11 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
                 auto [readValue, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
                 cycles += readCycles;
                 cpu.registers_.WriteRegister(regIndex, readValue, mode);
+
+                if (regIndex == PC_INDEX)
+                {
+                    cpu.flushPipeline_ = true;
+                }
             }
             else
             {
@@ -297,20 +313,13 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         regList >>= 1;
     }
 
-    if (emptyRlist)
-    {
-        wbAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn) + (instruction_.flags.U ? 0x40 : -0x40);
-        cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
-    }
-    else if (instruction_.flags.W && !(wbIndexInList && instruction_.flags.L))
+    if (instruction_.flags.W && !(wbIndexInList && instruction_.flags.L))
     {
         cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
     }
 
     if (instruction_.flags.L && r15InList)
     {
-        cpu.flushPipeline_ = true;
-
         if (instruction_.flags.S)
         {
             cpu.registers_.LoadSPSR();
