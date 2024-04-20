@@ -147,7 +147,7 @@ void PPU::HBlank(int extraCycles)
             RenderMode4Scanline();
             break;
         default:
-            throw std::runtime_error(std::format("Unimplemented BG mode: {}", bgMode));
+            break;
     }
 }
 

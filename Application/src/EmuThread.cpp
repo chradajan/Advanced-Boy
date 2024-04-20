@@ -4,6 +4,7 @@
 #include <QtCore/QtCore>
 #include <cstdint>
 #include <functional>
+#include <string>
 
 EmuThread::EmuThread(int argc, char** argv, MainWindow const& mainWindow)
 {
@@ -22,8 +23,11 @@ EmuThread::EmuThread(int argc, char** argv, MainWindow const& mainWindow)
                 gamePakSuccessfullyLoaded_ = InsertCartridge(argv[1]);
                 break;
             case 2:
-                EnableLogging(static_cast<bool>(argv[2]));
+            {
+                std::string loggingChoice = argv[2];
+                EnableLogging(loggingChoice != "0");
                 break;
+            }
             default:
                 break;
         }
