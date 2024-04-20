@@ -50,6 +50,11 @@ private:
     /// @brief Set all internal memory to 0.
     void ZeroMemory();
 
+    /// @brief Load GBA BIOS into memory.
+    /// @param biosPath Path to GBA BIOS.
+    /// @return Whether valid BIOS was loaded.
+    bool LoadBIOS(fs::path biosPath);
+
     /// @brief Read from memory.
     /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
     /// @param alignment BYTE, HALFWORD, or WORD.
@@ -65,7 +70,6 @@ private:
 
     // Area specific R/W handling
     std::pair<uint32_t, int> ReadBIOS(uint32_t addr, AccessSize alignment);
-    int WriteBIOS(uint32_t addr, uint32_t value, AccessSize alignment);
 
     std::pair<uint32_t, int> ReadOnBoardWRAM(uint32_t addr, AccessSize alignment);
     int WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
@@ -87,6 +91,10 @@ private:
 
     std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 
+    // State
+    bool biosLoaded_;
+    bool gamePakLoaded_;
+
     // Components
     CPU::ARM7TDMI cpu_;
     GamepadManager gamepad_;
@@ -103,7 +111,6 @@ private:
 
     std::array<uint8_t, 0x804> placeholderIoRegisters_;
 
-    bool biosLoaded_;
-    bool gamePakLoaded_;
-    int ppuCatchupCycles_;
+    // Open bus
+    uint32_t lastBiosFetch_;
 };

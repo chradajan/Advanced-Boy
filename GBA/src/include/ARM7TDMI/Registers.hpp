@@ -17,6 +17,9 @@ public:
     /// @brief Registers constructor. Initialize registers with values at system start-up.
     Registers();
 
+    /// @brief If running without BIOS, initialize necessary registers to start execution from GamePak.
+    void SkipBIOS();
+
     /// @brief Read a CPU register considering operating state and mode.
     /// @param cpu Pointer to CPU.
     /// @param index Index of register to read.

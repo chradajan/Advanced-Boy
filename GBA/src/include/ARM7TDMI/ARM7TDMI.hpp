@@ -57,7 +57,8 @@ class ARM7TDMI
 public:
     /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
     ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
-             std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory);
+             std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory,
+             bool biosLoaded);
 
     ARM7TDMI() = delete;
     ARM7TDMI(ARM7TDMI const&) = delete;
@@ -69,6 +70,10 @@ public:
     /// @brief Execute a CPU instruction.
     /// @return Number of cycles CPU spent executing instruction.
     int Tick();
+
+    /// @brief Get the current value of the PC register.
+    /// @return Current PC value;
+    uint32_t GetPC() const { return registers_.GetPC(); }
 
 private:
     /// @brief Determine whether the command should execute based on its condition.

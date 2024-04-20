@@ -8,8 +8,14 @@
 
 EmuThread::EmuThread(int argc, char** argv, MainWindow const& mainWindow)
 {
-    Initialize("", std::bind(&RefreshScreenCallback, this, std::placeholders::_1));
-
+    if (argc >= 4)
+    {
+        Initialize(argv[3], std::bind(&RefreshScreenCallback, this, 0));
+    }
+    else
+    {
+        Initialize("", std::bind(&RefreshScreenCallback, this, 0));
+    }
     QObject::connect(this, &RefreshScreen,
                      &mainWindow, &MainWindow::RefreshScreen);
 

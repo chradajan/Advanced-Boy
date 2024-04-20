@@ -15,13 +15,19 @@
 namespace CPU
 {
 ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
-                   std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory) :
+                   std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory,
+                   bool biosLoaded) :
     decodedInstruction_(nullptr),
     flushPipeline_(false),
     ReadMemory(ReadMemory),
     WriteMemory(WriteMemory)
 {
     Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
+
+    if (!biosLoaded)
+    {
+        registers_.SkipBIOS();
+    }
 }
 
 int ARM7TDMI::Tick()

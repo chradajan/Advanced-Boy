@@ -8,6 +8,7 @@
 #include <array>
 #include <filesystem>
 #include <format>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -16,14 +17,15 @@
 namespace fs = std::filesystem;
 
 GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)> refreshScreenCallback) :
+    biosLoaded_(LoadBIOS(biosPath)),
     cpu_(std::bind(&ReadMemory,  this, std::placeholders::_1, std::placeholders::_2),
-         std::bind(&WriteMemory, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
-    ppu_(paletteRAM_, VRAM_, OAM_),
-    biosLoaded_(biosPath != ""),
-    gamePakLoaded_(false),
-    ppuCatchupCycles_(0)
+         std::bind(&WriteMemory, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+         biosLoaded_),
+    ppu_(paletteRAM_, VRAM_, OAM_)
 {
     Scheduler.RegisterEvent(EventType::REFRESH_SCREEN, refreshScreenCallback);
+    gamePakLoaded_ = false;
+    lastBiosFetch_ = 0;
 }
 
 bool GameBoyAdvance::LoadGamePak(fs::path romPath)
@@ -71,6 +73,31 @@ void GameBoyAdvance::ZeroMemory()
     VRAM_.fill(0);
     OAM_.fill(0);
     placeholderIoRegisters_.fill(0);
+}
+
+bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
+{
+    if (biosPath.empty())
+    {
+        return false;
+    }
+
+    auto fileSizeInBytes = fs::file_size(biosPath);
+
+    if (fileSizeInBytes != BIOS_.size())
+    {
+        return false;
+    }
+
+    std::ifstream bios(biosPath, std::ios::binary);
+
+    if (bios.fail())
+    {
+        return false;
+    }
+
+    bios.read(reinterpret_cast<char*>(BIOS_.data()), fileSizeInBytes);
+    return true;
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
@@ -159,15 +186,8 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
 
     switch (page)
     {
-        case 0x00:  // BIOS
-        {
-            if (addr <= BIOS_ADDR_MAX)
-            {
-                cycles = WriteBIOS(addr, value, alignment);
-            }
-
+        case 0x00:  // BIOS ROM
             break;
-        }
         case 0x02:  // WRAM - On-board
             cycles = WriteOnBoardWRAM(addr, value, alignment);
             break;
@@ -210,14 +230,19 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadBIOS(uint32_t addr, AccessSize alignment)
 {
-    (void)addr; (void)alignment;
-    return {0, 1};
-}
-
-int GameBoyAdvance::WriteBIOS(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    (void)addr; (void)value; (void)alignment;
-    return 1;
+    if (cpu_.GetPC() <= BIOS_ADDR_MAX)
+    {
+        addr = AlignAddress(addr, alignment);
+        size_t index = addr - BIOS_ADDR_MIN;
+        uint8_t* bytePtr = &(BIOS_.at(index));
+        uint32_t value = ReadPointer(bytePtr, alignment);
+        lastBiosFetch_ = value;
+        return {value, 1};
+    }
+    else
+    {
+        return {lastBiosFetch_, 1};
+    }
 }
 
 //  Region        Bus   Read      Write     Cycles

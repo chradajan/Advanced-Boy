@@ -21,14 +21,14 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
+}
 
-    // TODO
-    // SKip the BIOS and set PC to beginning of Game Pak ROM. Also set r0, r13, and r14.
-    SetPC(0x08000000);
-    SetCarry(true);
-
-    *systemAndUserRegistersLUT_.at(13) = 0x0300'7F00;
-    *systemAndUserRegistersLUT_.at(14) = 0x0800'0000;
+void Registers::SkipBIOS()
+{
+    SetPC(0x0800'0000);
+    WriteRegister(SP_INDEX, 0x0300'7F00, OperatingMode::System);
+    WriteRegister(SP_INDEX, 0x0300'7FA0, OperatingMode::IRQ);
+    WriteRegister(SP_INDEX, 0x0300'7FE0, OperatingMode::Supervisor);
 }
 
 uint32_t Registers::ReadRegister(uint8_t index) const
