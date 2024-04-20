@@ -299,7 +299,16 @@ void SingleDataTransfer::SetMnemonic(uint32_t offset)
 
 void SingleDataSwap::SetMnemonic()
 {
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    std::string b = instruction_.flags.B ? "B" : "";
+    std::string op = "SWP" + cond + b;
 
+    uint8_t rd = instruction_.flags.Rd;
+    uint8_t rm = instruction_.flags.Rm;
+    uint8_t rn = instruction_.flags.Rn;
+    std::string regString = std::format("R{}, R{}, [R{}]", rd, rm, rn);
+
+    mnemonic_ = std::format("{:08X} -> {} {}", instruction_.word, op, regString);
 }
 
 void Multiply::SetMnemonic()

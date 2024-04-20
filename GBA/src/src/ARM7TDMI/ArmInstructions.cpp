@@ -529,8 +529,33 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
 
 int SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_SingleDataSwap");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    int cycles = 1;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    AccessSize alignment = instruction_.flags.B ? AccessSize::BYTE : AccessSize::WORD;
+
+    auto [memValue, readCycles] = cpu.ReadMemory(addr, alignment);
+    uint32_t regValue = cpu.registers_.ReadRegister(instruction_.flags.Rm);
+
+    if ((alignment == AccessSize::WORD) && (addr & 0x03))
+    {
+        memValue = std::rotr(memValue, (addr & 0x03) * 8);
+    }
+
+    int writeCycles = cpu.WriteMemory(addr, regValue, alignment);
+    cpu.registers_.WriteRegister(instruction_.flags.Rd, memValue);
+
+    cycles += readCycles + writeCycles;
+    return cycles;
 }
 
 int Multiply::Execute(ARM7TDMI& cpu)
