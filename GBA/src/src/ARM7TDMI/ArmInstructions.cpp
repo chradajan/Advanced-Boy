@@ -681,11 +681,6 @@ int MultiplyLong::Execute(ARM7TDMI& cpu)
             op2 |= 0xFFFF'FFFF'0000'0000;
         }
 
-        if (op3 & 0x8000'0000)
-        {
-            op3 |= 0xFFFF'FFFF'0000'0000;
-        }
-
         int64_t signedResult = instruction_.flags.A ? ((op1 * op2) + op3) : (op1 * op2);
         result = static_cast<uint64_t>(signedResult);
     }
