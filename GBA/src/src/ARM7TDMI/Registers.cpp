@@ -194,32 +194,6 @@ uint32_t Registers::GetSPSR() const
     }
 }
 
-void Registers::SaveCPSR()
-{
-    auto mode = GetOperatingMode();
-
-    switch (mode)
-    {
-        case OperatingMode::FIQ:
-            fiqRegisters_.spsr_ = cpsr_;
-            break;
-        case OperatingMode::Supervisor:
-            supervisorRegisters_.spsr_ = cpsr_;
-            break;
-        case OperatingMode::Abort:
-            abortRegisters_.spsr_ = cpsr_;
-            break;
-        case OperatingMode::IRQ:
-            irqRegisters_.spsr_ = cpsr_;
-            break;
-        case OperatingMode::Undefined:
-            undefinedRegisters_.spsr_ = cpsr_;
-            break;
-        default:
-            break;
-    }
-}
-
 void Registers::LoadSPSR()
 {
     auto mode = GetOperatingMode();
@@ -253,11 +227,12 @@ std::string Registers::GetRegistersString() const
 
     for (int i = 0; i < 16; ++i)
     {
-        regStream << std::format("r{} {:08X}  ", i, ReadRegister(i));
+        regStream << std::format("R{} {:08X}  ", i, ReadRegister(i));
     }
 
     regStream << "CPSR: " << (IsNegative() ? "N" : "-") << (IsZero() ? "Z" : "-") << (IsCarry() ? "C" : "-") << (IsOverflow() ? "V" : "-") << "  ";
     regStream << (IsIrqDisabled() ? "I" : "-") << (IsFiqDisabled() ? "F" : "-") << (isThumbState ? "T" : "-") << "  " << "Mode: ";
+    uint32_t spsr = GetSPSR();
 
     switch (GetOperatingMode())
     {
@@ -265,22 +240,22 @@ std::string Registers::GetRegistersString() const
             regStream << "User";
             break;
         case OperatingMode::FIQ:
-            regStream << "FIQ";
+            regStream << std::format("FIQ         SPSR: {:08X}", spsr);
             break;
         case OperatingMode::IRQ:
-            regStream << "IRQ";
+            regStream << std::format("IRQ         SPSR: {:08X}", spsr);
             break;
         case OperatingMode::Supervisor:
-            regStream << "Supervisor";
+            regStream << std::format("Supervisor  SPSR: {:08X}", spsr);
             break;
         case OperatingMode::Abort:
-            regStream << "Abort";
+            regStream << std::format("Abort       SPSR: {:08X}", spsr);
             break;
         case OperatingMode::System:
             regStream << "System";
             break;
         case OperatingMode::Undefined:
-            regStream << "Undefined";
+            regStream << std::format("Undefined   SPSR: {:08X}", spsr);
             break;
     }
 

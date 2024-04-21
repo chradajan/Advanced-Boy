@@ -130,9 +130,6 @@ public:
     /// @param spsr New value for SPSR register.
     void SetSPSR(uint32_t spsr);
 
-    /// @brief Save the CPSR into the current operating mode's SPSR register.
-    void SaveCPSR();
-
     /// @brief Load the current operating mode's SPSR register into CPSR.
     void LoadSPSR();
 

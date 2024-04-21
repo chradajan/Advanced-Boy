@@ -188,10 +188,8 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
     uint16_t regList = instruction_.flags.RegisterList;
     bool emptyRlist = (regList == 0);
-    bool r15InList = instruction_.flags.RegisterList & 0x8000;
     bool wbIndexInList = ((instruction_.flags.W) && (regList & (0x01 << instruction_.flags.Rn)));
     bool wbIndexFirstInList = true;
-    OperatingMode mode = cpu.registers_.GetOperatingMode();
 
     if (wbIndexInList && !instruction_.flags.L)
     {
@@ -210,6 +208,9 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         // If regList is empty, R15 is still stored/loaded
         regList = 0x8000;
     }
+
+    OperatingMode mode = cpu.registers_.GetOperatingMode();
+    bool r15InList = instruction_.flags.RegisterList & 0x8000;
 
     if (instruction_.flags.S)
     {
@@ -281,12 +282,18 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
             {
                 auto [readValue, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
                 cycles += readCycles;
-                cpu.registers_.WriteRegister(regIndex, readValue, mode);
 
                 if (regIndex == PC_INDEX)
                 {
                     cpu.flushPipeline_ = true;
+
+                    if (instruction_.flags.S)
+                    {
+                        cpu.registers_.LoadSPSR();
+                    }
                 }
+
+                cpu.registers_.WriteRegister(regIndex, readValue, mode);
             }
             else
             {
@@ -315,14 +322,6 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     if (instruction_.flags.W && !(wbIndexInList && instruction_.flags.L))
     {
         cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
-    }
-
-    if (instruction_.flags.L && r15InList)
-    {
-        if (instruction_.flags.S)
-        {
-            cpu.registers_.LoadSPSR();
-        }
     }
 
     return cycles;
@@ -372,9 +371,14 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
         return 1;
     }
 
-    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4, OperatingMode::Supervisor);
-    cpu.EnterSWI();
-    cpu.registers_.SaveCPSR();
+    uint32_t currentCPSR = cpu.registers_.GetCPSR();
+    cpu.registers_.SetOperatingMode(OperatingMode::Supervisor);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4);
+    cpu.registers_.SetIrqDisabled(true);
+    cpu.registers_.SetSPSR(currentCPSR);
+    cpu.registers_.SetPC(0x0000'0008);
+    cpu.flushPipeline_ = true;
+
     return 1;
 }
 
@@ -390,11 +394,12 @@ int Undefined::Execute(ARM7TDMI& cpu)
         return 1;
     }
 
-    cpu.registers_.SetPC(0x0000'0004);
+    uint32_t currentCPSR = cpu.registers_.GetCPSR();
     cpu.registers_.SetOperatingMode(OperatingMode::Undefined);
     cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4);
     cpu.registers_.SetIrqDisabled(true);
-    cpu.registers_.SaveCPSR();
+    cpu.registers_.SetSPSR(currentCPSR);
+    cpu.registers_.SetPC(0x0000'0004);
     cpu.flushPipeline_ = true;
     return 1;
 }

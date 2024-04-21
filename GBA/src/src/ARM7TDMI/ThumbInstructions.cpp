@@ -152,9 +152,14 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
         SetMnemonic();
     }
 
-    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 2, OperatingMode::Supervisor);
-    cpu.EnterSWI();
-    cpu.registers_.SaveCPSR();
+    uint32_t currentCPSR = cpu.registers_.GetCPSR();
+    cpu.registers_.SetOperatingState(OperatingState::ARM);
+    cpu.registers_.SetOperatingMode(OperatingMode::Supervisor);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 2);
+    cpu.registers_.SetIrqDisabled(true);
+    cpu.registers_.SetSPSR(currentCPSR);
+    cpu.registers_.SetPC(0x0000'0008);
+    cpu.flushPipeline_ = true;
     return 1;
 }
 
