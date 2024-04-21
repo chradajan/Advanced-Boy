@@ -12,8 +12,10 @@ namespace CPU
 Registers::Registers()
 {
     cpsr_.word_ = 0;
-    SetOperatingMode(OperatingMode::System);
+    SetOperatingMode(OperatingMode::Supervisor);
     SetOperatingState(OperatingState::ARM);
+    SetIrqDisabled(true);
+    SetFiqDisabled(true);
 
     systemAndUserRegisters_ = {};
     fiqRegisters_ = {};
@@ -21,10 +23,14 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
+
+    // For now, don't start executing from BIOS regardless of whether it was loaded or not.
+    SkipBIOS();
 }
 
 void Registers::SkipBIOS()
 {
+    SetOperatingMode(OperatingMode::System);
     SetPC(0x0800'0000);
     WriteRegister(SP_INDEX, 0x0300'7F00, OperatingMode::System);
     WriteRegister(SP_INDEX, 0x0300'7FA0, OperatingMode::IRQ);
