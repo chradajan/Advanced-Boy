@@ -148,8 +148,15 @@ std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t const instruction)
 
 int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: THUMB_SoftwareInterrupt");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 2, OperatingMode::Supervisor);
+    cpu.EnterSWI();
+    cpu.registers_.SaveCPSR();
+    return 1;
 }
 
 int UnconditionalBranch::Execute(ARM7TDMI& cpu)

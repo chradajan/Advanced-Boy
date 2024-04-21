@@ -85,6 +85,9 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void IRQ(int extraCycles);
 
+    /// @brief Handle a software interrupt.
+    void EnterSWI();
+
     // F/D/E cycle state
     std::queue<uint32_t> fetchedInstructions_;
     std::unique_ptr<Instruction> decodedInstruction_;

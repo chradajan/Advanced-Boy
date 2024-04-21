@@ -196,8 +196,9 @@ void Branch::SetMnemonic(uint32_t newPC)
 
 void SoftwareInterrupt::SetMnemonic()
 {
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
     uint32_t comment = instruction_.flags.CommentField;
-    mnemonic_ = std::format("{:08X} -> SWI #{:06X}", instruction_.word, comment);
+    mnemonic_ = std::format("{:08X} -> SWI{} #{:06X}", instruction_.word, cond, comment);
 }
 
 void Undefined::SetMnemonic()

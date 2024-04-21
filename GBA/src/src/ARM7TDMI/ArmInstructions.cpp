@@ -363,8 +363,6 @@ int Branch::Execute(ARM7TDMI& cpu)
 
 int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    // Until BIOS support is added, implement BIOS calls by HLE.
-
     if (Config::LOGGING_ENABLED)
     {
         SetMnemonic();
@@ -375,27 +373,9 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
         return 1;
     }
 
-    switch (instruction_.flags.CommentField)
-    {
-        case 0x060000:  // Signed division
-        {
-            int32_t r0 = cpu.registers_.ReadRegister(0);
-            int32_t r1 = cpu.registers_.ReadRegister(1);
-
-            int32_t quotient = r0 / r1;
-            int32_t mod = r0 % r1;
-            uint32_t absQuotient = std::abs(quotient);
-
-            cpu.registers_.WriteRegister(0, quotient);
-            cpu.registers_.WriteRegister(1, mod);
-            cpu.registers_.WriteRegister(3, absQuotient);
-            break;
-        }
-        default:
-            throw std::runtime_error("Unimplemented Instruction: ARM_SoftwareInterrupt");
-
-    }
-
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4, OperatingMode::Supervisor);
+    cpu.EnterSWI();
+    cpu.registers_.SaveCPSR();
     return 1;
 }
 

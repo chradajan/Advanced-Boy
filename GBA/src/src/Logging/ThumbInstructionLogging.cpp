@@ -31,7 +31,8 @@ namespace CPU::THUMB
 {
 void SoftwareInterrupt::SetMnemonic()
 {
-
+    uint8_t comment = instruction_.flags.Value8;
+    mnemonic_ = std::format("{:04X} -> SWI #{:02X}", instruction_.halfword, comment);
 }
 
 void UnconditionalBranch::SetMnemonic(uint32_t newPC)

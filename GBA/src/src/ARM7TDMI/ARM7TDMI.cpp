@@ -142,7 +142,7 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
         case 8:  // HI
             return registers_.IsCarry() && !registers_.IsZero();
         case 9:  // LS
-            return !registers_.IsCarry() && registers_.IsZero();
+            return !registers_.IsCarry() || registers_.IsZero();
         case 10: // GE
             return registers_.IsNegative() == registers_.IsOverflow();
         case 11: // LT
@@ -161,5 +161,14 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
 void ARM7TDMI::IRQ(int extraCycles)
 {
     (void)extraCycles;
+}
+
+void ARM7TDMI::EnterSWI()
+{
+    registers_.SetPC(0x0000'0008);
+    registers_.SetOperatingState(OperatingState::ARM);
+    registers_.SetOperatingMode(OperatingMode::Supervisor);
+    registers_.SetIrqDisabled(true);
+    flushPipeline_ = true;
 }
 }
