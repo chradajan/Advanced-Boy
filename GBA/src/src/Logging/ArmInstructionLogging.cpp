@@ -203,7 +203,8 @@ void SoftwareInterrupt::SetMnemonic()
 
 void Undefined::SetMnemonic()
 {
-
+    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
+    mnemonic_ = std::format("{:08X} -> UNDEFINED {}", instruction_.word, cond);
 }
 
 void SingleDataTransfer::SetMnemonic(uint32_t offset)

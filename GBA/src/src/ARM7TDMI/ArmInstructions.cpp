@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <utility>
 
 namespace
@@ -381,8 +380,23 @@ int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 
 int Undefined::Execute(ARM7TDMI& cpu)
 {
-    (void)cpu;
-    throw std::runtime_error("Unimplemented Instruction: ARM_Undefined");
+    if (Config::LOGGING_ENABLED)
+    {
+        SetMnemonic();
+    }
+
+    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    {
+        return 1;
+    }
+
+    cpu.registers_.SetPC(0x0000'0004);
+    cpu.registers_.SetOperatingMode(OperatingMode::Undefined);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4);
+    cpu.registers_.SetIrqDisabled(true);
+    cpu.registers_.SaveCPSR();
+    cpu.flushPipeline_ = true;
+    return 1;
 }
 
 int SingleDataTransfer::Execute(ARM7TDMI& cpu)

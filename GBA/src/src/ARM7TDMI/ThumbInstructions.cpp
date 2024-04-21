@@ -5,7 +5,6 @@
 #include <bit>
 #include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <utility>
 
 namespace
