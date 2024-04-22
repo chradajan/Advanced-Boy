@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -71,4 +72,14 @@ void EnableLogging(bool enable)
     {
         Logging::LogMgr.Initialize();
     }
+}
+
+std::string RomTitle()
+{
+    if (!gba)
+    {
+        throw std::runtime_error("Got ROM title of uninitialized GBA");
+    }
+
+    return gba->RomTitle();
 }

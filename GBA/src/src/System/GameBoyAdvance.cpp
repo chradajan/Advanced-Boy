@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace fs = std::filesystem;
@@ -42,6 +43,16 @@ bool GameBoyAdvance::LoadGamePak(fs::path romPath)
 void GameBoyAdvance::UpdateGamepad(Gamepad gamepad)
 {
     gamepad_.UpdateGamepad(gamepad);
+}
+
+std::string GameBoyAdvance::RomTitle() const
+{
+    if (gamePakLoaded_)
+    {
+        return gamePak_->RomTitle();
+    }
+
+    return "";
 }
 
 void GameBoyAdvance::Run()

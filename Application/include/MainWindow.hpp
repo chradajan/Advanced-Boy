@@ -1,11 +1,13 @@
 #pragma once
 
 #include <QtCore/QtCore>
+#include <QtCore/QTimer>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QtWidgets>
 #include <cstdint>
 #include <filesystem>
 #include <set>
+#include <string>
 
 namespace fs = std::filesystem;
 class EmuThread;
@@ -48,8 +50,14 @@ private:
     /// @brief Update the GBA gamepad based on which keys are currently pressed.
     void SendKeyPresses() const;
 
+    /// @brief Update the window title every second with the latest FPS.
+    void UpdateWindowTitle();
+
     // Emulator
     EmuThread* gbaThread;
+    std::string romTitle_;
+    int frameCounter_;
+    QTimer frameTimer_;
 
     // Menu bar drop downs
     QMenu* fileMenu_;

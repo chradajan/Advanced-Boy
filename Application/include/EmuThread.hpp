@@ -4,6 +4,7 @@
 #include <QtCore/QThread>
 #include <cstdint>
 #include <filesystem>
+#include <string>
 
 namespace fs = std::filesystem;
 class MainWindow;
@@ -19,6 +20,10 @@ public:
     /// @param logging Whether to log CPU instructions.
     /// @param mainWindow Reference to window where rendering takes place.
     EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow);
+
+    /// @brief Get the title of the currently loaded ROM.
+    /// @return Title of ROM.
+    std::string RomTitle() const;
 
     /// @brief Run the GBA indefinitely.
     void run();

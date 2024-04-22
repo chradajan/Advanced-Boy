@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <utility>
 
@@ -42,6 +43,10 @@ public:
     /// @brief Access the raw frame buffer data.
     /// @return Raw pointer to frame buffer.
     uint8_t* GetRawFrameBuffer() { return ppu_.GetRawFrameBuffer(); }
+
+    /// @brief Get the title of the currently loaded ROM.
+    /// @return Title of ROM.
+    std::string RomTitle() const;
 
     /// @brief Run GBA indefinitely.
     void Run();

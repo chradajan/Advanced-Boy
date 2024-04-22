@@ -6,11 +6,16 @@
 #include <QtWidgets/QtWidgets>
 #include <cstdint>
 #include <filesystem>
+#include <format>
+#include <set>
+#include <string>
 
 namespace fs = std::filesystem;
 
 MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent) :
     QMainWindow(parent),
+    frameCounter_(0),
+    frameTimer_(this),
     lcd_(this),
     screenScale_(4),
     pressedKeys_()
@@ -19,7 +24,12 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
     InitializeMenuBar();
     InitializeLCD();
     gbaThread = new EmuThread(romPath, biosPath, logging, *this);
+    romTitle_ = gbaThread->RomTitle();
+    setWindowTitle(QString::fromStdString(romTitle_));
     gbaThread->start();
+
+    connect(&frameTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
+    frameTimer_.start(1000);
 }
 
 MainWindow::~MainWindow()
@@ -95,9 +105,17 @@ void MainWindow::SendKeyPresses() const
     UpdateGamepad(gamepad);
 }
 
+void MainWindow::UpdateWindowTitle()
+{
+    std::string newTitle = std::format("{} ({} fps)", romTitle_, frameCounter_);
+    setWindowTitle(QString::fromStdString(newTitle));
+    frameCounter_ = 0;
+}
+
 void MainWindow::RefreshScreen()
 {
     SendKeyPresses();
     auto image = QImage(GetRawFrameBuffer(), 240, 160, QImage::Format_RGB888);
     lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
+    ++frameCounter_;
 }

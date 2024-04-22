@@ -33,6 +33,10 @@ public:
     /// @return True if ROM is loaded and ready to be accessed, false otherwise.
     bool RomLoaded() const { return romLoaded_; };
 
+    /// @brief Get the title of the currently loaded ROM.
+    /// @return Title of ROM.
+    std::string RomTitle() const { return romTitle_; }
+
     /// @brief Read an address in GamePak ROM.
     /// @param addr Address (will get aligned) to read.
     /// @param alignment BYTE, HALFWORD, or WORD.

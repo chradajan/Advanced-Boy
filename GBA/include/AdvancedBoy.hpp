@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -34,3 +35,8 @@ uint8_t* GetRawFrameBuffer();
 /// @brief Enable/Disable logging of CPU instructions.
 /// @param enable Whether to enable or disable logging.
 void EnableLogging(bool enable);
+
+/// @brief Get the title of the currently loaded ROM.
+/// @return Title of ROM.
+/// @pre Initialize must have been previously called.
+std::string RomTitle();
