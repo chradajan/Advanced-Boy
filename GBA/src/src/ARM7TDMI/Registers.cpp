@@ -23,6 +23,9 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
+
+    // For now, don't start executing from BIOS regardless of whether it was loaded or not.
+    SkipBIOS();
 }
 
 void Registers::SkipBIOS()

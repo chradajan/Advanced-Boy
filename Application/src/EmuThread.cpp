@@ -6,38 +6,15 @@
 #include <functional>
 #include <string>
 
-EmuThread::EmuThread(int argc, char** argv, MainWindow const& mainWindow)
+EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow)
 {
-    if (argc >= 4)
-    {
-        Initialize(argv[3], std::bind(&RefreshScreenCallback, this, 0));
-    }
-    else
-    {
-        Initialize("", std::bind(&RefreshScreenCallback, this, 0));
-    }
+    Initialize(biosPath, std::bind(&RefreshScreenCallback, this, 0));
+
     QObject::connect(this, &RefreshScreen,
                      &mainWindow, &MainWindow::RefreshScreen);
 
-    gamePakSuccessfullyLoaded_ = false;
-
-    for (int i = 1; i < argc; ++i)
-    {
-        switch (i)
-        {
-            case 1:
-                gamePakSuccessfullyLoaded_ = InsertCartridge(argv[1]);
-                break;
-            case 2:
-            {
-                std::string loggingChoice = argv[2];
-                EnableLogging(loggingChoice != "0");
-                break;
-            }
-            default:
-                break;
-        }
-    }
+    gamePakSuccessfullyLoaded_ = InsertCartridge(romPath);
+    EnableLogging(logging);
 }
 
 void EmuThread::run()

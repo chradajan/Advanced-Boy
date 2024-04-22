@@ -1,11 +1,15 @@
 #include <MainWindow.hpp>
 #include <AdvancedBoy.hpp>
+#include <EmuThread.hpp>
 #include <Gamepad.hpp>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QtWidgets>
 #include <cstdint>
+#include <filesystem>
 
-MainWindow::MainWindow(QWidget* parent) :
+namespace fs = std::filesystem;
+
+MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent) :
     QMainWindow(parent),
     lcd_(this),
     screenScale_(4),
@@ -14,6 +18,14 @@ MainWindow::MainWindow(QWidget* parent) :
     ResizeWindow();
     InitializeMenuBar();
     InitializeLCD();
+    gbaThread = new EmuThread(romPath, biosPath, logging, *this);
+    gbaThread->start();
+}
+
+MainWindow::~MainWindow()
+{
+    gbaThread->exit();
+    delete gbaThread;
 }
 
 void MainWindow::InitializeMenuBar()

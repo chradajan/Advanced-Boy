@@ -3,18 +3,22 @@
 #include <MainWindow.hpp>
 #include <QtCore/QThread>
 #include <cstdint>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+class MainWindow;
 
 class EmuThread : public QThread
 {
     Q_OBJECT
 
 public:
-
     /// @brief Create the thread class used to run the emulator.
-    /// @param argc Number of args passed to program.
-    /// @param argv Arguments passed to program.
+    /// @param romPath Path to game ROM.
+    /// @param biosPath Path to GBA BIOS.
+    /// @param logging Whether to log CPU instructions.
     /// @param mainWindow Reference to window where rendering takes place.
-    EmuThread(int argc, char** argv, MainWindow const& mainWindow);
+    EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow);
 
     /// @brief Run the GBA indefinitely.
     void run();

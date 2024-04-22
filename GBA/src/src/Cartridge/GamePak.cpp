@@ -16,9 +16,14 @@
 namespace Cartridge
 {
 GamePak::GamePak(fs::path const romPath) :
+    romLoaded_(false),
+    romTitle_(""),
     waitStateControl_(0)
 {
-    romLoaded_ = false;
+    if (romPath.empty())
+    {
+        return;
+    }
 
     // Load ROM data into memory.
     auto const fileSizeInBytes = fs::file_size(romPath);

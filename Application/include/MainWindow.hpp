@@ -4,7 +4,11 @@
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QtWidgets>
 #include <cstdint>
+#include <filesystem>
 #include <set>
+
+namespace fs = std::filesystem;
+class EmuThread;
 
 class MainWindow : public QMainWindow
 {
@@ -12,9 +16,13 @@ class MainWindow : public QMainWindow
 
 public:
     /// @brief Initialize the main GUI window.
+    /// @param romPath Path to game ROM.
+    /// @param biosPath Path to GBA BIOS.
+    /// @param logging Whether to log CPU instructions.
     /// @param parent Parent widget.
-    MainWindow(QWidget* parent = nullptr);
-    ~MainWindow() = default;
+    MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent = nullptr);
+
+    ~MainWindow();
 
 public slots:
     void RefreshScreen();
@@ -39,6 +47,9 @@ private:
 
     /// @brief Update the GBA gamepad based on which keys are currently pressed.
     void SendKeyPresses() const;
+
+    // Emulator
+    EmuThread* gbaThread;
 
     // Menu bar drop downs
     QMenu* fileMenu_;
