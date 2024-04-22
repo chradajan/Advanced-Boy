@@ -66,7 +66,7 @@ void LogManager::DumpLogs()
     }
 }
 
-void LogManager::LogException(std::runtime_error const& error)
+void LogManager::LogException(std::exception const& error)
 {
     if (loggingInitialized_)
     {

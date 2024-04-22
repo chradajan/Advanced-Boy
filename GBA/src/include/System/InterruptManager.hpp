@@ -54,10 +54,10 @@ public:
     /// @return Number of cycles taken to write.
     int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
-private:
     /// @brief Check if interrupts and enabled and if an interrupt type is both enabled and requested. If so, schedule an IRQ.
     void CheckForInterrupt();
 
+private:
     // Interrupt, wait state, and power down controls
     std::array<uint8_t, 0x604> intWtstPwdDownRegisters_;
 

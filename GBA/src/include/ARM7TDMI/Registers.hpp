@@ -120,7 +120,7 @@ public:
 
     /// @brief Set the entire CPSR register to a new value.
     /// @param cpsr New value for CPSR register.
-    void SetCPSR(uint32_t cpsr) { cpsr_.word_ = cpsr; }
+    void SetCPSR(uint32_t cpsr);
 
     /// @brief Get the current operating mode's SPSR value.
     /// @return Current SPSR.

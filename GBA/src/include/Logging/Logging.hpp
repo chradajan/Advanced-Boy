@@ -2,8 +2,8 @@
 
 #include <array>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -37,7 +37,7 @@ public:
 
     /// @brief Log an exception and dump logs.
     /// @param error Exception to log.
-    void LogException(std::runtime_error const& error);
+    void LogException(std::exception const& error);
 
 private:
     void DumpBufferToFile(size_t bufferToDump);

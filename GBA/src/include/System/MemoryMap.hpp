@@ -38,7 +38,7 @@ constexpr uint32_t WRAM_ON_CHIP_ADDR_MIN = 0x0300'0000;
 constexpr uint32_t WRAM_ON_CHIP_ADDR_MAX = 0x0300'7FFF;
 
 constexpr uint32_t IO_REG_ADDR_MIN = 0x0400'0000;
-constexpr uint32_t IO_REG_ADDR_MAX = 0x0400'03FE;
+constexpr uint32_t IO_REG_ADDR_MAX = 0x0400'0803;
 
 constexpr uint32_t PALETTE_RAM_ADDR_MIN = 0x0500'0000;
 constexpr uint32_t PALETTE_RAM_ADDR_MAX = 0x0500'03FF;

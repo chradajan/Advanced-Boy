@@ -110,6 +110,7 @@ private:
     std::array<uint8_t,   1 * KiB> OAM_;            // 07000000-070003FF    OAM - OBJ Attributes
 
     std::array<uint8_t, 0x804> placeholderIoRegisters_;
+    uint32_t mirroredIoReg_;
 
     // Open bus
     uint32_t lastBiosFetch_;

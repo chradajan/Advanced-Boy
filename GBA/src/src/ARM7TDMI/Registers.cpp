@@ -1,6 +1,7 @@
 #include <ARM7TDMI/Registers.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
+#include <System/InterruptManager.hpp>
 #include <cassert>
 #include <cstdint>
 #include <format>
@@ -173,6 +174,16 @@ void Registers::SetSPSR(uint32_t spsr)
     }
 }
 
+void Registers::SetCPSR(uint32_t cpsr)
+{
+    cpsr_.word_ = cpsr;
+
+    if (!IsIrqDisabled())
+    {
+        InterruptMgr.CheckForInterrupt();
+    }
+}
+
 uint32_t Registers::GetSPSR() const
 {
     auto mode = GetOperatingMode();
@@ -217,6 +228,11 @@ void Registers::LoadSPSR()
             break;
         default:
             break;
+    }
+
+    if (!IsIrqDisabled())
+    {
+        InterruptMgr.CheckForInterrupt();
     }
 }
 

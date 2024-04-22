@@ -6,6 +6,7 @@
 #include <System/Scheduler.hpp>
 #include <System/Utilities.hpp>
 #include <array>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -25,6 +26,7 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
 {
     Scheduler.RegisterEvent(EventType::REFRESH_SCREEN, refreshScreenCallback);
     gamePakLoaded_ = false;
+    mirroredIoReg_ = 0;
     lastBiosFetch_ = 0;
 }
 
@@ -56,7 +58,7 @@ void GameBoyAdvance::Run()
             int cpuCycles = cpu_.Tick();
             Scheduler.Tick(cpuCycles);
         }
-        catch (std::runtime_error const& error)
+        catch (std::exception const& error)
         {
             Logging::LogMgr.LogException(error);
             Logging::LogMgr.DumpLogs();
@@ -313,6 +315,11 @@ int GameBoyAdvance::WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize al
 
 std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize alignment)
 {
+    if (addr > IO_REG_ADDR_MAX)
+    {
+        addr = 0x0400'0800 + (addr % 4);
+    }
+
     addr = AlignAddress(addr, alignment);
 
     // TODO: Placeholder until all I/O registers are properly handled
@@ -366,6 +373,11 @@ std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessS
 
 int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
+    if (addr > IO_REG_ADDR_MAX)
+    {
+        addr = 0x0400'0800 + (addr % 4);
+    }
+
     addr = AlignAddress(addr, alignment);
 
     // TODO: Placeholder until all I/O registers are properly handled
