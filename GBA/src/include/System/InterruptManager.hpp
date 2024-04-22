@@ -56,7 +56,7 @@ public:
 
 private:
     /// @brief Check if interrupts and enabled and if an interrupt type is both enabled and requested. If so, schedule an IRQ.
-    void CheckForInterrupt() const;
+    void CheckForInterrupt();
 
     // Interrupt, wait state, and power down controls
     std::array<uint8_t, 0x604> intWtstPwdDownRegisters_;
@@ -69,6 +69,9 @@ private:
     // Undocumented registers
     uint8_t& POSTFLG_;
     uint8_t& HALTCNT_;
+
+    // Stop/Halt Status
+    bool halted_;
 };
 
 extern InterruptManager InterruptMgr;

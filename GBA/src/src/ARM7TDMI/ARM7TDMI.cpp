@@ -20,9 +20,11 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)>
     decodedInstruction_(nullptr),
     flushPipeline_(false),
     ReadMemory(ReadMemory),
-    WriteMemory(WriteMemory)
+    WriteMemory(WriteMemory),
+    halted_(false)
 {
     Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::HALT, std::bind(&HALT, this, std::placeholders::_1));
 
     if (!biosLoaded)
     {
@@ -32,6 +34,11 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)>
 
 int ARM7TDMI::Tick()
 {
+    if (halted_)
+    {
+        return 1;
+    }
+
     int executionCycles = 1;
     int fetchCycles = 1;
     bool instructionExecuted = false;
@@ -158,17 +165,18 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
     throw std::runtime_error("Illegal ARM condition");
 }
 
-void ARM7TDMI::IRQ(int extraCycles)
+void ARM7TDMI::IRQ(int)
 {
-    (void)extraCycles;
-}
-
-void ARM7TDMI::EnterSWI()
-{
-    registers_.SetPC(0x0000'0008);
+    uint32_t currentCPSR = registers_.GetCPSR();
+    uint32_t savedPC = registers_.GetPC() - ((registers_.GetOperatingState() == OperatingState::ARM) ? 4 : 2);
     registers_.SetOperatingState(OperatingState::ARM);
-    registers_.SetOperatingMode(OperatingMode::Supervisor);
+    registers_.SetOperatingMode(OperatingMode::IRQ);
+    registers_.WriteRegister(LR_INDEX, savedPC);
     registers_.SetIrqDisabled(true);
-    flushPipeline_ = true;
+    registers_.SetSPSR(currentCPSR);
+    registers_.SetPC(0x0000'0018);
+    decodedInstruction_.reset();
+    fetchedInstructions_ = std::queue<uint32_t>();
+    halted_ = false;
 }
 }

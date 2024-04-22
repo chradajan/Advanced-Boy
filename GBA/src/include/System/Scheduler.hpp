@@ -14,6 +14,9 @@ enum class EventType
     // External
     REFRESH_SCREEN,
 
+    // Low power mode
+    HALT,
+
     // Interrupts
     IRQ,
 

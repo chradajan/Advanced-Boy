@@ -18,6 +18,7 @@ InterruptManager::InterruptManager() :
     HALTCNT_(intWtstPwdDownRegisters_.at(257))
 {
     intWtstPwdDownRegisters_.fill(0);
+    halted_ = false;
 }
 
 void InterruptManager::RequestInterrupt(InterruptType interrupt)
@@ -75,17 +76,90 @@ std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, Acces
 int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     addr = AlignAddress(addr, alignment);
+    uint32_t maxAddrWritten = addr + static_cast<uint8_t>(alignment) - 1;
     size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
     uint8_t* bytePtr = &(intWtstPwdDownRegisters_.at(index));
-    WritePointer(bytePtr, value, alignment);
-    CheckForInterrupt();
+
+    bool acknowledgingIRQ = (addr <= IF_ADDR) && (IF_ADDR <= maxAddrWritten);
+    bool writingHALTCNT = (addr <= HALTCNT_ADDR) && (HALTCNT_ADDR <= maxAddrWritten);
+
+    if (acknowledgingIRQ)
+    {
+        switch (alignment)
+        {
+            case AccessSize::BYTE:
+            {
+                // Byte alignment means only one byte of IF is affected.
+                if (addr == IF_ADDR)
+                {
+                    // Write to lower byte.
+                    IF_ &= ~(value & MAX_U8);
+                }
+                else
+                {
+                    // Write to upper byte.
+                    IF_ &= ~((value & MAX_U8) << 16);
+                }
+
+                break;
+            }
+            case AccessSize::HALFWORD:
+                // Halfword alignment means all of IF is affected.
+                IF_ &= ~(value & MAX_U16);
+                break;
+            case AccessSize::WORD:
+            {
+                // IF is halfword aligned so a word write means IE is being written to.
+                uint16_t newIE = value & MAX_U16;
+                uint16_t ackMask = value >> 16;
+                IE_ = newIE;
+                IF_ &= ~ackMask;
+                break;
+            }
+        }
+    }
+    else
+    {
+        WritePointer(bytePtr, value, alignment);
+    }
+
+    if (writingHALTCNT)
+    {
+        if (HALTCNT_ & 0x80)
+        {
+            // Stop
+        }
+        else
+        {
+            // Halt
+            if ((IF_ & IE_) == 0)
+            {
+                halted_ = true;
+                Scheduler.ScheduleEvent(EventType::HALT, SCHEDULE_NOW);
+            }
+        }
+    }
+    else
+    {
+        CheckForInterrupt();
+    }
+
     return 1;
 }
 
-void InterruptManager::CheckForInterrupt() const
+void InterruptManager::CheckForInterrupt()
 {
-    if ((IME_ & 0x01) && ((IF_ & IE_) != 0))
+    if ((IF_ & IE_) != 0)
     {
-        Scheduler.ScheduleEvent(EventType::IRQ, SCHEDULE_NOW);
+        if (IME_ & 0x01)
+        {
+            Scheduler.ScheduleEvent(EventType::IRQ, SCHEDULE_NOW);
+        }
+        else if (halted_)
+        {
+            Scheduler.ScheduleEvent(EventType::HALT, SCHEDULE_NOW);
+        }
+
+        halted_ = false;
     }
 }

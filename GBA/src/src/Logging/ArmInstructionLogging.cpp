@@ -63,7 +63,7 @@ std::string HalfwordDataTransferHelper(bool load,
         }
     }
 
-    return std::format("{}{}{} R{}, {}", op, Logging::ConditionMnemonic(cond), opType, destIndex, address);
+    return std::format("{}{}{} R{}, {}", op, opType, Logging::ConditionMnemonic(cond), destIndex, address);
 }
 
 /// @brief Help write LDM/STM formatted register string.

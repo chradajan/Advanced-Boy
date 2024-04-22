@@ -407,7 +407,7 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignme
     }
     else if (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX)
     {
-        if ((addr >= WAITCNT_ADDR) && (addr <= (WAITCNT_ADDR + 4)))
+        if ((addr <= WAITCNT_ADDR) && (WAITCNT_ADDR <= (addr + static_cast<uint8_t>(alignment) - 1)))
         {
             return gamePak_->WriteWAITCNT(addr, value, alignment);
         }

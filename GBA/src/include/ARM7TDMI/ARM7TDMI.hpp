@@ -83,10 +83,11 @@ private:
 
     /// @brief Callback function for an IRQ event.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
-    void IRQ(int extraCycles);
+    void IRQ(int);
 
-    /// @brief Handle a software interrupt.
-    void EnterSWI();
+    /// @brief Handle a CPU halt. Toggles between halted/normal when called.
+    /// @param  extraCycles Number of cycles that passed since this event was supposed to execute.
+    void HALT(int) { halted_ = !halted_; };
 
     // F/D/E cycle state
     std::queue<uint32_t> fetchedInstructions_;
@@ -99,6 +100,9 @@ private:
 
     // Registers
     Registers registers_;
+
+    // Current state
+    bool halted_;
 
     // Lots of friends. Kind of annoying, but it's the only way to easily couple the CPU with individual instruction classes.
     friend class THUMB::SoftwareInterrupt;
