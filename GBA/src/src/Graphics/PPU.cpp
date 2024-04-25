@@ -1,8 +1,10 @@
 #include <Graphics/PPU.hpp>
+#include <Graphics/VramTypes.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 #include <System/Utilities.hpp>
+#include <algorithm>
 #include <cstdint>
 #include <format>
 #include <functional>
@@ -12,6 +14,11 @@
 
 namespace Graphics
 {
+static_assert(sizeof(TileMap) == TEXT_TILE_MAP_SIZE);
+static_assert(sizeof(TileMapEntry) == 2);
+static_assert(sizeof(TileData8bpp) == 64);
+static_assert(sizeof(TileData4bpp) == 32);
+
 PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
          std::array<uint8_t,  96 * KiB> const& VRAM,
          std::array<uint8_t,   1 * KiB> const& OAM) :
@@ -134,21 +141,33 @@ void PPU::HBlank(int extraCycles)
     int cyclesUntilNextEvent = 226 - extraCycles;
     EventType nextEvent = (scanline_ == 159) ? EventType::VBlank : EventType::VDraw;
     Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
+    uint16_t backdrop = *reinterpret_cast<uint16_t const*>(paletteRAM_.data());
 
     // Draw scanline
-    uint8_t bgMode = lcdControl_.flags_.bgMode;
-
-    switch (bgMode)
+    if (lcdControl_.flags_.forceBlank)
     {
-        case 3:
-            RenderMode3Scanline();
-            break;
-        case 4:
-            RenderMode4Scanline();
-            break;
-        default:
-            break;
+        backdrop = 0xFFFF;
     }
+    else
+    {
+        switch (lcdControl_.flags_.bgMode)
+        {
+            case 0:
+                RenderMode0Scanline();
+                break;
+            case 3:
+                RenderMode3Scanline();
+                break;
+            case 4:
+                RenderMode4Scanline();
+                break;
+            default:
+                backdrop = 0xFFFF;
+                break;
+        }
+    }
+
+    frameBuffer_.RenderScanline(backdrop);
 }
 
 void PPU::VBlank(int extraCycles)
@@ -195,15 +214,32 @@ void PPU::VBlank(int extraCycles)
     Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
 }
 
+void PPU::RenderMode0Scanline()
+{
+    for (uint16_t i = 0; i < 4; ++i)
+    {
+        if (lcdControl_.halfword_ & (0x100 << i))
+        {
+            BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
+            uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
+            uint16_t yOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x12 + (4 * i)]) & 0x01FF;
+            RenderRegularTiledBackgroundScanline(i, bgControl, xOffset, yOffset);
+        }
+    }
+}
+
 void PPU::RenderMode3Scanline()
 {
     size_t vramIndex = scanline_ * 480;
     uint16_t const* vramPtr = reinterpret_cast<uint16_t const*>(&VRAM_.at(vramIndex));
 
-    for (int i = 0; i < 240; ++i)
+    if (lcdControl_.flags_.screenDisplayBg2)
     {
-        frameBuffer_.WritePixel(*vramPtr);
-        ++vramPtr;
+        for (int i = 0; i < 240; ++i)
+        {
+            frameBuffer_.PushPixel({*vramPtr, false, 0, PixelSrc::BG2}, i);
+            ++vramPtr;
+        }
     }
 }
 
@@ -217,10 +253,146 @@ void PPU::RenderMode4Scanline()
         vramIndex += 0xA000;
     }
 
-    for (int i = 0; i < 240; ++i)
+    if (lcdControl_.flags_.screenDisplayBg2)
     {
-        uint8_t paletteIndex = VRAM_.at(vramIndex++);
-        frameBuffer_.WritePixel(palettePtr[paletteIndex]);
+        for (int i = 0; i < 240; ++i)
+        {
+            uint8_t paletteIndex = VRAM_.at(vramIndex++);
+            uint16_t bgr555 = palettePtr[paletteIndex];
+            frameBuffer_.PushPixel({bgr555, !(paletteIndex & 0x0F), 0, PixelSrc::BG2}, i);
+        }
+    }
+}
+
+void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset)
+{
+    // Map size in pixels
+    int const mapPixelWidth = (control.screenSize_ & 0x01) ? 512 : 256;
+    int const mapPixelHeight = (control.screenSize_ & 0x02) ? 512 : 256;
+
+    // Pixel coordinates
+    int dotX = xOffset % mapPixelWidth;
+    int const dotY = (scanline_ + yOffset) % mapPixelHeight;
+
+    // Screen entry coordinates
+    int mapX = dotX / 8;
+    int mapY = dotY / 8;
+
+    // Screenblock/Charblock addresses
+    size_t tileMapAddr = control.screenBaseBlock_ * TEXT_TILE_MAP_SIZE;
+    size_t baseCharblockAddr = control.charBaseBlock_ * CHARBLOCK_SIZE;
+
+    if (mapY > 31)
+    {
+        tileMapAddr += (TEXT_TILE_MAP_SIZE * ((mapPixelWidth == 256) ? 1 : 2));
+        mapY %= 32;
+    }
+
+    // Memory pointers
+    TileMapEntry const* tileMapEntryPtr_ = nullptr;
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+
+    // Status
+    int totalPixelsDrawn = 0;
+    int dot = 0;
+    int priority = control.bgPriority_;
+    PixelSrc src = static_cast<PixelSrc>(bgIndex + 1);
+
+    while (totalPixelsDrawn < 240)
+    {
+        if (tileMapEntryPtr_ == nullptr)
+        {
+            mapX = dotX / 8;
+            TileMap const* tileMapPtr_ = reinterpret_cast<TileMap const*>(&VRAM_.at(tileMapAddr));
+
+            if (mapX > 31)
+            {
+                ++tileMapPtr_;
+                mapX %= 32;
+            }
+
+            tileMapEntryPtr_ = &(tileMapPtr_->tileData_[mapY][mapX]);
+        }
+
+        int tileX = dotX % 8;
+        int tileY = dotY % 8;
+        int pixelsToDraw = std::min(8 - tileX, 240 - totalPixelsDrawn);
+        int pixelsDrawn = 0;
+
+        if (tileMapEntryPtr_->verticalFlip_)
+        {
+            tileY ^= 7;
+        }
+
+        if (control.colorMode_)
+        {
+            // 8bpp
+            TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_.at(baseCharblockAddr));
+
+            if (tileMapEntryPtr_->horizontalFlip_)
+            {
+                tileX ^= 7;
+            }
+
+            while (pixelsDrawn < pixelsToDraw)
+            {
+                size_t paletteIndex = tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX];
+                uint16_t bgr555 = palettePtr[paletteIndex];
+                bool transparent = !(paletteIndex & 0x0F);
+                frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
+                ++tileX;
+                ++pixelsDrawn;
+                ++dot;
+            }
+        }
+        else
+        {
+            // 4bpp
+            TileData4bpp const* tilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_.at(baseCharblockAddr));
+
+            if (tileMapEntryPtr_->horizontalFlip_)
+            {
+                tileX ^= 7;
+            }
+
+            bool leftHalf = (tileX % 2) == 0;
+
+            while (pixelsDrawn < pixelsToDraw)
+            {
+                size_t paletteIndex = tileMapEntryPtr_->palette_ << 4;
+
+                if (leftHalf)
+                {
+                    paletteIndex |= tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX / 2].leftNibble_;
+                }
+                else
+                {
+                    paletteIndex |= tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX / 2].rightNibble_;
+                }
+
+                uint16_t bgr555 = palettePtr[paletteIndex];
+                bool transparent = !(paletteIndex & 0x0F);
+                frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
+                ++tileX;
+                ++pixelsDrawn;
+                ++dot;
+                leftHalf = !leftHalf;
+            }
+        }
+
+        int nextDotX = (dotX + pixelsDrawn) % mapPixelWidth;
+
+        if ((nextDotX / 256) != (dotX / 256))
+        {
+            tileMapEntryPtr_ = nullptr;
+        }
+        else
+        {
+            ++tileMapEntryPtr_;
+        }
+
+        dotX = nextDotX;
+        totalPixelsDrawn += pixelsDrawn;
     }
 }
 }

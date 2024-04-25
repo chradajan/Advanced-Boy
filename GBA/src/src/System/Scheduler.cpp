@@ -38,7 +38,7 @@ void EventScheduler::Tick(int cycles)
     totalCycles_ += static_cast<uint64_t>(cycles);
     auto front = queue_.begin();
 
-    while (totalCycles_ >= (*front).cycleToExecute_ )
+    while (totalCycles_ >= (*front).cycleToExecute_)
     {
         (*front).Callback(totalCycles_ - (*front).cycleToExecute_);
         queue_.erase(front);

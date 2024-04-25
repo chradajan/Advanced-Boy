@@ -3,25 +3,45 @@
 
 namespace Graphics
 {
+bool Pixel::operator<(Pixel const& rhs) const
+{
+    if (transparent_ && !rhs.transparent_)
+    {
+        return false;
+    }
+
+    if (priority_ == rhs.priority_)
+    {
+        return src_ > rhs.src_;
+    }
+
+    return priority_ > rhs.priority_;
+}
+
 FrameBuffer::FrameBuffer()
 {
-    frameBuffer_.fill(0);
+    frameBuffer_.fill(0xFFFF);
     frameIndex_ = 0;
 }
 
-void FrameBuffer::WritePixel(uint16_t rgb555)
+void FrameBuffer::PushPixel(Pixel pixel, int dot)
 {
-    uint8_t r = rgb555 & 0x001F;
-    r = (r << 3) | (r >> 2);
+    scanline_[dot].insert(pixel);
+}
 
-    uint8_t g = (rgb555 & 0x03E0) >> 5;
-    g = (g << 3) | (g >> 2);
-
-    uint8_t b = (rgb555 & 0x7C00) >> 10;
-    b = (b << 3) | (b >> 2);
-
-    frameBuffer_.at(frameIndex_++) = r;
-    frameBuffer_.at(frameIndex_++) = g;
-    frameBuffer_.at(frameIndex_++) = b;
+void FrameBuffer::RenderScanline(uint16_t backdrop)
+{
+    for (auto& pixelSet : scanline_)
+    {
+        if (pixelSet.empty())
+        {
+            frameBuffer_.at(frameIndex_++) = backdrop;
+        }
+        else
+        {
+            frameBuffer_.at(frameIndex_++) = pixelSet.begin()->bgr555_;
+            pixelSet.clear();
+        }
+    }
 }
 }

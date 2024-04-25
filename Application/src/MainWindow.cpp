@@ -115,7 +115,8 @@ void MainWindow::UpdateWindowTitle()
 void MainWindow::RefreshScreen()
 {
     SendKeyPresses();
-    auto image = QImage(GetRawFrameBuffer(), 240, 160, QImage::Format_RGB888);
+    auto image = QImage(GetRawFrameBuffer(), 240, 160, QImage::Format_RGB555);
+    image.rgbSwap();
     lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
     ++frameCounter_;
 }

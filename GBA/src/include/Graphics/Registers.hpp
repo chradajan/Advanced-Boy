@@ -72,4 +72,22 @@ union VCOUNT
 
     uint16_t halfword_;
 };
+
+/// @brief Background control registers (R/W).
+union BGCNT
+{
+    struct
+    {
+        uint16_t bgPriority_ : 2;
+        uint16_t charBaseBlock_ : 2;
+        uint16_t : 2;
+        uint16_t mosaic_ : 1;
+        uint16_t colorMode_ : 1;
+        uint16_t screenBaseBlock_ : 5;
+        uint16_t overflowMode_ : 1;
+        uint16_t screenSize_ : 2;
+    };
+
+    uint16_t halfword_;
+};
 }

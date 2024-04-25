@@ -55,11 +55,21 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VBlank(int extraCycles);
 
+    /// @brief Render a scanline in BG Mode 0.
+    void RenderMode0Scanline();
+
     /// @brief Render a scanline in BG Mode 3.
     void RenderMode3Scanline();
 
     /// @brief Render a scanline in BG Mode 4.
     void RenderMode4Scanline();
+
+    /// @brief Render a tiled text background scanline.
+    /// @param bgIndex Which background to render.
+    /// @param control Control register of specified background.
+    /// @param xOffset X offset register value of specified background.
+    /// @param yOffset Y offset register value of specified background.
+    void RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset);
 
     // Frame status
     FrameBuffer frameBuffer_;
