@@ -1,24 +1,23 @@
 #pragma once
 
-#include <ARM7TDMI/CpuTypes.hpp>
 #include <cstdint>
-#include <memory>
+
+#include <ARM7TDMI/CpuTypes.hpp>
 
 namespace CPU { class ARM7TDMI; }
 
 namespace CPU::THUMB
 {
-/// @brief Abstract base class for all THUMB instructions.
-class ThumbInstruction : public virtual Instruction {};
-
 /// @brief Decode a 16-bit THUMB instruction.
 /// @param instruction 16-bit THUMB instruction.
 /// @return Pointer to instance of decoded instruction. Returns nullptr if instruction is invalid.
-std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t instruction);
+Instruction* DecodeInstruction(uint16_t instruction, ARM7TDMI& cpu);
 
-class SoftwareInterrupt : public virtual ThumbInstruction
+class SoftwareInterrupt : public virtual Instruction
 {
 public:
+    SoftwareInterrupt() = default;
+
     /// @brief SoftwareInterrupt instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -43,6 +42,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -55,9 +55,11 @@ private:
     } instruction_;
 };
 
-class UnconditionalBranch : public virtual ThumbInstruction
+class UnconditionalBranch : public virtual Instruction
 {
 public:
+    UnconditionalBranch() = default;
+
     /// @brief UnconditionalBranch instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -83,6 +85,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -95,9 +98,11 @@ private:
     } instruction_;
 };
 
-class ConditionalBranch : public virtual ThumbInstruction
+class ConditionalBranch : public virtual Instruction
 {
 public:
+    ConditionalBranch() = default;
+
     /// @brief ConditionalBranch instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -123,6 +128,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -136,9 +142,11 @@ private:
     } instruction_;
 };
 
-class MultipleLoadStore : public virtual ThumbInstruction
+class MultipleLoadStore : public virtual Instruction
 {
 public:
+    MultipleLoadStore() = default;
+
     /// @brief MultipleLoadStore instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -163,6 +171,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -177,9 +186,11 @@ private:
     } instruction_;
 };
 
-class LongBranchWithLink : public virtual ThumbInstruction
+class LongBranchWithLink : public virtual Instruction
 {
 public:
+    LongBranchWithLink() = default;
+
     /// @brief LongBranchWithLink instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -205,6 +216,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -218,9 +230,11 @@ private:
     } instruction_;
 };
 
-class AddOffsetToStackPointer : public virtual ThumbInstruction
+class AddOffsetToStackPointer : public virtual Instruction
 {
 public:
+    AddOffsetToStackPointer() = default;
+
     /// @brief AddOffsetToStackPointer instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -246,6 +260,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -259,9 +274,11 @@ private:
     } instruction_;
 };
 
-class PushPopRegisters : public virtual ThumbInstruction
+class PushPopRegisters : public virtual Instruction
 {
 public:
+    PushPopRegisters() = default;
+
     /// @brief PushPopRegisters instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -286,6 +303,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -301,9 +319,11 @@ private:
     } instruction_;
 };
 
-class LoadStoreHalfword : public virtual ThumbInstruction
+class LoadStoreHalfword : public virtual Instruction
 {
 public:
+    LoadStoreHalfword() = default;
+
     /// @brief LoadStoreHalfword instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -328,6 +348,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -343,9 +364,11 @@ private:
     } instruction_;
 };
 
-class SPRelativeLoadStore : public virtual ThumbInstruction
+class SPRelativeLoadStore : public virtual Instruction
 {
 public:
+    SPRelativeLoadStore() = default;
+
     /// @brief SPRelativeLoadStore instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -370,6 +393,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -384,9 +408,11 @@ private:
     } instruction_;
 };
 
-class LoadAddress : public virtual ThumbInstruction
+class LoadAddress : public virtual Instruction
 {
 public:
+    LoadAddress() = default;
+
     /// @brief LoadAddress instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -413,6 +439,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -427,9 +454,11 @@ private:
     } instruction_;
 };
 
-class LoadStoreWithImmediateOffset : public virtual ThumbInstruction
+class LoadStoreWithImmediateOffset : public virtual Instruction
 {
 public:
+    LoadStoreWithImmediateOffset() = default;
+
     /// @brief LoadStoreWithImmediateOffset instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -454,6 +483,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -470,9 +500,11 @@ private:
     } instruction_;
 };
 
-class LoadStoreWithRegisterOffset : public virtual ThumbInstruction
+class LoadStoreWithRegisterOffset : public virtual Instruction
 {
 public:
+    LoadStoreWithRegisterOffset() = default;
+
     /// @brief LoadStoreWithRegisterOffset instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -497,6 +529,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -514,9 +547,11 @@ private:
     } instruction_;
 };
 
-class LoadStoreSignExtendedByteHalfword : public virtual ThumbInstruction
+class LoadStoreSignExtendedByteHalfword : public virtual Instruction
 {
 public:
+    LoadStoreSignExtendedByteHalfword() = default;
+
     /// @brief LoadStoreSignExtendedByteHalfword instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -541,6 +576,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -558,9 +594,11 @@ private:
     } instruction_;
 };
 
-class PCRelativeLoad : public virtual ThumbInstruction
+class PCRelativeLoad : public virtual Instruction
 {
 public:
+    PCRelativeLoad() = default;
+
     /// @brief PCRelativeLoad instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -585,6 +623,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -598,9 +637,11 @@ private:
     } instruction_;
 };
 
-class HiRegisterOperationsBranchExchange : public virtual ThumbInstruction
+class HiRegisterOperationsBranchExchange : public virtual Instruction
 {
 public:
+    HiRegisterOperationsBranchExchange() = default;
+
     /// @brief HiRegisterOperationsBranchExchange instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -627,6 +668,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -643,9 +685,11 @@ private:
     } instruction_;
 };
 
-class ALUOperations : public virtual ThumbInstruction
+class ALUOperations : public virtual Instruction
 {
 public:
+    ALUOperations() = default;
+
     /// @brief ALUOperations instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -670,6 +714,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -684,9 +729,11 @@ private:
     } instruction_;
 };
 
-class MoveCompareAddSubtractImmediate : public virtual ThumbInstruction
+class MoveCompareAddSubtractImmediate : public virtual Instruction
 {
 public:
+    MoveCompareAddSubtractImmediate() = default;
+
     /// @brief MoveCompareAddSubtractImmediate instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -711,6 +758,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -725,9 +773,11 @@ private:
     } instruction_;
 };
 
-class AddSubtract : public virtual ThumbInstruction
+class AddSubtract : public virtual Instruction
 {
 public:
+    AddSubtract() = default;
+
     /// @brief AddSubtract instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -752,6 +802,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct
@@ -768,9 +819,11 @@ private:
     } instruction_;
 };
 
-class MoveShiftedRegister : public virtual ThumbInstruction
+class MoveShiftedRegister : public virtual Instruction
 {
 public:
+    MoveShiftedRegister() = default;
+
     /// @brief MoveShiftedRegister instruction constructor.
     /// @param instruction 16-bit THUMB instruction.
     /// @pre IsInstanceOf must be true.
@@ -795,6 +848,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint16_t instruction) : halfword(instruction) {}
 
         struct

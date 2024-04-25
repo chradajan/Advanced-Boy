@@ -1,13 +1,14 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
+
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <utility>
+
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
 #include <System/MemoryMap.hpp>
-#include <bit>
-#include <cmath>
-#include <cstdint>
-#include <memory>
-#include <utility>
 
 namespace
 {
@@ -77,63 +78,77 @@ std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool s
 
 namespace CPU::ARM
 {
-std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t const instruction)
+Instruction* DecodeInstruction(uint32_t const instruction, ARM7TDMI& cpu)
 {
     if (BranchAndExchange::IsInstanceOf(instruction))
     {
-        return std::make_unique<BranchAndExchange>(instruction);
+        cpu.armBranchAndExchange = BranchAndExchange(instruction);
+        return &cpu.armBranchAndExchange;
     }
     else if (BlockDataTransfer::IsInstanceOf(instruction))
     {
-        return std::make_unique<BlockDataTransfer>(instruction);
+        cpu.armBlockDataTransfer = BlockDataTransfer(instruction);
+        return &cpu.armBlockDataTransfer;
     }
     else if (Branch::IsInstanceOf(instruction))
     {
-        return std::make_unique<Branch>(instruction);
+        cpu.armBranch = Branch(instruction);
+        return &cpu.armBranch;
     }
     else if (SoftwareInterrupt::IsInstanceOf(instruction))
     {
-        return std::make_unique<SoftwareInterrupt>(instruction);
+        cpu.armSoftwareInterrupt = SoftwareInterrupt(instruction);
+        return &cpu.armSoftwareInterrupt;
     }
     else if (Undefined::IsInstanceOf(instruction))
     {
-        return std::make_unique<Undefined>(instruction);
+        cpu.armUndefined = Undefined(instruction);
+        return &cpu.armUndefined;
     }
     else if (SingleDataTransfer::IsInstanceOf(instruction))
     {
-        return std::make_unique<SingleDataTransfer>(instruction);
+        cpu.armSingleDataTransfer = SingleDataTransfer(instruction);
+        return &cpu.armSingleDataTransfer;
     }
     else if (SingleDataSwap::IsInstanceOf(instruction))
     {
-        return std::make_unique<SingleDataSwap>(instruction);
+        cpu.armSingleDataSwap = SingleDataSwap(instruction);
+        return &cpu.armSingleDataSwap;
     }
     else if (Multiply::IsInstanceOf(instruction))
     {
-        return std::make_unique<Multiply>(instruction);
+        cpu.armMultiply = Multiply(instruction);
+        return &cpu.armMultiply;
     }
     else if (MultiplyLong::IsInstanceOf(instruction))
     {
-        return std::make_unique<MultiplyLong>(instruction);
+        cpu.armMultiplyLong = MultiplyLong(instruction);
+        return &cpu.armMultiplyLong;
     }
     else if (HalfwordDataTransferRegisterOffset::IsInstanceOf(instruction))
     {
-        return std::make_unique<HalfwordDataTransferRegisterOffset>(instruction);
+        cpu.armHalfwordDataTransferRegisterOffset = HalfwordDataTransferRegisterOffset(instruction);
+        return &cpu.armHalfwordDataTransferRegisterOffset;
     }
     else if (HalfwordDataTransferImmediateOffset::IsInstanceOf(instruction))
     {
-        return std::make_unique<HalfwordDataTransferImmediateOffset>(instruction);
+        cpu.armHalfwordDataTransferImmediateOffset = HalfwordDataTransferImmediateOffset(instruction);
+        return &cpu.armHalfwordDataTransferImmediateOffset;
     }
     else if (PSRTransferMRS::IsInstanceOf(instruction))
     {
-        return std::make_unique<PSRTransferMRS>(instruction);
+        cpu.armPSRTransferMRS = PSRTransferMRS(instruction);
+        return &cpu.armPSRTransferMRS;
     }
     else if (PSRTransferMSR::IsInstanceOf(instruction))
     {
-        return std::make_unique<PSRTransferMSR>(instruction);
+        cpu.armPSRTransferMSR = PSRTransferMSR(instruction);
+        return &cpu.armPSRTransferMSR;
     }
     else if (DataProcessing::IsInstanceOf(instruction))
     {
-        return std::make_unique<DataProcessing>(instruction);
+        cpu.armDataProcessing = DataProcessing(instruction);
+        return &cpu.armDataProcessing;
     }
 
     return nullptr;

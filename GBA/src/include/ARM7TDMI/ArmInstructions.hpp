@@ -1,25 +1,23 @@
 #pragma once
 
-#include <ARM7TDMI/CpuTypes.hpp>
 #include <cstdint>
-#include <memory>
-#include <string>
+
+#include <ARM7TDMI/CpuTypes.hpp>
 
 namespace CPU { class ARM7TDMI; }
 
 namespace CPU::ARM
 {
-/// @brief Abstract base class for all ARM instructions.
-class ArmInstruction : public virtual Instruction {};
-
 /// @brief Decode a 32-bit ARM instruction.
 /// @param instruction 32-bit ARM instruction.
 /// @return Pointer to instance of decoded instruction. Returns nullptr if instruction is invalid.
-std::unique_ptr<ArmInstruction> DecodeInstruction(uint32_t instruction);
+Instruction* DecodeInstruction(uint32_t instruction, ARM7TDMI& cpu);
 
-class BranchAndExchange : public virtual ArmInstruction
+class BranchAndExchange : public virtual Instruction
 {
 public:
+    BranchAndExchange() = default;
+
     /// @brief BranchAndExchange instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -44,6 +42,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -57,9 +56,11 @@ private:
     } instruction_;
 };
 
-class BlockDataTransfer : public virtual ArmInstruction
+class BlockDataTransfer : public virtual Instruction
 {
 public:
+    BlockDataTransfer() = default;
+
     /// @brief BlockDataTransfer instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -84,6 +85,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -103,9 +105,11 @@ private:
     } instruction_;
 };
 
-class Branch : public virtual ArmInstruction
+class Branch : public virtual Instruction
 {
 public:
+    Branch() = default;
+
     /// @brief Branch instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -131,6 +135,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -145,9 +150,11 @@ private:
     } instruction_;
 };
 
-class SoftwareInterrupt : public virtual ArmInstruction
+class SoftwareInterrupt : public virtual Instruction
 {
 public:
+    SoftwareInterrupt() = default;
+
     /// @brief SoftwareInterrupt instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -172,6 +179,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -185,9 +193,11 @@ private:
     } instruction_;
 };
 
-class Undefined : public virtual ArmInstruction
+class Undefined : public virtual Instruction
 {
 public:
+    Undefined() = default;
+
     /// @brief Undefined instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -212,6 +222,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -224,9 +235,11 @@ private:
     } instruction_;
 };
 
-class SingleDataTransfer : public virtual ArmInstruction
+class SingleDataTransfer : public virtual Instruction
 {
 public:
+    SingleDataTransfer() = default;
+
     /// @brief SingleDataTransfer instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -252,6 +265,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -282,9 +296,11 @@ private:
     } instruction_;
 };
 
-class SingleDataSwap : public virtual ArmInstruction
+class SingleDataSwap : public virtual Instruction
 {
 public:
+    SingleDataSwap() = default;
+
     /// @brief SingleDataSwap instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -309,6 +325,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -327,9 +344,11 @@ private:
     } instruction_;
 };
 
-class Multiply : public virtual ArmInstruction
+class Multiply : public virtual Instruction
 {
 public:
+    Multiply() = default;
+
     /// @brief Multiply instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -354,6 +373,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -373,9 +393,11 @@ private:
     } instruction_;
 };
 
-class MultiplyLong : public virtual ArmInstruction
+class MultiplyLong : public virtual Instruction
 {
 public:
+    MultiplyLong() = default;
+
     /// @brief MultiplyLong instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -400,6 +422,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -420,9 +443,11 @@ private:
     } instruction_;
 };
 
-class HalfwordDataTransferRegisterOffset : public virtual ArmInstruction
+class HalfwordDataTransferRegisterOffset : public virtual Instruction
 {
 public:
+    HalfwordDataTransferRegisterOffset() = default;
+
     /// @brief HalfwordDataTransferRegisterOffset instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -448,6 +473,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -472,9 +498,11 @@ private:
     } instruction_;
 };
 
-class HalfwordDataTransferImmediateOffset : public virtual ArmInstruction
+class HalfwordDataTransferImmediateOffset : public virtual Instruction
 {
 public:
+    HalfwordDataTransferImmediateOffset() = default;
+
     /// @brief HalfwordDataTransferImmediateOffset instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -500,6 +528,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -525,9 +554,11 @@ private:
     } instruction_;
 };
 
-class PSRTransferMRS : public virtual ArmInstruction
+class PSRTransferMRS : public virtual Instruction
 {
 public:
+    PSRTransferMRS() = default;
+
     /// @brief PSRTransferMRS instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -552,6 +583,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -568,9 +600,11 @@ private:
     } instruction_;
 };
 
-class PSRTransferMSR : public virtual ArmInstruction
+class PSRTransferMSR : public virtual Instruction
 {
 public:
+    PSRTransferMSR() = default;
+
     /// @brief PSRTransferMSR instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -595,6 +629,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
 
         struct
@@ -629,9 +664,11 @@ private:
     } instruction_;
 };
 
-class DataProcessing : public virtual ArmInstruction
+class DataProcessing : public virtual Instruction
 {
 public:
+    DataProcessing() = default;
+
     /// @brief DataProcessing instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
@@ -657,6 +694,7 @@ private:
 
     union InstructionFormat
     {
+        InstructionFormat() = default;
         InstructionFormat(uint32_t instruction) : word(instruction) {}
         struct
         {

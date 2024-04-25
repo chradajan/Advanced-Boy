@@ -1,4 +1,12 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
+
+#include <array>
+#include <cstdint>
+#include <format>
+#include <functional>
+#include <stdexcept>
+#include <string>
+
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
@@ -6,18 +14,12 @@
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <stdexcept>
-#include <queue>
 
 namespace CPU
 {
 ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
                    std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory,
                    bool biosLoaded) :
-    decodedInstruction_(nullptr),
     flushPipeline_(false),
     ReadMemory(ReadMemory),
     WriteMemory(WriteMemory),
@@ -39,91 +41,59 @@ int ARM7TDMI::Tick()
         return 1;
     }
 
-    int executionCycles = 1;
-    int fetchCycles = 1;
-    bool instructionExecuted = false;
-    bool const isArmState = registers_.GetOperatingState() == OperatingState::ARM;
+    bool isArmState = registers_.GetOperatingState() == OperatingState::ARM;
     AccessSize alignment = isArmState ? AccessSize::WORD : AccessSize::HALFWORD;
-    uint32_t undecodedInstruction = MAX_U32;
-
-    // Execute
-    if (decodedInstruction_)
-    {
-        uint32_t loggedPC;
-        std::string regString;
-
-        if (Config::LOGGING_ENABLED)
-        {
-            loggedPC = isArmState ? registers_.GetPC() - 8 : registers_.GetPC() - 4;
-            regString = registers_.GetRegistersString();
-        }
-
-        try
-        {
-            executionCycles = decodedInstruction_->Execute(*this);
-        }
-        catch (std::runtime_error const& error)
-        {
-            if (Config::LOGGING_ENABLED)
-            {
-                Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
-            }
-
-            throw;
-        }
-
-        instructionExecuted = true;
-
-        if (Config::LOGGING_ENABLED)
-        {
-            Logging::LogMgr.LogInstruction(loggedPC, decodedInstruction_->GetMnemonic(), regString);
-        }
-    }
-
-    decodedInstruction_.reset();
-
-    if (flushPipeline_)
-    {
-        flushPipeline_ = false;
-        fetchedInstructions_ = std::queue<uint32_t>();
-        return executionCycles;
-    }
+    int cycles = 1;
 
     // Fetch
-    if (fetchedInstructions_.empty())
-    {
-        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), alignment);
-        fetchCycles = readCycles;
-        fetchedInstructions_.push(fetchedInstruction);
-        registers_.AdvancePC();
-    }
-    else
-    {
-        undecodedInstruction = fetchedInstructions_.front();
-        fetchedInstructions_.pop();
+    uint32_t fetchPC = registers_.GetPC();
+    uint32_t fetchInstruction = MAX_U32;
+    std::tie(fetchInstruction, cycles) = ReadMemory(fetchPC, alignment);
+    pipeline_.Push(fetchInstruction, fetchPC);
 
-        auto [fetchedInstruction, readCycles] = ReadMemory(registers_.GetPC(), alignment);
-        fetchCycles = readCycles;
-        fetchedInstructions_.push(fetchedInstruction);
-        registers_.AdvancePC();
-    }
-
-    // Decode
-    if (undecodedInstruction != MAX_U32)
+    // Decode and Execute
+    if (pipeline_.Full())
     {
-        decodedInstruction_.reset();
+        auto [rawInstruction, executedPC] = pipeline_.Pop();
+        std::string regString = Config::LOGGING_ENABLED ? registers_.GetRegistersString() : "";
+        Instruction* instruction  = nullptr;
 
         if (isArmState)
         {
-            decodedInstruction_ = ARM::DecodeInstruction(undecodedInstruction);
+            instruction = ARM::DecodeInstruction(rawInstruction, *this);
         }
         else
         {
-            decodedInstruction_ = THUMB::DecodeInstruction(undecodedInstruction);
+            instruction = THUMB::DecodeInstruction(rawInstruction, *this);
+        }
+
+        if (instruction != nullptr)
+        {
+            cycles = instruction->Execute(*this);
+        }
+        else
+        {
+            throw std::runtime_error(std::format("Unable to decode instruction {:08X} @ PC {:08X}", rawInstruction, executedPC));
+        }
+
+        if (Config::LOGGING_ENABLED)
+        {
+            Logging::LogMgr.LogInstruction(executedPC, instruction->GetMnemonic(), regString);
         }
     }
 
-    return instructionExecuted ? executionCycles : fetchCycles;
+    // Advance or flush
+    if (flushPipeline_)
+    {
+        pipeline_.Clear();
+        flushPipeline_ = false;
+    }
+    else
+    {
+        registers_.AdvancePC();
+    }
+
+    return cycles;
 }
 
 bool ARM7TDMI::ArmConditionMet(uint8_t condition)
@@ -177,9 +147,31 @@ void ARM7TDMI::IRQ(int)
         registers_.SetIrqDisabled(true);
         registers_.SetSPSR(currentCPSR);
         registers_.SetPC(0x0000'0018);
-        decodedInstruction_.reset();
-        fetchedInstructions_ = std::queue<uint32_t>();
+        pipeline_.Clear();
         halted_ = false;
     }
+}
+
+void ARM7TDMI::InstructionPipeline::Clear()
+{
+    front_ = 0;
+    insertionPoint_ = 0;
+    count_ = 0;
+    fetchedInstructions_.fill({0xFFFF'FFFF, 0xFFFF'FFFF});
+}
+
+void ARM7TDMI::InstructionPipeline::Push(uint32_t instruction, uint32_t pc)
+{
+    fetchedInstructions_[insertionPoint_] = {instruction, pc};
+    insertionPoint_ = (insertionPoint_ + 1) % fetchedInstructions_.size();
+    ++count_;
+}
+
+std::pair<uint32_t, uint32_t> ARM7TDMI::InstructionPipeline::Pop()
+{
+    auto instruction = fetchedInstructions_[front_];
+    front_ = (front_ + 1) % fetchedInstructions_.size();
+    --count_;
+    return instruction;
 }
 }

@@ -1,11 +1,13 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
-#include <ARM7TDMI/ARM7TDMI.hpp>
-#include <Config.hpp>
-#include <System/MemoryMap.hpp>
+
 #include <bit>
 #include <cstdint>
-#include <memory>
 #include <utility>
+
+#include <ARM7TDMI/ARM7TDMI.hpp>
+#include <ARM7TDMI/CpuTypes.hpp>
+#include <Config.hpp>
+#include <System/MemoryMap.hpp>
 
 namespace
 {
@@ -63,83 +65,102 @@ std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
 }
 namespace CPU::THUMB
 {
-std::unique_ptr<ThumbInstruction> DecodeInstruction(uint16_t const instruction)
+Instruction* DecodeInstruction(uint16_t const instruction, ARM7TDMI& cpu)
 {
     if (SoftwareInterrupt::IsInstanceOf(instruction))
     {
-        return std::make_unique<SoftwareInterrupt>(instruction);
+        cpu.thumbSoftwareInterrupt = SoftwareInterrupt(instruction);
+        return &cpu.thumbSoftwareInterrupt;
     }
     else if (UnconditionalBranch::IsInstanceOf(instruction))
     {
-        return std::make_unique<UnconditionalBranch>(instruction);
+        cpu.thumbUnconditionalBranch = UnconditionalBranch(instruction);
+        return &cpu.thumbUnconditionalBranch;
     }
     else if (ConditionalBranch::IsInstanceOf(instruction))
     {
-        return std::make_unique<ConditionalBranch>(instruction);
+        cpu.thumbConditionalBranch = ConditionalBranch(instruction);
+        return &cpu.thumbConditionalBranch;
     }
     else if (MultipleLoadStore::IsInstanceOf(instruction))
     {
-        return std::make_unique<MultipleLoadStore>(instruction);
+        cpu.thumbMultipleLoadStore = MultipleLoadStore(instruction);
+        return &cpu.thumbMultipleLoadStore;
     }
     else if (LongBranchWithLink::IsInstanceOf(instruction))
     {
-        return std::make_unique<LongBranchWithLink>(instruction);
+        cpu.thumbLongBranchWithLink = LongBranchWithLink(instruction);
+        return &cpu.thumbLongBranchWithLink;
     }
     else if (AddOffsetToStackPointer::IsInstanceOf(instruction))
     {
-        return std::make_unique<AddOffsetToStackPointer>(instruction);
+        cpu.thumbAddOffsetToStackPointer = AddOffsetToStackPointer(instruction);
+        return &cpu.thumbAddOffsetToStackPointer;
     }
     else if (PushPopRegisters::IsInstanceOf(instruction))
     {
-        return std::make_unique<PushPopRegisters>(instruction);
+        cpu.thumbPushPopRegisters = PushPopRegisters(instruction);
+        return &cpu.thumbPushPopRegisters;
     }
     else if (LoadStoreHalfword::IsInstanceOf(instruction))
     {
-        return std::make_unique<LoadStoreHalfword>(instruction);
+        cpu.thumbLoadStoreHalfword = LoadStoreHalfword(instruction);
+        return &cpu.thumbLoadStoreHalfword;
     }
     else if (SPRelativeLoadStore::IsInstanceOf(instruction))
     {
-        return std::make_unique<SPRelativeLoadStore>(instruction);
+        cpu.thumbSPRelativeLoadStore = SPRelativeLoadStore(instruction);
+        return &cpu.thumbSPRelativeLoadStore;
     }
     else if (LoadAddress::IsInstanceOf(instruction))
     {
-        return std::make_unique<LoadAddress>(instruction);
+        cpu.thumbLoadAddress = LoadAddress(instruction);
+        return &cpu.thumbLoadAddress;
     }
     else if (LoadStoreWithImmediateOffset::IsInstanceOf(instruction))
     {
-        return std::make_unique<LoadStoreWithImmediateOffset>(instruction);
+        cpu.thumbLoadStoreWithImmediateOffset = LoadStoreWithImmediateOffset(instruction);
+        return &cpu.thumbLoadStoreWithImmediateOffset;
     }
     else if (LoadStoreWithRegisterOffset::IsInstanceOf(instruction))
     {
-        return std::make_unique<LoadStoreWithRegisterOffset>(instruction);
+        cpu.thumbLoadStoreWithRegisterOffset = LoadStoreWithRegisterOffset(instruction);
+        return &cpu.thumbLoadStoreWithRegisterOffset;
     }
     else if (LoadStoreSignExtendedByteHalfword::IsInstanceOf(instruction))
     {
-        return std::make_unique<LoadStoreSignExtendedByteHalfword>(instruction);
+        cpu.thumbLoadStoreSignExtendedByteHalfword = LoadStoreSignExtendedByteHalfword(instruction);
+        return &cpu.thumbLoadStoreSignExtendedByteHalfword;
     }
     else if (PCRelativeLoad::IsInstanceOf(instruction))
     {
-        return std::make_unique<PCRelativeLoad>(instruction);
+        cpu.thumbPCRelativeLoad = PCRelativeLoad(instruction);
+        return &cpu.thumbPCRelativeLoad;
     }
     else if (HiRegisterOperationsBranchExchange::IsInstanceOf(instruction))
     {
-        return std::make_unique<HiRegisterOperationsBranchExchange>(instruction);
+        cpu.thumbHiRegisterOperationsBranchExchange = HiRegisterOperationsBranchExchange(instruction);
+        return &cpu.thumbHiRegisterOperationsBranchExchange;
     }
     else if (ALUOperations::IsInstanceOf(instruction))
     {
-        return std::make_unique<ALUOperations>(instruction);
+        cpu.thumbALUOperations = ALUOperations(instruction);
+        return &cpu.thumbALUOperations;
     }
     else if (MoveCompareAddSubtractImmediate::IsInstanceOf(instruction))
     {
-        return std::make_unique<MoveCompareAddSubtractImmediate>(instruction);
+        cpu.thumbMoveCompareAddSubtractImmediate = MoveCompareAddSubtractImmediate(instruction);
+        return &cpu.thumbMoveCompareAddSubtractImmediate;
     }
     else if (AddSubtract::IsInstanceOf(instruction))
     {
-        return std::make_unique<AddSubtract>(instruction);
+        cpu.thumbAddSubtract = AddSubtract(instruction);
+        return &cpu.thumbAddSubtract;
     }
     else if (MoveShiftedRegister::IsInstanceOf(instruction))
     {
-        return std::make_unique<MoveShiftedRegister>(instruction);
+        cpu.thumbMoveShiftedRegister = MoveShiftedRegister(instruction);
+        return &cpu.thumbMoveShiftedRegister;
     }
 
     return nullptr;
