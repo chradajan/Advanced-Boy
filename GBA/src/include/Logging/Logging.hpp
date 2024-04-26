@@ -5,7 +5,6 @@
 #include <exception>
 #include <filesystem>
 #include <string>
-#include <thread>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -32,12 +31,16 @@ public:
     /// @param registers 
     void LogInstruction(uint32_t pc, std::string mnemonic, std::string registers);
 
-    /// @brief Dump logged instructions to file.
-    void DumpLogs();
+    /// @brief Log when an IRQ occurs.
+    /// @param lr Value that link register will be set to.
+    void LogIRQ(uint32_t lr);
 
     /// @brief Log an exception and dump logs.
     /// @param error Exception to log.
     void LogException(std::exception const& error);
+
+    /// @brief Dump logged instructions to file.
+    void DumpLogs();
 
 private:
     void DumpBufferToFile(size_t bufferToDump);

@@ -72,7 +72,7 @@ private:
 
             /// @brief Peak at the oldest instruction in the pipeline without removing it.
             /// @return Raw instruction code and address of instruction.
-            std::pair<uint32_t, uint32_t> Front() const { return fetchedInstructions_[front_]; }
+            std::pair<uint32_t, uint32_t> const& Front() const { return fetchedInstructions_[front_]; }
 
             /// @brief Check if the pipeline is empty.
             /// @return True if no instructions are waiting in pipeline to be executed.

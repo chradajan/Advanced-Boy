@@ -140,7 +140,24 @@ void ARM7TDMI::IRQ(int)
     if (!registers_.IsIrqDisabled())
     {
         uint32_t currentCPSR = registers_.GetCPSR();
-        uint32_t savedPC = registers_.GetPC() - ((registers_.GetOperatingState() == OperatingState::ARM) ? 4 : 2);
+        uint32_t savedPC = 0;
+
+        if (pipeline_.Empty())
+        {
+            savedPC = registers_.GetPC();
+        }
+        else
+        {
+            savedPC = pipeline_.Front().second;
+        }
+
+        savedPC += 4;
+
+        if (Config::LOGGING_ENABLED)
+        {
+            Logging::LogMgr.LogIRQ(savedPC);
+        }
+
         registers_.SetOperatingState(OperatingState::ARM);
         registers_.SetOperatingMode(OperatingMode::IRQ);
         registers_.WriteRegister(LR_INDEX, savedPC);

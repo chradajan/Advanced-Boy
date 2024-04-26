@@ -55,14 +55,16 @@ void LogManager::LogInstruction(uint32_t pc, std::string mnemonic, std::string r
     }
 }
 
-void LogManager::DumpLogs()
+void LogManager::LogIRQ(uint32_t lr)
 {
     if (loggingInitialized_)
     {
-        size_t bufferToDump = bufferIndex_;
-        bufferIndex_ = (bufferIndex_ == 1) ? 0 : 1;
-        std::thread dumpThread(&LogManager::DumpBufferToFile, this, bufferToDump);
-        dumpThread.detach();
+        buffers_.at(bufferIndex_).push_back(std::format("IRQ. LR: {:08X}\n", lr));
+
+        if (buffers_.at(bufferIndex_).size() == Config::LOG_BUFFER_SIZE)
+        {
+            DumpLogs();
+        }
     }
 }
 
@@ -76,6 +78,17 @@ void LogManager::LogException(std::exception const& error)
         {
             DumpLogs();
         }
+    }
+}
+
+void LogManager::DumpLogs()
+{
+    if (loggingInitialized_)
+    {
+        size_t bufferToDump = bufferIndex_;
+        bufferIndex_ = (bufferIndex_ == 1) ? 0 : 1;
+        std::thread dumpThread(&LogManager::DumpBufferToFile, this, bufferToDump);
+        dumpThread.detach();
     }
 }
 
