@@ -513,17 +513,6 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadVRAM(uint32_t addr, AccessSize alig
 
 int GameBoyAdvance::WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    if (alignment == AccessSize::BYTE)
-    {
-        if (((ppu_.BgMode() <= 2) && (addr >= 0x0601'0000)) || ((ppu_.BgMode() > 2) && (addr >= 0x0601'4000)))
-        {
-            return 1;
-        }
-
-        alignment = AccessSize::HALFWORD;
-        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
-    }
-
     if (addr > VRAM_ADDR_MAX)
     {
         uint32_t adjustedAddr = VRAM_ADDR_MIN + (addr % (128 * KiB));
@@ -534,6 +523,17 @@ int GameBoyAdvance::WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignmen
         }
 
         addr = adjustedAddr;
+    }
+
+    if (alignment == AccessSize::BYTE)
+    {
+        if (((ppu_.BgMode() <= 2) && (addr >= 0x0601'0000)) || ((ppu_.BgMode() > 2) && (addr >= 0x0601'4000)))
+        {
+            return 1;
+        }
+
+        alignment = AccessSize::HALFWORD;
+        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
     }
 
     int cycles = (alignment == AccessSize::WORD) ? 2 : 1;

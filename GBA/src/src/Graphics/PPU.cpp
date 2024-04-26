@@ -32,7 +32,6 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     OAM_(OAM)
 {
     scanline_ = 0;
-    dot_ = 0;
     lcdRegisters_.fill(0);
 
     Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
@@ -139,35 +138,39 @@ void PPU::HBlank(int extraCycles)
 
     // Event scheduling
     int cyclesUntilNextEvent = 226 - extraCycles;
-    EventType nextEvent = (scanline_ == 159) ? EventType::VBlank : EventType::VDraw;
+    EventType nextEvent = (scanline_ < 159) ? EventType::VDraw : EventType::VBlank;
     Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
-    uint16_t backdrop = *reinterpret_cast<uint16_t const*>(paletteRAM_.data());
 
-    // Draw scanline
-    if (lcdControl_.flags_.forceBlank)
+    // Draw scanline if not in VBlank
+    if (scanline_ < 160)
     {
-        backdrop = 0xFFFF;
-    }
-    else
-    {
-        switch (lcdControl_.flags_.bgMode)
+        uint16_t backdrop = *reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+
+        if (lcdControl_.flags_.forceBlank)
         {
-            case 0:
-                RenderMode0Scanline();
-                break;
-            case 3:
-                RenderMode3Scanline();
-                break;
-            case 4:
-                RenderMode4Scanline();
-                break;
-            default:
-                backdrop = 0xFFFF;
-                break;
+            backdrop = 0xFFFF;
         }
-    }
+        else
+        {
+            switch (lcdControl_.flags_.bgMode)
+            {
+                case 0:
+                    RenderMode0Scanline();
+                    break;
+                case 3:
+                    RenderMode3Scanline();
+                    break;
+                case 4:
+                    RenderMode4Scanline();
+                    break;
+                default:
+                    backdrop = 0xFFFF;
+                    break;
+            }
+        }
 
-    frameBuffer_.RenderScanline(backdrop);
+        frameBuffer_.RenderScanline(backdrop);
+    }
 }
 
 void PPU::VBlank(int extraCycles)
@@ -175,12 +178,12 @@ void PPU::VBlank(int extraCycles)
     // VBlank register updates
     ++scanline_;
     verticalCounter_.flags_.currentScanline = scanline_;
+    lcdStatus_.flags_.hBlank = 0;
 
     if (scanline_ == 160)
     {
         // First time entering VBlank
         lcdStatus_.flags_.vBlank = 1;
-        lcdStatus_.flags_.hBlank = 0;
         Scheduler.ScheduleEvent(EventType::REFRESH_SCREEN, SCHEDULE_NOW);
         frameBuffer_.ResetFrameIndex();
 
@@ -209,9 +212,7 @@ void PPU::VBlank(int extraCycles)
     }
 
     // Event Scheduling
-    int cyclesUntilNextEvent = 1232 - extraCycles;
-    EventType nextEvent = (scanline_ = 227) ? EventType::VDraw : EventType::VBlank;
-    Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
+    Scheduler.ScheduleEvent(EventType::HBlank, (960 - extraCycles) + 46);
 }
 
 void PPU::RenderMode0Scanline()

@@ -73,8 +73,7 @@ private:
 
     // Frame status
     FrameBuffer frameBuffer_;
-    int scanline_;
-    int dot_;
+    uint8_t scanline_;
 
     // LCD I/O Registers (0400'0000h - 0400'005Fh)
     std::array<uint8_t, 0x60> lcdRegisters_;
