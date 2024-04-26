@@ -1,5 +1,6 @@
 #include <Graphics/FrameBuffer.hpp>
 #include <cstdint>
+#include <stdexcept>
 
 namespace Graphics
 {
@@ -9,13 +10,17 @@ bool Pixel::operator<(Pixel const& rhs) const
     {
         return false;
     }
+    else if (!transparent_ && rhs.transparent_)
+    {
+        return true;
+    }
 
     if (priority_ == rhs.priority_)
     {
-        return src_ > rhs.src_;
+        return src_ < rhs.src_;
     }
 
-    return priority_ > rhs.priority_;
+    return priority_ < rhs.priority_;
 }
 
 FrameBuffer::FrameBuffer()

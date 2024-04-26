@@ -258,8 +258,16 @@ void PPU::RenderMode4Scanline()
         for (int i = 0; i < 240; ++i)
         {
             uint8_t paletteIndex = VRAM_.at(vramIndex++);
+            bool transparent = false;
+
+            if ((paletteIndex & 0x0F) == 0)
+            {
+                paletteIndex = 0;
+                transparent = true;
+            }
+
             uint16_t bgr555 = palettePtr[paletteIndex];
-            frameBuffer_.PushPixel({bgr555, !(paletteIndex & 0x0F), 0, PixelSrc::BG2}, i);
+            frameBuffer_.PushPixel({bgr555, transparent, 0, PixelSrc::BG2}, i);
         }
     }
 }
@@ -267,8 +275,8 @@ void PPU::RenderMode4Scanline()
 void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset)
 {
     // Map size in pixels
-    int const mapPixelWidth = (control.screenSize_ & 0x01) ? 512 : 256;
-    int const mapPixelHeight = (control.screenSize_ & 0x02) ? 512 : 256;
+    int const mapPixelWidth = (control.flags_.screenSize_ & 0x01) ? 512 : 256;
+    int const mapPixelHeight = (control.flags_.screenSize_ & 0x02) ? 512 : 256;
 
     // Pixel coordinates
     int dotX = xOffset % mapPixelWidth;
@@ -279,8 +287,8 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
     int mapY = dotY / 8;
 
     // Screenblock/Charblock addresses
-    size_t tileMapAddr = control.screenBaseBlock_ * TEXT_TILE_MAP_SIZE;
-    size_t baseCharblockAddr = control.charBaseBlock_ * CHARBLOCK_SIZE;
+    size_t tileMapAddr = control.flags_.screenBaseBlock_ * TEXT_TILE_MAP_SIZE;
+    size_t baseCharblockAddr = control.flags_.charBaseBlock_ * CHARBLOCK_SIZE;
 
     if (mapY > 31)
     {
@@ -295,8 +303,8 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
     // Status
     int totalPixelsDrawn = 0;
     int dot = 0;
-    int priority = control.bgPriority_;
-    PixelSrc src = static_cast<PixelSrc>(bgIndex + 1);
+    int const priority = control.flags_.bgPriority_;
+    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
 
     while (totalPixelsDrawn < 240)
     {
@@ -324,7 +332,7 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
             tileY ^= 7;
         }
 
-        if (control.colorMode_)
+        if (control.flags_.colorMode_)
         {
             // 8bpp
             TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_.at(baseCharblockAddr));
@@ -336,9 +344,16 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
 
             while (pixelsDrawn < pixelsToDraw)
             {
-                size_t paletteIndex = tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX];
+                size_t paletteIndex = 0;
+
+                if (tileMapEntryPtr_->tile_ < 512)
+                {
+                    paletteIndex = tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX];
+                }
+
                 uint16_t bgr555 = palettePtr[paletteIndex];
-                bool transparent = !(paletteIndex & 0x0F);
+                bool transparent = (paletteIndex == 0);
+
                 frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
                 ++tileX;
                 ++pixelsDrawn;
@@ -360,18 +375,17 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
             while (pixelsDrawn < pixelsToDraw)
             {
                 size_t paletteIndex = tileMapEntryPtr_->palette_ << 4;
+                auto paletteData = tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX / 2];
+                paletteIndex |= leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_;
+                bool transparent = false;
 
-                if (leftHalf)
+                if ((paletteIndex & 0x0F) == 0)
                 {
-                    paletteIndex |= tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX / 2].leftNibble_;
-                }
-                else
-                {
-                    paletteIndex |= tilePtr[tileMapEntryPtr_->tile_].paletteIndex_[tileY][tileX / 2].rightNibble_;
+                    transparent = true;
+                    paletteIndex = 0;
                 }
 
                 uint16_t bgr555 = palettePtr[paletteIndex];
-                bool transparent = !(paletteIndex & 0x0F);
                 frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
                 ++tileX;
                 ++pixelsDrawn;

@@ -28,12 +28,12 @@ struct TileData8bpp
 
 struct TileData4bpp
 {
-    struct PaletteIndex
+    struct PaletteData
     {
         uint8_t leftNibble_ : 4;
         uint8_t rightNibble_ : 4;
     };
 
-    PaletteIndex paletteIndex_[8][4];
+    PaletteData paletteIndex_[8][4];
 };
 }

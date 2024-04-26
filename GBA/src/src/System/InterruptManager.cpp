@@ -98,7 +98,7 @@ int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize align
                 else
                 {
                     // Write to upper byte.
-                    IF_ &= ~((value & MAX_U8) << 16);
+                    IF_ &= ~((value & MAX_U8) << 8);
                 }
 
                 break;

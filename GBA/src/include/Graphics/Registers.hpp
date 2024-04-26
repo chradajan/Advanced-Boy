@@ -86,7 +86,7 @@ union BGCNT
         uint16_t screenBaseBlock_ : 5;
         uint16_t overflowMode_ : 1;
         uint16_t screenSize_ : 2;
-    };
+    } flags_;
 
     uint16_t halfword_;
 };

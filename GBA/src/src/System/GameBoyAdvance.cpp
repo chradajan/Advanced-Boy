@@ -115,7 +115,7 @@ bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
 {
-    uint8_t page = (addr & 0xFF00'0000) >> 24;
+    uint8_t page = (addr & 0x0F00'0000) >> 24;
     uint32_t value;
     int cycles;
     bool openBus = false;
@@ -194,7 +194,7 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
 
 int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    uint8_t page = (addr & 0xFF00'0000) >> 24;
+    uint8_t page = (addr & 0x0F00'0000) >> 24;
     int cycles = 1;
 
     switch (page)

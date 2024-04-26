@@ -103,7 +103,7 @@ std::pair<uint32_t, int> GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
 {
     if (addr > GAME_PAK_SRAM_ADDR_MAX)
     {
-        addr = GAME_PAK_ROM_ADDR_MIN + (addr % (64 * KiB));
+        addr = GAME_PAK_SRAM_ADDR_MAX + (addr % (64 * KiB));
     }
 
     addr = AlignAddress(addr, alignment);
@@ -128,7 +128,7 @@ int GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr > GAME_PAK_SRAM_ADDR_MAX)
     {
-        addr = GAME_PAK_ROM_ADDR_MIN + (addr % (64 * KiB));
+        addr = GAME_PAK_SRAM_ADDR_MAX + (addr % (64 * KiB));
     }
 
     int cycles = WaitStateCycles(3);
