@@ -337,8 +337,9 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
         {
             // 8bpp
             TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_.at(baseCharblockAddr));
+            bool flipped = tileMapEntryPtr_->horizontalFlip_;
 
-            if (tileMapEntryPtr_->horizontalFlip_)
+            if (flipped)
             {
                 tileX ^= 7;
             }
@@ -356,7 +357,7 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
                 bool transparent = (paletteIndex == 0);
 
                 frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
-                ++tileX;
+                tileX += flipped ? -1 : 1;
                 ++pixelsDrawn;
                 ++dot;
             }
@@ -365,8 +366,9 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
         {
             // 4bpp
             TileData4bpp const* tilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_.at(baseCharblockAddr));
+            bool flipped = tileMapEntryPtr_->horizontalFlip_;
 
-            if (tileMapEntryPtr_->horizontalFlip_)
+            if (flipped)
             {
                 tileX ^= 7;
             }
@@ -388,7 +390,7 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
 
                 uint16_t bgr555 = palettePtr[paletteIndex];
                 frameBuffer_.PushPixel({bgr555, transparent, priority, src}, dot);
-                ++tileX;
+                tileX += flipped ? -1 : 1;
                 ++pixelsDrawn;
                 ++dot;
                 leftHalf = !leftHalf;
