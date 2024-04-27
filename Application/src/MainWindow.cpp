@@ -34,7 +34,9 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
 
 MainWindow::~MainWindow()
 {
-    gbaThread->exit();
+    gbaThread->PowerOff();
+    gbaThread->terminate();
+    gbaThread->wait();
     delete gbaThread;
 }
 

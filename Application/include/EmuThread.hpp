@@ -21,6 +21,9 @@ public:
     /// @param mainWindow Reference to window where rendering takes place.
     EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow);
 
+    /// @brief Stop running the GBA.
+    void PowerOff();
+
     /// @brief Get the title of the currently loaded ROM.
     /// @return Title of ROM.
     std::string RomTitle() const;

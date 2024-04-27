@@ -40,3 +40,6 @@ void EnableLogging(bool enable);
 /// @return Title of ROM.
 /// @pre Initialize must have been previously called.
 std::string RomTitle();
+
+/// @brief Power down the GBA, creating a save file if a cartridge was loaded.
+void PowerOff();

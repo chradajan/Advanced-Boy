@@ -17,6 +17,11 @@ EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWind
     EnableLogging(logging);
 }
 
+void EmuThread::PowerOff()
+{
+    ::PowerOff();
+}
+
 std::string EmuThread::RomTitle() const
 {
     return ::RomTitle();

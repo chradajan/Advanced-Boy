@@ -74,6 +74,7 @@ private:
     // ROM Info
     bool romLoaded_;
     std::string romTitle_;
+    fs::path romPath_;
 
     // Memory
     std::vector<uint8_t> ROM_;

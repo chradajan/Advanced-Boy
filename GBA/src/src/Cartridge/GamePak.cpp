@@ -18,6 +18,7 @@ namespace Cartridge
 GamePak::GamePak(fs::path const romPath) :
     romLoaded_(false),
     romTitle_(""),
+    romPath_(romPath),
     waitStateControl_(0)
 {
     if (romPath.empty())
@@ -58,7 +59,17 @@ GamePak::GamePak(fs::path const romPath) :
 
 GamePak::~GamePak()
 {
-    // TODO
+    if (!romPath_.empty())
+    {
+        fs::path savePath = romPath_;
+        savePath.replace_extension("sav");
+        std::ofstream saveFile(savePath, std::ios::binary);
+
+        if (!saveFile.fail())
+        {
+            saveFile.write(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+        }
+    }
 }
 
 std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize alignment)
@@ -103,7 +114,7 @@ std::pair<uint32_t, int> GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
 {
     if (addr > GAME_PAK_SRAM_ADDR_MAX)
     {
-        addr = GAME_PAK_SRAM_ADDR_MAX + (addr % (64 * KiB));
+        addr = GAME_PAK_SRAM_ADDR_MIN + (addr % (64 * KiB));
     }
 
     addr = AlignAddress(addr, alignment);
@@ -128,7 +139,7 @@ int GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr > GAME_PAK_SRAM_ADDR_MAX)
     {
-        addr = GAME_PAK_SRAM_ADDR_MAX + (addr % (64 * KiB));
+        addr = GAME_PAK_SRAM_ADDR_MIN + (addr % (64 * KiB));
     }
 
     int cycles = WaitStateCycles(3);

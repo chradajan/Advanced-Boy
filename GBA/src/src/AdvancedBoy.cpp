@@ -83,3 +83,11 @@ std::string RomTitle()
 
     return gba->RomTitle();
 }
+
+void PowerOff()
+{
+    if (gba)
+    {
+        gba.reset();
+    }
+}
