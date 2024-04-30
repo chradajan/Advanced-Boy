@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include <set>
+#include <vector>
 
 /// @brief 
 namespace Graphics
@@ -66,7 +66,7 @@ public:
     void ResetFrameIndex() { frameIndex_ = 0; }
 
 private:
-    std::array<std::set<Pixel>, LCD_WIDTH> scanline_;
+    std::array<std::vector<Pixel>, LCD_WIDTH> scanline_;
     std::array<uint16_t, LCD_WIDTH * LCD_HEIGHT> frameBuffer_;
     size_t frameIndex_;
 };
