@@ -285,85 +285,84 @@ void PPU::RenderMode4Scanline()
 
 void PPU::RenderSprites()
 {
-    std::array<Pixel, 240> spritesScanline;
-    OamEntry const* oamPtr = reinterpret_cast<OamEntry const*>(OAM_.data());
-    size_t const charBlockAddr = 4 * CHARBLOCK_SIZE;
+    std::array<Pixel, 240> pixels;
+    OamEntry const* oam = reinterpret_cast<OamEntry const*>(OAM_.data());
 
     for (int i = 0; i < 128; ++i)
     {
-        OamEntry const* oamEntry = &oamPtr[i];
+        OamEntry const& oamEntry = oam[i];
 
         // Check if this sprite is disabled
-        if (!oamEntry->attribute0_.rotationOrScaling_ && oamEntry->attribute0_.doubleSizeOrDisable_)
+        if (!oamEntry.attribute0_.rotationOrScaling_ && oamEntry.attribute0_.doubleSizeOrDisable_)
         {
             continue;
         }
 
-        if (oamEntry->attribute0_.rotationOrScaling_)
+        if (oamEntry.attribute0_.rotationOrScaling_)
         {
             // Affine sprite, TODO
             continue;
         }
 
         // Determine the dimensions of this sprite in terms of pixels
-        int pixelHeight = 0;
-        int pixelWidth = 0;
-        uint8_t pixelDimensions = (oamEntry->attribute0_.objShape_ << 2) | oamEntry->attribute1_.sharedFlags_.objSize_;
+        int height = 0;
+        int width = 0;
+        uint8_t pixelDimensions = (oamEntry.attribute0_.objShape_ << 2) | oamEntry.attribute1_.sharedFlags_.objSize_;
 
         switch (pixelDimensions)
         {
             // Square
             case 0b00'00:
-                pixelHeight = 8;
-                pixelWidth = 8;
+                height = 8;
+                width = 8;
                 break;
             case 0b00'01:
-                pixelHeight = 16;
-                pixelWidth = 16;
+                height = 16;
+                width = 16;
                 break;
             case 0b00'10:
-                pixelHeight = 32;
-                pixelWidth = 32;
+                height = 32;
+                width = 32;
                 break;
             case 0b00'11:
-                pixelHeight = 64;
-                pixelWidth = 64;
+                height = 64;
+                width = 64;
                 break;
 
             // Horizontal
             case 0b01'00:
-                pixelHeight = 8;
-                pixelWidth = 16;
+                height = 8;
+                width = 16;
                 break;
             case 0b01'01:
-                pixelHeight = 8;
-                pixelWidth = 32;
+                height = 8;
+                width = 32;
                 break;
             case 0b01'10:
-                pixelHeight = 16;
-                pixelWidth = 32;
+                height = 16;
+                width = 32;
                 break;
             case 0b01'11:
-                pixelHeight = 32;
-                pixelWidth = 64;
+                height = 32;
+                width = 64;
                 break;
 
             // Vertical
             case 0b10'00:
-                pixelHeight = 16;
-                pixelWidth = 8;
+                height = 16;
+                width = 8;
                 break;
             case 0b10'01:
-                pixelHeight = 32;
-                pixelWidth = 8;
+                height = 32;
+                width = 8;
                 break;
             case 0b10'10:
-                pixelHeight = 32;
-                pixelWidth = 16;
+                height = 32;
+                width = 16;
                 break;
             case 0b10'11:
-                pixelHeight = 64;
-                pixelWidth = 32;
+                height = 64;
+                width = 32;
                 break;
 
             // Illegal combination
@@ -371,8 +370,8 @@ void PPU::RenderSprites()
                 continue;
         }
 
-        int y = oamEntry->attribute0_.yCoordinate_;
-        int x = oamEntry->attribute1_.sharedFlags_.xCoordinate_;
+        int y = oamEntry.attribute0_.yCoordinate_;
+        int x = oamEntry.attribute1_.sharedFlags_.xCoordinate_;
 
         if (y >= 160)
         {
@@ -385,27 +384,18 @@ void PPU::RenderSprites()
         }
 
         // Check if this sprite exists on the current scanline
-        if ((y > scanline_) || (scanline_ > (y + pixelHeight - 1)))
+        if ((y > scanline_) || (scanline_ > (y + height - 1)))
         {
             continue;
         }
 
-        int const tileHeight = pixelHeight / 8;
-        int const tileWidth = pixelWidth / 8;
-        int const objPriority = oamEntry->attribute2_.priority_;
-        bool const alphaBlend = oamEntry->attribute0_.objMode_ == 1;
-
-        if (oamEntry->attribute0_.objMode_ == 2)
+        if (oamEntry.attribute0_.objMode_ == 2)
         {
             // Window sprite, TODO
             continue;
         }
         else
         {
-            int const leftEdge = std::max(0, x);
-            int const rightEdge = std::min(239, x + pixelWidth - 1);
-            uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_.at(0x200));
-
             if (lcdControl_.flags_.objCharacterVramMapping)
             {
                 // One dimensional mapping
@@ -413,88 +403,14 @@ void PPU::RenderSprites()
             else
             {
                 // Two dimensional mapping
-                if (oamEntry->attribute0_.colorMode_)
+                if (oamEntry.attribute0_.colorMode_)
                 {
                     // 8bpp
                 }
                 else
                 {
                     // 4bpp
-                    TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_.at(charBlockAddr));
-                    TileData4bpp const* tileDataPtr = nullptr;
-
-                    bool const verticalFlip = oamEntry->attribute1_.noRotationOrScaling_.verticalFlip_;
-                    bool const horizontalFlip = oamEntry->attribute1_.noRotationOrScaling_.horizontalFlip_;
-
-                    size_t const baseMapX = oamEntry->attribute2_.tile_ % 32;
-                    size_t const baseMapY = oamEntry->attribute2_.tile_ / 32;
-
-                    size_t mapX = 0;
-                    size_t const mapY = verticalFlip ?
-                        (baseMapY + (tileHeight - ((scanline_ - y) / 8) - 1)) % 32 :
-                        (baseMapY + ((scanline_ - y) / 8)) % 32;
-
-                    size_t const tileY = verticalFlip ?
-                        ((scanline_ - y) % 8) ^ 7 :
-                        (scanline_ - y) % 8;
-
-                    int dot = leftEdge;
-                    uint16_t const palette = oamEntry->attribute2_.palette_ << 4;
-
-                    while (dot <= rightEdge)
-                    {
-                        if (tileDataPtr == nullptr)
-                        {
-                            mapX = horizontalFlip ?
-                                ((baseMapX + (tileWidth - ((dot - x) / 8) - 1)) % 32) :
-                                (baseMapX + ((dot - x) / 8)) % 32;
-
-                            tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
-                        }
-
-                        int tileX = (dot - x) % 8;
-                        int pixelsToDraw = std::min(8 - tileX, rightEdge - dot + 1);
-
-                        if (horizontalFlip)
-                        {
-                            tileX ^= 7;
-                        }
-
-                        bool leftHalf = (tileX % 2) == 0;
-
-                        while (pixelsToDraw > 0)
-                        {
-                            auto paletteData = tileDataPtr->paletteIndex_[tileY][tileX / 2];
-                            size_t paletteIndex = palette | (leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_);
-                            bool transparent = (paletteIndex & 0x0F) == 0;
-                            uint16_t bgr555 = palettePtr[paletteIndex];
-
-                            if (!spritesScanline.at(dot).initialized_ ||
-                                (!transparent && spritesScanline[dot].transparent_) ||
-                                (objPriority < spritesScanline[dot].priority_))
-                            {
-                                spritesScanline[dot] = Pixel(PixelSrc::OBJ, bgr555, objPriority, transparent, alphaBlend);
-                            }
-
-                            --pixelsToDraw;
-                            tileX += (horizontalFlip ? -1 : 1);
-                            ++dot;
-                            leftHalf = !leftHalf;
-                        }
-
-                        if ((mapX < 31) && !horizontalFlip)
-                        {
-                            ++tileDataPtr;
-                        }
-                        else if ((mapX > 0) && horizontalFlip)
-                        {
-                            --tileDataPtr;
-                        }
-                        else
-                        {
-                            tileDataPtr = nullptr;
-                        }
-                    }
+                    Render2d4bppSprite(x, y, width, height, oamEntry, pixels);
                 }
             }
         }
@@ -502,9 +418,9 @@ void PPU::RenderSprites()
 
     for (size_t i = 0; i < 240; ++i)
     {
-        if (spritesScanline[i].initialized_)
+        if (pixels[i].initialized_)
         {
-            frameBuffer_.PushPixel(spritesScanline[i], i);
+            frameBuffer_.PushPixel(pixels[i], i);
         }
     }
 }
@@ -646,6 +562,97 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
 
         dotX = nextDotX;
         totalPixelsDrawn += pixelsDrawn;
+    }
+}
+
+void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels)
+{
+    TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    TileData4bpp const* tileDataPtr = nullptr;
+
+    int const widthInTiles = width / 8;
+    int const heightInTiles = height / 8;
+
+    int const leftEdge = std::max(0, x);
+    int const rightEdge = std::min(239, x + width - 1);
+
+    bool const verticalFlip = oamEntry.attribute1_.noRotationOrScaling_.verticalFlip_;
+    bool const horizontalFlip = oamEntry.attribute1_.noRotationOrScaling_.horizontalFlip_;
+
+    int const baseMapX = oamEntry.attribute2_.tile_ % 32;
+    int const baseMapY = oamEntry.attribute2_.tile_ / 32;
+
+    int mapX = 0;
+    int const mapY = verticalFlip ?
+        (baseMapY + (heightInTiles - ((scanline_ - y) / 8) - 1)) % 32 :
+        (baseMapY + ((scanline_ - y) / 8)) % 32;
+
+    int const tileY = verticalFlip ?
+        ((scanline_ - y) % 8) ^ 7 :
+        (scanline_ - y) % 8;
+
+    int dot = leftEdge;
+    int palette = oamEntry.attribute2_.palette_ << 4;
+    int priority = oamEntry.attribute2_.priority_;
+
+    while (dot <= rightEdge)
+    {
+        if (tileDataPtr == nullptr)
+        {
+            mapX = horizontalFlip ?
+                ((baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 32) :
+                (baseMapX + ((dot - x) / 8)) % 32;
+
+            tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
+        }
+
+        int tileX = (dot - x) % 8;
+        int pixelsToDraw = std::min(8 - tileX, rightEdge - dot + 1);
+
+        if (horizontalFlip)
+        {
+            tileX ^= 7;
+        }
+
+        bool leftHalf = (tileX % 2) == 0;
+
+        while (pixelsToDraw > 0)
+        {
+            auto paletteData = tileDataPtr->paletteIndex_[tileY][tileX / 2];
+            int paletteIndex = palette | (leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_);
+            bool transparent = (paletteIndex & 0x0F) == 0;
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (!pixels.at(dot).initialized_ ||
+                (!transparent && pixels[dot].transparent_) ||
+                (priority < pixels[dot].priority_))
+            {
+                pixels[dot] = Pixel(PixelSrc::OBJ,
+                                    bgr555,
+                                    priority,
+                                    transparent,
+                                    (oamEntry.attribute0_.objMode_ == 1));
+            }
+
+            --pixelsToDraw;
+            ++dot;
+            leftHalf = !leftHalf;
+            tileX += (horizontalFlip ? -1 : 1);
+        }
+
+        if ((mapX < 31) && !horizontalFlip)
+        {
+            ++tileDataPtr;
+        }
+        else if ((mapX > 0) && horizontalFlip)
+        {
+            --tileDataPtr;
+        }
+        else
+        {
+            tileDataPtr = nullptr;
+        }
     }
 }
 }

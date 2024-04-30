@@ -10,6 +10,8 @@
 
 namespace Graphics
 {
+struct OamEntry;
+
 class PPU
 {
 public:
@@ -73,6 +75,24 @@ private:
     /// @param xOffset X offset register value of specified background.
     /// @param yOffset Y offset register value of specified background.
     void RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset);
+
+    /// @brief Render a two dimensional 4bpp sprite into an array of pixels.
+    /// @param x X-coordinate of top left corner of sprite.
+    /// @param y Y-coordinate of top left corner of sprite.
+    /// @param width Width of sprite in pixels.
+    /// @param height Height of sprite in pixels.
+    /// @param oamEntry Reference to OAM entry for sprite.
+    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
+    void Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
+
+    /// @brief Render a two dimensional 8bpp sprite into an array of pixels.
+    /// @param x X-coordinate of top left corner of sprite.
+    /// @param y Y-coordinate of top left corner of sprite.
+    /// @param width Width of sprite in pixels.
+    /// @param height Height of sprite in pixels.
+    /// @param oamEntry Reference to OAM entry for sprite.
+    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
+    void Render2d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
 
     // Frame status
     FrameBuffer frameBuffer_;

@@ -7,6 +7,8 @@ namespace Graphics
 {
 constexpr uint32_t SCREENBLOCK_SIZE = 2 * KiB;
 constexpr uint32_t CHARBLOCK_SIZE = 16 * KiB;
+constexpr size_t OBJ_CHARBLOCK_ADDR = 4 * CHARBLOCK_SIZE;
+constexpr size_t OBJ_PALETTE_ADDR = 0x0200;
 
 struct ScreenBlockEntry
 {
