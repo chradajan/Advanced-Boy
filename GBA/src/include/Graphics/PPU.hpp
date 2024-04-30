@@ -64,6 +64,9 @@ private:
     /// @brief Render a scanline in BG Mode 4.
     void RenderMode4Scanline();
 
+    /// @brief Render sprites and mix with background.
+    void RenderSprites();
+
     /// @brief Render a tiled text background scanline.
     /// @param bgIndex Which background to render.
     /// @param control Control register of specified background.

@@ -44,7 +44,9 @@ void FrameBuffer::RenderScanline(uint16_t backdrop)
         }
         else
         {
-            frameBuffer_.at(frameIndex_++) = pixelSet.begin()->bgr555_;
+            Pixel const& pixel = *pixelSet.begin();
+            uint16_t bgr555 = pixel.transparent_ ? backdrop : pixel.bgr555_;
+            frameBuffer_.at(frameIndex_++) = bgr555;
             pixelSet.clear();
         }
     }

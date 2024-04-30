@@ -17,17 +17,30 @@ enum class PixelSrc : int
     BG1,
     BG2,
     BG3,
-    BD
 };
 
 struct Pixel
 {
+    Pixel() : initialized_(false) {}
+
+    Pixel(PixelSrc src, uint16_t bgr555, int priority, bool transparent, bool alphaBlend = false) :
+        src_(src),
+        bgr555_(bgr555),
+        priority_(priority),
+        transparent_(transparent),
+        alphaBlend_(alphaBlend),
+        initialized_(true)
+    {
+    }
+
     bool operator<(Pixel const& rhs) const;
 
-    uint16_t bgr555_;
-    bool transparent_;
-    int priority_;
     PixelSrc src_;
+    uint16_t bgr555_;
+    int priority_;
+    bool transparent_;
+    bool alphaBlend_;
+    bool initialized_;
 };
 
 class FrameBuffer

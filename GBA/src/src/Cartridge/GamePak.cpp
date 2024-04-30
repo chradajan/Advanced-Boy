@@ -53,6 +53,20 @@ GamePak::GamePak(fs::path const romPath) :
         titleStream << static_cast<char>(titleChar);
     }
 
+    // Check for save file
+    fs::path savePath = romPath;
+    savePath.replace_extension("sav");
+
+    if (fs::exists(savePath))
+    {
+        std::ifstream saveFile(savePath, std::ios::binary);
+
+        if (!saveFile.fail())
+        {
+            saveFile.read(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+        }
+    }
+
     romTitle_ = titleStream.str();
     romLoaded_ = true;
 }
