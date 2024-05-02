@@ -32,6 +32,19 @@ public:
     GameBoyAdvance& operator=(GameBoyAdvance&&) = delete;
     ~GameBoyAdvance() = default;
 
+    /// @brief Read from memory.
+    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value from specified address and number of cycles taken to read.
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
+
+    /// @brief Write to memory.
+    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
+    /// @param value Value to write to specified address.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Number of cycles taken to write.
+    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
+
     /// @brief Load a Game Pak into memory.
     /// @param romPath Path to ROM file.
     /// @return Whether the GamePak was valid and successfully loaded.
@@ -60,19 +73,6 @@ private:
     /// @param biosPath Path to GBA BIOS.
     /// @return Whether valid BIOS was loaded.
     bool LoadBIOS(fs::path biosPath);
-
-    /// @brief Read from memory.
-    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value from specified address and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
-
-    /// @brief Write to memory.
-    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
-    /// @param value Value to write to specified address.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles taken to write.
-    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Callback to handle a CPU halt.
     void Halt(int) { halted_ = !halted_; }

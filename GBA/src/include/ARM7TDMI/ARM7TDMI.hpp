@@ -1,26 +1,25 @@
 #pragma once
 
-#include <ARM7TDMI/CpuTypes.hpp>
-
 #include <array>
 #include <cstdint>
-#include <functional>
 #include <utility>
-
 #include <ARM7TDMI/ArmInstructions.hpp>
+#include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/Registers.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <System/MemoryMap.hpp>
+
+class GameBoyAdvance;
 
 namespace CPU
 {
 class ARM7TDMI
 {
 public:
-    /// @brief Initialize the CPU to ARM state in System mode with all other registers set to 0.
-    ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
-             std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory,
-             bool biosLoaded);
+    /// @brief Initialize the CPU to ARM state in Supervisor mode.
+    /// @param gbaPtr Pointer to GBA instance used for reading/writing memory.
+    /// @param biosLoaded Whether BIOS is loaded into memory.
+    ARM7TDMI(GameBoyAdvance* gbaPtr, bool biosLoaded);
 
     ARM7TDMI() = delete;
     ARM7TDMI(ARM7TDMI const&) = delete;
@@ -38,6 +37,19 @@ public:
     uint32_t GetPC() const { return registers_.GetPC(); }
 
 private:
+    /// @brief Read from memory managed by GBA.
+    /// @param addr Address to read.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value from specified address and number of cycles taken to read.
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
+
+    /// @brief Write to memory managed by GBA.
+    /// @param addr Address to write.
+    /// @param value Value to write to specified address.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Number of cycles taken to write.
+    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
+
     /// @brief Determine whether the command should execute based on its condition.
     /// @param condition 4-bit condition.
     /// @return True if command should be executed, false otherwise
@@ -88,9 +100,8 @@ private:
     InstructionPipeline pipeline_;
     bool flushPipeline_;
 
-    // R/W Functions
-    std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory;
-    std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory;
+    // GBA
+    GameBoyAdvance* gbaPtr_;
 
     // Registers
     Registers registers_;

@@ -21,9 +21,7 @@ namespace fs = std::filesystem;
 
 GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)> refreshScreenCallback) :
     biosLoaded_(LoadBIOS(biosPath)),
-    cpu_(std::bind(&ReadMemory,  this, std::placeholders::_1, std::placeholders::_2),
-         std::bind(&WriteMemory, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-         biosLoaded_),
+    cpu_(this, biosLoaded_),
     ppu_(paletteRAM_, VRAM_, OAM_)
 {
     Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
@@ -32,95 +30,6 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     halted_ = false;
     mirroredIoReg_ = 0;
     lastBiosFetch_ = 0;
-}
-
-bool GameBoyAdvance::LoadGamePak(fs::path romPath)
-{
-    gamePak_.reset();
-    gamePak_ = std::make_unique<Cartridge::GamePak>(romPath);
-    ZeroMemory();
-    gamePakLoaded_ = gamePak_->RomLoaded();
-    return gamePakLoaded_;
-}
-
-void GameBoyAdvance::UpdateGamepad(Gamepad gamepad)
-{
-    gamepad_.UpdateGamepad(gamepad);
-}
-
-std::string GameBoyAdvance::RomTitle() const
-{
-    if (gamePakLoaded_)
-    {
-        return gamePak_->RomTitle();
-    }
-
-    return "";
-}
-
-void GameBoyAdvance::Run()
-{
-    if (!biosLoaded_ && !gamePakLoaded_)
-    {
-        return;
-    }
-
-    try
-    {
-        while (true)
-        {
-            if (halted_)
-            {
-                Scheduler.SkipToNextEvent();
-            }
-            else
-            {
-                int cpuCycles = cpu_.Tick();
-                Scheduler.Tick(cpuCycles);
-            }
-        }
-    }
-    catch (std::exception const& error)
-    {
-        Logging::LogMgr.LogException(error);
-        Logging::LogMgr.DumpLogs();
-        throw;
-    }
-}
-
-void GameBoyAdvance::ZeroMemory()
-{
-    onBoardWRAM_.fill(0);
-    onChipWRAM_.fill(0);
-    paletteRAM_.fill(0);
-    VRAM_.fill(0);
-    OAM_.fill(0);
-    placeholderIoRegisters_.fill(0);
-}
-
-bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
-{
-    if (biosPath.empty())
-    {
-        return false;
-    }
-
-    auto fileSizeInBytes = fs::file_size(biosPath);
-
-    if (fileSizeInBytes != BIOS_.size())
-    {
-        return false;
-    }
-
-    std::ifstream bios(biosPath, std::ios::binary);
-
-    if (bios.fail())
-    {
-        return false;
-    }
-
-    bios.read(reinterpret_cast<char*>(BIOS_.data()), fileSizeInBytes);
-    return true;
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
@@ -246,6 +155,95 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
     }
 
     return cycles;
+}
+
+bool GameBoyAdvance::LoadGamePak(fs::path romPath)
+{
+    gamePak_.reset();
+    gamePak_ = std::make_unique<Cartridge::GamePak>(romPath);
+    ZeroMemory();
+    gamePakLoaded_ = gamePak_->RomLoaded();
+    return gamePakLoaded_;
+}
+
+void GameBoyAdvance::UpdateGamepad(Gamepad gamepad)
+{
+    gamepad_.UpdateGamepad(gamepad);
+}
+
+std::string GameBoyAdvance::RomTitle() const
+{
+    if (gamePakLoaded_)
+    {
+        return gamePak_->RomTitle();
+    }
+
+    return "";
+}
+
+void GameBoyAdvance::Run()
+{
+    if (!biosLoaded_ && !gamePakLoaded_)
+    {
+        return;
+    }
+
+    try
+    {
+        while (true)
+        {
+            if (halted_)
+            {
+                Scheduler.SkipToNextEvent();
+            }
+            else
+            {
+                int cpuCycles = cpu_.Tick();
+                Scheduler.Tick(cpuCycles);
+            }
+        }
+    }
+    catch (std::exception const& error)
+    {
+        Logging::LogMgr.LogException(error);
+        Logging::LogMgr.DumpLogs();
+        throw;
+    }
+}
+
+void GameBoyAdvance::ZeroMemory()
+{
+    onBoardWRAM_.fill(0);
+    onChipWRAM_.fill(0);
+    paletteRAM_.fill(0);
+    VRAM_.fill(0);
+    OAM_.fill(0);
+    placeholderIoRegisters_.fill(0);
+}
+
+bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
+{
+    if (biosPath.empty())
+    {
+        return false;
+    }
+
+    auto fileSizeInBytes = fs::file_size(biosPath);
+
+    if (fileSizeInBytes != BIOS_.size())
+    {
+        return false;
+    }
+
+    std::ifstream bios(biosPath, std::ios::binary);
+
+    if (bios.fail())
+    {
+        return false;
+    }
+
+    bios.read(reinterpret_cast<char*>(BIOS_.data()), fileSizeInBytes);
+    return true;
 }
 
 //                Bus   Read      Write     Cycles

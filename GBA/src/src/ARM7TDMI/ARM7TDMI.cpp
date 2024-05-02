@@ -5,22 +5,21 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
+#include <System/GameBoyAdvance.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 
 namespace CPU
 {
-ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)> ReadMemory,
-                   std::function<int(uint32_t, uint32_t, AccessSize)> WriteMemory,
-                   bool biosLoaded) :
+ARM7TDMI::ARM7TDMI(GameBoyAdvance* gbaPtr, bool biosLoaded) :
     flushPipeline_(false),
-    ReadMemory(ReadMemory),
-    WriteMemory(WriteMemory)
+    gbaPtr_(gbaPtr)
 {
     Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
 
@@ -124,6 +123,16 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
     }
 
     throw std::runtime_error("Illegal ARM condition");
+}
+
+std::pair<uint32_t, int> ARM7TDMI::ReadMemory(uint32_t addr, AccessSize alignment)
+{
+    return gbaPtr_->ReadMemory(addr, alignment);
+}
+
+int ARM7TDMI::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    return gbaPtr_->WriteMemory(addr, value, alignment);
 }
 
 void ARM7TDMI::IRQ(int)
