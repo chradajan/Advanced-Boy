@@ -152,13 +152,20 @@ int Timer::Overflow(int extraCycles)
 void Timer::CascadeModeIncrement(int incrementCount)
 {
     // TODO: Improve this so that multiple cascaded increments will propagate forward if the next timer is also in cascade mode.
-    uint16_t oldTimer_ = internalTimer_;
-    internalTimer_ += incrementCount;
-
-    if (oldTimer_ > internalTimer_)
+    if ((internalTimer_ + incrementCount) < internalTimer_)
     {
-        internalTimer_ = timerControl_.flags_.reload_;
         Scheduler.ScheduleEvent(overflowEvent_, SCHEDULE_NOW);
+    }
+
+    while (incrementCount > 0)
+    {
+        ++internalTimer_;
+        --incrementCount;
+
+        if (internalTimer_ == 0)
+        {
+            internalTimer_ = timerControl_.flags_.reload_;
+        }
     }
 }
 
