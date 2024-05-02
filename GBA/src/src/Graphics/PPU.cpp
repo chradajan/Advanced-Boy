@@ -399,6 +399,16 @@ void PPU::RenderSprites()
             if (lcdControl_.flags_.objCharacterVramMapping)
             {
                 // One dimensional mapping
+                if (oamEntry.attribute0_.colorMode_)
+                {
+                    // 8bpp
+                    continue;
+                }
+                else
+                {
+                    // 4bpp
+                    Render1d4bppSprite(x, y, width, height, oamEntry, pixels);
+                }
             }
             else
             {
@@ -406,6 +416,7 @@ void PPU::RenderSprites()
                 if (oamEntry.attribute0_.colorMode_)
                 {
                     // 8bpp
+                    continue;
                 }
                 else
                 {
@@ -565,6 +576,76 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
     }
 }
 
+void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels)
+{
+    int const widthInTiles = width / 8;
+    int const heightInTiles = height / 8;
+
+    TileData4bpp const* const tileMapPtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+
+    int const leftEdge = std::max(0, x);
+    int const rightEdge = std::min(239, x + width - 1);
+
+    bool const verticalFlip = oamEntry.attribute1_.noRotationOrScaling_.verticalFlip_;
+    bool const horizontalFlip = oamEntry.attribute1_.noRotationOrScaling_.horizontalFlip_;
+
+    int const baseTileIndex = verticalFlip ?
+        (oamEntry.attribute2_.tile_ + ((heightInTiles - ((scanline_ - y) / 8) - 1) * widthInTiles)) % 1024 :
+        (oamEntry.attribute2_.tile_ + (((scanline_ - y) / 8) * widthInTiles)) % 1024;
+
+    int const tileY = verticalFlip ?
+        ((scanline_ - y) % 8) ^ 7 :
+        (scanline_ - y) % 8;
+
+    int dot = leftEdge;
+    int const palette = oamEntry.attribute2_.palette_ << 4;
+    int const priority = oamEntry.attribute2_.priority_;
+
+    while (dot <= rightEdge)
+    {
+        int tileOffset = horizontalFlip ?
+            widthInTiles - ((dot - x) / 8) - 1 :
+            (dot - x) / 8;
+
+        TileData4bpp const* const tileDataPtr = &tileMapPtr[(baseTileIndex + tileOffset) % 1024];
+
+        int tileX = (dot - x) % 8;
+        int pixelsToDraw = std::min(8 - tileX, rightEdge - dot + 1);
+
+        if (horizontalFlip)
+        {
+            tileX ^= 7;
+        }
+
+        bool leftHalf = (tileX % 2) == 0;
+
+        while (pixelsToDraw > 0)
+        {
+            auto paletteData = tileDataPtr->paletteIndex_[tileY][tileX / 2];
+            int paletteIndex = palette | (leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_);
+            bool transparent = (paletteIndex & 0x0F) == 0;
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (!pixels.at(dot).initialized_ ||
+                (!transparent && pixels[dot].transparent_) ||
+                (priority < pixels[dot].priority_))
+            {
+                pixels[dot] = Pixel(PixelSrc::OBJ,
+                                    bgr555,
+                                    priority,
+                                    transparent,
+                                    (oamEntry.attribute0_.objMode_ == 1));
+            }
+
+            --pixelsToDraw;
+            ++dot;
+            leftHalf = !leftHalf;
+            tileX += (horizontalFlip ? -1 : 1);
+        }
+    }
+}
+
 void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels)
 {
     TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
@@ -593,8 +674,8 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
         (scanline_ - y) % 8;
 
     int dot = leftEdge;
-    int palette = oamEntry.attribute2_.palette_ << 4;
-    int priority = oamEntry.attribute2_.priority_;
+    int const palette = oamEntry.attribute2_.palette_ << 4;
+    int const priority = oamEntry.attribute2_.priority_;
 
     while (dot <= rightEdge)
     {
