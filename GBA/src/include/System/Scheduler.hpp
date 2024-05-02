@@ -65,6 +65,9 @@ public:
     /// @param cycles Number of cycles to advance the Scheduler by.
     void Tick(int cycles);
 
+    /// @brief If the CPU is stopped due to a halt or DMA transfer, skip straight to next event.
+    void SkipToNextEvent();
+
     /// @brief Register a callback function with a specified event type.
     /// @param eventType Event to register.
     /// @param callback Callback function to use for eventType.

@@ -27,7 +27,9 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     ppu_(paletteRAM_, VRAM_, OAM_)
 {
     Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
+    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
     gamePakLoaded_ = false;
+    halted_ = false;
     mirroredIoReg_ = 0;
     lastBiosFetch_ = 0;
 }
@@ -63,19 +65,26 @@ void GameBoyAdvance::Run()
         return;
     }
 
-    while (true)
+    try
     {
-        try
+        while (true)
         {
-            int cpuCycles = cpu_.Tick();
-            Scheduler.Tick(cpuCycles);
+            if (halted_)
+            {
+                Scheduler.SkipToNextEvent();
+            }
+            else
+            {
+                int cpuCycles = cpu_.Tick();
+                Scheduler.Tick(cpuCycles);
+            }
         }
-        catch (std::exception const& error)
-        {
-            Logging::LogMgr.LogException(error);
-            Logging::LogMgr.DumpLogs();
-            throw;
-        }
+    }
+    catch (std::exception const& error)
+    {
+        Logging::LogMgr.LogException(error);
+        Logging::LogMgr.DumpLogs();
+        throw;
     }
 }
 

@@ -41,7 +41,20 @@ void EventScheduler::Tick(int cycles)
 
     while (totalCycles_ >= (*front).cycleToExecute_)
     {
-        (*front).Callback(totalCycles_ - (*front).cycleToExecute_);
+        front->Callback(totalCycles_ - front->cycleToExecute_);
+        queue_.erase(front);
+        front = queue_.begin();
+    }
+}
+
+void EventScheduler::SkipToNextEvent()
+{
+    auto front = queue_.begin();
+    totalCycles_ = front->cycleToExecute_;
+
+    while (totalCycles_ == front->cycleToExecute_)
+    {
+        front->Callback(0);
         queue_.erase(front);
         front = queue_.begin();
     }

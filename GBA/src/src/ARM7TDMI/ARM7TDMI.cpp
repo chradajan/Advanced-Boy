@@ -20,11 +20,9 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)>
                    bool biosLoaded) :
     flushPipeline_(false),
     ReadMemory(ReadMemory),
-    WriteMemory(WriteMemory),
-    halted_(false)
+    WriteMemory(WriteMemory)
 {
     Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::Halt, std::bind(&HALT, this, std::placeholders::_1));
 
     if (!biosLoaded)
     {
@@ -34,11 +32,6 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)>
 
 int ARM7TDMI::Tick()
 {
-    if (halted_)
-    {
-        return 1;
-    }
-
     bool isArmState = registers_.GetOperatingState() == OperatingState::ARM;
     AccessSize alignment = isArmState ? AccessSize::WORD : AccessSize::HALFWORD;
     int cycles = 1;
@@ -163,7 +156,6 @@ void ARM7TDMI::IRQ(int)
         registers_.SetSPSR(currentCPSR);
         registers_.SetPC(0x0000'0018);
         pipeline_.Clear();
-        halted_ = false;
     }
 }
 

@@ -153,7 +153,8 @@ void InterruptManager::CheckForInterrupt()
         {
             Scheduler.ScheduleEvent(EventType::IRQ, SCHEDULE_NOW);
         }
-        else if (halted_)
+
+        if (halted_)
         {
             Scheduler.ScheduleEvent(EventType::Halt, SCHEDULE_NOW);
         }

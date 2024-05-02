@@ -74,6 +74,9 @@ private:
     /// @return Number of cycles taken to write.
     int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
 
+    /// @brief Callback to handle a CPU halt.
+    void Halt(int) { halted_ = !halted_; }
+
     // Area specific R/W handling
     std::pair<uint32_t, int> ReadBIOS(uint32_t addr, AccessSize alignment);
 
@@ -100,6 +103,7 @@ private:
     // State
     bool biosLoaded_;
     bool gamePakLoaded_;
+    bool halted_;
 
     // Components
     CPU::ARM7TDMI cpu_;
