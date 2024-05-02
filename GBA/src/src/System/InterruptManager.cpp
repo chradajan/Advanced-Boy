@@ -1,10 +1,10 @@
 #include <System/InterruptManager.hpp>
-#include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
-#include <System/Utilities.hpp>
 #include <cstdint>
 #include <stdexcept>
 #include <tuple>
+#include <System/MemoryMap.hpp>
+#include <System/Scheduler.hpp>
+#include <System/Utilities.hpp>
 
 // Global Interrupt Manager instance
 InterruptManager InterruptMgr;
@@ -29,7 +29,6 @@ void InterruptManager::RequestInterrupt(InterruptType interrupt)
 
 std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
     std::tuple<uint32_t, int, bool> openBusCondition = {0, 1, true};
     std::tuple<uint32_t, int, bool> zeroCondition = {0, 1, false};
 
@@ -75,7 +74,6 @@ std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, Acces
 
 int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
     uint32_t maxAddrWritten = addr + static_cast<uint8_t>(alignment) - 1;
     size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
     uint8_t* bytePtr = &(intWtstPwdDownRegisters_.at(index));
@@ -135,7 +133,7 @@ int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize align
             if ((IF_ & IE_) == 0)
             {
                 halted_ = true;
-                Scheduler.ScheduleEvent(EventType::HALT, SCHEDULE_NOW);
+                Scheduler.ScheduleEvent(EventType::Halt, SCHEDULE_NOW);
             }
         }
     }
@@ -157,7 +155,7 @@ void InterruptManager::CheckForInterrupt()
         }
         else if (halted_)
         {
-            Scheduler.ScheduleEvent(EventType::HALT, SCHEDULE_NOW);
+            Scheduler.ScheduleEvent(EventType::Halt, SCHEDULE_NOW);
         }
 
         halted_ = false;

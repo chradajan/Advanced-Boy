@@ -16,7 +16,7 @@ add_subdirectory(src)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
-    COMPILE_FLAGS "-Wall -Wextra -g"
+    COMPILE_FLAGS "-Wall -Wextra -O2 -g"
 )
 
 target_include_directories(${PROJECT_NAME}

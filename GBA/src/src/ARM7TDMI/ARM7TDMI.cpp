@@ -1,12 +1,10 @@
 #include <ARM7TDMI/ARM7TDMI.hpp>
-
 #include <array>
 #include <cstdint>
 #include <format>
 #include <functional>
 #include <stdexcept>
 #include <string>
-
 #include <ARM7TDMI/ArmInstructions.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
@@ -26,7 +24,7 @@ ARM7TDMI::ARM7TDMI(std::function<std::pair<uint32_t, int>(uint32_t, AccessSize)>
     halted_(false)
 {
     Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::HALT, std::bind(&HALT, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Halt, std::bind(&HALT, this, std::placeholders::_1));
 
     if (!biosLoaded)
     {

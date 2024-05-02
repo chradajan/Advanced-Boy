@@ -1,9 +1,4 @@
 #include <Graphics/PPU.hpp>
-#include <Graphics/VramTypes.hpp>
-#include <System/InterruptManager.hpp>
-#include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
-#include <System/Utilities.hpp>
 #include <algorithm>
 #include <cstdint>
 #include <format>
@@ -11,6 +6,11 @@
 #include <stdexcept>
 #include <tuple>
 #include <utility>
+#include <Graphics/VramTypes.hpp>
+#include <System/InterruptManager.hpp>
+#include <System/MemoryMap.hpp>
+#include <System/Scheduler.hpp>
+#include <System/Utilities.hpp>
 
 namespace Graphics
 {
@@ -46,8 +46,6 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
 
 std::tuple<uint32_t, int, bool> PPU::ReadLcdReg(uint32_t addr, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
-
     if (((addr >= BG0HOFS_ADDR) && (addr < WININ_ADDR)) ||
         ((addr >= MOSAIC_ADDR) && (addr < BLDCNT_ADDR)) ||
         (addr >= BLDY_ADDR))
@@ -64,8 +62,6 @@ std::tuple<uint32_t, int, bool> PPU::ReadLcdReg(uint32_t addr, AccessSize alignm
 
 int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
-
     if ((addr >= DISPSTAT_ADDR) && (addr < VCOUNT_ADDR))
     {
         // Write to DISPSTAT; not all bits are writable. If writing a word, the next register is VCOUNT so don't write that either.
@@ -192,7 +188,7 @@ void PPU::VBlank(int extraCycles)
     {
         // First time entering VBlank
         lcdStatus_.flags_.vBlank = 1;
-        Scheduler.ScheduleEvent(EventType::REFRESH_SCREEN, SCHEDULE_NOW);
+        Scheduler.ScheduleEvent(EventType::RefreshScreen, SCHEDULE_NOW);
         frameBuffer_.ResetFrameIndex();
 
         if (lcdStatus_.flags_.vBlankIrqEnable)

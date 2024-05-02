@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <set>
 #include <unordered_map>
 
@@ -12,10 +13,10 @@ constexpr int SCHEDULE_NOW = 0;
 enum class EventType
 {
     // External
-    REFRESH_SCREEN,
+    RefreshScreen,
 
     // Low power mode
-    HALT,
+    Halt,
 
     // Interrupts
     IRQ,
@@ -24,6 +25,12 @@ enum class EventType
     HBlank,
     VBlank,
     VDraw,
+
+    // Timers
+    Timer0Overflow,
+    Timer1Overflow,
+    Timer2Overflow,
+    Timer3Overflow,
 };
 
 /// @brief Data needed to execute a scheduled event.
@@ -67,6 +74,15 @@ public:
     /// @param event Type of event that should be scheduled.
     /// @param cycles Number of cycles from now that this event should fire.
     void ScheduleEvent(EventType eventType, int cycles);
+
+    /// @brief Remove a schedule event from the event queue.
+    /// @param eventType Type of event to unschedule.
+    void UnscheduleEvent(EventType eventType);
+
+    /// @brief Check how many cycles have elapsed since a particular event was scheduled.
+    /// @param eventType Event type to get information for.
+    /// @return How many cycles have elapsed since the event was scheduled, if an event of the specified kind is currently queued.
+    std::optional<uint64_t> ElapsedCycles(EventType eventType);
 
 private:
     std::set<Event> queue_;

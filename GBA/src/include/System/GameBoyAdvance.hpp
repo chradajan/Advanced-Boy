@@ -1,10 +1,6 @@
 #pragma once
 
 #include <ARM7TDMI/ARM7TDMI.hpp>
-#include <Cartridge/GamePak.hpp>
-#include <Gamepad/GamepadManager.hpp>
-#include <Graphics/PPU.hpp>
-#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -13,6 +9,11 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <Cartridge/GamePak.hpp>
+#include <Gamepad/GamepadManager.hpp>
+#include <Graphics/PPU.hpp>
+#include <System/MemoryMap.hpp>
+#include <Timers/TimerManager.hpp>
 
 namespace fs = std::filesystem;
 
@@ -104,6 +105,7 @@ private:
     CPU::ARM7TDMI cpu_;
     GamepadManager gamepad_;
     Graphics::PPU ppu_;
+    TimerManager timers_;
     std::unique_ptr<Cartridge::GamePak> gamePak_;
 
     // Memory

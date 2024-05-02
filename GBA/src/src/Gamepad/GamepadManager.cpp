@@ -1,10 +1,10 @@
 #include <Gamepad/GamepadManager.hpp>
-#include <System/InterruptManager.hpp>
-#include <System/MemoryMap.hpp>
-#include <System/Utilities.hpp>
 #include <array>
 #include <cstdint>
 #include <tuple>
+#include <System/InterruptManager.hpp>
+#include <System/MemoryMap.hpp>
+#include <System/Utilities.hpp>
 
 GamepadManager::GamepadManager() :
     gamepadRegisters_(),
@@ -23,7 +23,6 @@ void GamepadManager::UpdateGamepad(Gamepad gamepad)
 
 std::tuple<uint32_t, int, bool> GamepadManager::ReadGamepadReg(uint32_t addr, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - KEYPAD_INPUT_IO_ADDR_MIN;
     uint8_t* bytePtr = &(gamepadRegisters_.at(index));
     uint32_t value = ReadPointer(bytePtr, alignment);
@@ -32,7 +31,6 @@ std::tuple<uint32_t, int, bool> GamepadManager::ReadGamepadReg(uint32_t addr, Ac
 
 int GamepadManager::WriteGamepadReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - KEYPAD_INPUT_IO_ADDR_MIN;
 
     if (index <= 1)

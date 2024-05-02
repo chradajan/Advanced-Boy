@@ -1,6 +1,7 @@
 #include <System/Scheduler.hpp>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -60,4 +61,33 @@ void EventScheduler::ScheduleEvent(EventType eventType, int cycles)
 {
     uint64_t cycleToExecute = static_cast<uint64_t>(cycles) + totalCycles_;
     queue_.insert({registeredEvents_[eventType], eventType, totalCycles_, cycleToExecute});
+}
+
+void EventScheduler::UnscheduleEvent(EventType eventType)
+{
+    auto it = queue_.begin();
+
+    while (it != queue_.end())
+    {
+        if (it->eventType_ == eventType)
+        {
+            queue_.erase(it);
+            break;
+        }
+
+        ++it;
+    }
+}
+
+std::optional<uint64_t> EventScheduler::ElapsedCycles(EventType eventType)
+{
+    for (Event const& event : queue_)
+    {
+        if (event.eventType_ == eventType)
+        {
+            return totalCycles_ - event.cycleQueued_;
+        }
+    }
+
+    return {};
 }

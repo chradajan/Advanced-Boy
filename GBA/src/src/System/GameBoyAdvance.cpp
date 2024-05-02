@@ -1,10 +1,4 @@
 #include <System/GameBoyAdvance.hpp>
-#include <Config.hpp>
-#include <Logging/Logging.hpp>
-#include <System/MemoryMap.hpp>
-#include <System/InterruptManager.hpp>
-#include <System/Scheduler.hpp>
-#include <System/Utilities.hpp>
 #include <array>
 #include <exception>
 #include <filesystem>
@@ -15,6 +9,13 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <Config.hpp>
+#include <Logging/Logging.hpp>
+#include <System/MemoryMap.hpp>
+#include <System/InterruptManager.hpp>
+#include <System/Scheduler.hpp>
+#include <System/Utilities.hpp>
+#include <Timers/TimerManager.hpp>
 
 namespace fs = std::filesystem;
 
@@ -25,7 +26,7 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
          biosLoaded_),
     ppu_(paletteRAM_, VRAM_, OAM_)
 {
-    Scheduler.RegisterEvent(EventType::REFRESH_SCREEN, refreshScreenCallback);
+    Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
     gamePakLoaded_ = false;
     mirroredIoReg_ = 0;
     lastBiosFetch_ = 0;
@@ -351,7 +352,7 @@ std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessS
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return {timers_.ReadIoReg(addr, alignment), 1, false};
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {
@@ -411,7 +412,7 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignme
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        WritePointer(bytePtr, value, alignment);
+        timers_.WriteIoReg(addr, value, alignment);
         return 1;
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
