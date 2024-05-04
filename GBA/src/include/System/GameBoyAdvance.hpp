@@ -6,12 +6,14 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <Cartridge/GamePak.hpp>
 #include <Gamepad/GamepadManager.hpp>
 #include <Graphics/PPU.hpp>
+#include <System/DmaChannel.hpp>
 #include <System/MemoryMap.hpp>
 #include <Timers/TimerManager.hpp>
 
@@ -77,6 +79,35 @@ private:
     /// @brief Callback to handle a CPU halt.
     void Halt(int) { halted_ = !halted_; }
 
+    /// @brief Callback function upon entering HBlank. Updates PPU and checks for HBlank DMAs.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void HBlank(int extraCycles);
+
+    /// @brief Callback function upon entering VBlank. Updates PPU and checks for VBlank DMAs.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void VBlank(int extraCycles);
+
+    /// @brief Callback function to execute Dma Channel 0 transfer.
+    void DMA0(int) { ExecuteDMA(0); }
+
+    /// @brief Callback function to execute Dma Channel 1 transfer.
+    void DMA1(int) { ExecuteDMA(1); }
+
+    /// @brief Callback function to execute Dma Channel 2 transfer.
+    void DMA2(int) { ExecuteDMA(2); }
+
+    /// @brief Callback function to execute Dma Channel 3 transfer.
+    void DMA3(int) { ExecuteDMA(3); }
+
+    /// @brief Run the currently active DMA channel, and prepare to run the next highest priority channel if one is waiting.
+    /// @param dmaChannelIndex DMA transfer channel to execute.
+    void ExecuteDMA(int dmaChannelIndex);
+
+    /// @brief Schedule a DMA transfer, partially run any channels that are being interrupted by a higher priority channel, and
+    ///        update the scheduler to update the timing of any DMA events currently in the queue.
+    /// @param enabledDmaChannels Array of which channels are enabled for a given transfer mode.
+    void ScheduleDMA(std::array<bool, 4>& enabledDmaChannels);
+
     // Area specific R/W handling
     std::pair<uint32_t, int> ReadBIOS(uint32_t addr, AccessSize alignment);
 
@@ -98,6 +129,9 @@ private:
     std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
     int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
+    std::tuple<uint32_t, int, bool> ReadDmaRegister(uint32_t addr, AccessSize alignment);
+    int WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize alignment);
+
     std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 
     // State
@@ -109,8 +143,15 @@ private:
     CPU::ARM7TDMI cpu_;
     GamepadManager gamepad_;
     Graphics::PPU ppu_;
-    TimerManager timers_;
+    TimerManager timer_;
     std::unique_ptr<Cartridge::GamePak> gamePak_;
+
+    // DMA channels
+    std::array<DmaChannel, 4> dmaChannels_;
+    std::array<bool, 4> dmaImmediately_;
+    std::array<bool, 4> dmaOnVBlank_;
+    std::array<bool, 4> dmaOnHBlank_;
+    std::optional<int> activeDmaChannel_;
 
     // Memory
     std::array<uint8_t,  16 * KiB> BIOS_;           // 00000000-00003FFF    BIOS - System ROM
@@ -121,8 +162,10 @@ private:
     std::array<uint8_t,   1 * KiB> OAM_;            // 07000000-070003FF    OAM - OBJ Attributes
 
     std::array<uint8_t, 0x804> placeholderIoRegisters_;
-    uint32_t mirroredIoReg_;
 
     // Open bus
     uint32_t lastBiosFetch_;
+
+    // Friends
+    friend class DmaChannel;
 };

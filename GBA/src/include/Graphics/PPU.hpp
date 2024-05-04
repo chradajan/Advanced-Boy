@@ -44,18 +44,18 @@ public:
     /// @return Current background mode.
     uint8_t BgMode() const { return lcdControl_.flags_.bgMode; }
 
+    /// @brief Function to call on HBlank events.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void HBlank(int extraCycles);
+
+    /// @brief Function to call on VBlank events.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void VBlank(int extraCycles);
+
 private:
     /// @brief Callback function for an enter VDraw event.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VDraw(int extraCycles);
-
-    /// @brief Callback function for an enter HBlank event.
-    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
-    void HBlank(int extraCycles);
-
-    /// @brief Callback function for an enter VBlank event.
-    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
-    void VBlank(int extraCycles);
 
     /// @brief Render a scanline in BG Mode 0.
     void RenderMode0Scanline();

@@ -1,6 +1,4 @@
 #include <Cartridge/GamePak.hpp>
-#include <System/MemoryMap.hpp>
-#include <System/Utilities.hpp>
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -12,6 +10,11 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <System/MemoryMap.hpp>
+#include <System/Utilities.hpp>
+
+static constexpr int NonSequentialWaitStates[4] = {4, 3, 2, 8};
+static constexpr int SequentialWaitStates[3][2] = { {2, 1}, {4, 1}, {8, 1} };
 
 namespace Cartridge
 {
@@ -89,24 +92,7 @@ GamePak::~GamePak()
 std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize alignment)
 {
     addr = AlignAddress(addr, alignment);
-    uint8_t page = (addr & 0xFF00'0000) >> 24;
-    uint8_t waitState;
-
-    switch (page)
-    {
-        case 0x08 ... 0x09:
-            waitState = 0;
-            break;
-        case 0x0A ... 0x0B:
-            waitState = 1;
-            break;
-        case 0x0C ... 0x0D:
-            waitState = 2;
-            break;
-        default:
-            throw std::runtime_error(std::format("Illegal wait state region on ROM read. Addr: {:08X}, Page: {:02X}", addr,page));
-    }
-
+    int waitState = WaitStateRegion(addr);
     int cycles = WaitStateCycles(waitState);
     size_t index = addr % MAX_ROM_SIZE;
 
@@ -191,6 +177,43 @@ std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignmen
     }
 
     return {value, 1};
+}
+
+int GamePak::NonSequentialAccessTime() const
+{
+    return 1 + NonSequentialWaitStates[waitStateControl_.flags_.waitState0FirstAccess];
+}
+
+int GamePak::SequentialAccessTime(uint32_t addr) const
+{
+    int waitStateRegion = WaitStateRegion(addr);
+    int waitStateIndex = (waitStateControl_.word_ >> (4 + (3 * waitStateRegion))) & 0x01;
+    return 1 + SequentialWaitStates[waitStateRegion][waitStateIndex];
+}
+
+int GamePak::WaitStateRegion(uint32_t addr) const
+{
+    uint8_t page = (addr & 0x0F00'0000) >> 24;
+    int waitState = 0;
+
+    switch (page)
+    {
+        case 0x08 ... 0x09:
+            waitState = 0;
+            break;
+        case 0x0A ... 0x0B:
+            waitState = 1;
+            break;
+        case 0x0C ... 0x0D:
+            waitState = 2;
+            break;
+        default:
+            waitState = 0;
+            break;
+            //throw std::runtime_error(std::format("Illegal wait state region. Addr: {:08X}, Page: {:02X}", addr, page));
+    }
+
+    return waitState;
 }
 
 int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)

@@ -31,6 +31,12 @@ enum class EventType
     Timer1Overflow,
     Timer2Overflow,
     Timer3Overflow,
+
+    // DMA Channels
+    DMA0,
+    DMA1,
+    DMA2,
+    DMA3
 };
 
 /// @brief Data needed to execute a scheduled event.
@@ -85,7 +91,22 @@ public:
     /// @brief Check how many cycles have elapsed since a particular event was scheduled.
     /// @param eventType Event type to get information for.
     /// @return How many cycles have elapsed since the event was scheduled, if an event of the specified kind is currently queued.
-    std::optional<uint64_t> ElapsedCycles(EventType eventType);
+    std::optional<int> ElapsedCycles(EventType eventType) const;
+
+    /// @brief Check how many cycles until a particular event will be executed.
+    /// @param eventType Event type to get information for.
+    /// @return How many cycles until the event will be executed, if an event of the specified kind is currently queued.
+    std::optional<int> CyclesRemaining(EventType eventType) const;
+
+    /// @brief Check how many cycles in the future an event was queued for.
+    /// @param eventType Event type to get information for.
+    /// @return How many cycles in the future the event was scheduled for, if an event of the specified kind is currently queued.
+    std::optional<int> EventLength(EventType eventType) const;
+
+    /// @brief Check if an event type is currently scheduled to be executed.
+    /// @param eventType Event type to check.
+    /// @return True if specified event is in queue, false otherwise.
+    bool EventScheduled(EventType eventType) const;
 
 private:
     std::set<Event> queue_;

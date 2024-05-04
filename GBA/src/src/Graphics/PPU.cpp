@@ -37,11 +37,7 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     scanline_ = 0;
     lcdRegisters_.fill(0);
 
-    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
-
-    Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
 std::tuple<uint32_t, int, bool> PPU::ReadLcdReg(uint32_t addr, AccessSize alignment)

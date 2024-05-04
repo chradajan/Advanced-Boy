@@ -6,6 +6,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -22,14 +23,33 @@ namespace fs = std::filesystem;
 GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)> refreshScreenCallback) :
     biosLoaded_(LoadBIOS(biosPath)),
     cpu_(this, biosLoaded_),
-    ppu_(paletteRAM_, VRAM_, OAM_)
+    ppu_(paletteRAM_, VRAM_, OAM_),
+    gamePak_(nullptr),
+    dmaChannels_({0, 1, 2, 3})
 {
-    Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
-    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
+    // State
     gamePakLoaded_ = false;
     halted_ = false;
-    mirroredIoReg_ = 0;
+
+    // DMA
+    dmaImmediately_.fill(false);
+    dmaOnVBlank_.fill(false);
+    dmaOnHBlank_.fill(false);
+    activeDmaChannel_ = {};
+
+    // Open bus
     lastBiosFetch_ = 0;
+
+    Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
+    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::DMA0, std::bind(&DMA0, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1));
+
+    Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
@@ -38,6 +58,12 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
     uint32_t value;
     int cycles;
     bool openBus = false;
+
+    if (addr & 0xF000'0000)
+    {
+        // Addresses above 0x0FFF'FFFF are unused and trigger open bus. Set to unused page to skip switch case.
+        page = 0x01;
+    }
 
     switch (page)
     {
@@ -116,6 +142,12 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
     uint8_t page = (addr & 0x0F00'0000) >> 24;
     int cycles = 1;
 
+    if (addr & 0xF000'0000)
+    {
+        // Addresses above 0x0FFF'FFFF are unused and trigger open bus. Set to unused page to skip switch case.
+        page = 0x01;
+    }
+
     switch (page)
     {
         case 0x00:  // BIOS ROM
@@ -192,7 +224,7 @@ void GameBoyAdvance::Run()
     {
         while (true)
         {
-            if (halted_)
+            if (halted_ || activeDmaChannel_.has_value())
             {
                 Scheduler.SkipToNextEvent();
             }
@@ -246,6 +278,110 @@ bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
     return true;
 }
 
+void GameBoyAdvance::HBlank(int extraCycles)
+{
+    ppu_.HBlank(extraCycles);
+    ScheduleDMA(dmaOnHBlank_);
+}
+
+void GameBoyAdvance::VBlank(int extraCycles)
+{
+    ppu_.VBlank(extraCycles);
+    ScheduleDMA(dmaOnVBlank_);
+}
+
+void GameBoyAdvance::ExecuteDMA(int dmaChannelIndex)
+{
+    dmaChannels_[dmaChannelIndex].Execute(this);
+    activeDmaChannel_ = {};
+
+    for (int nextActiveChannel = dmaChannelIndex + 1; nextActiveChannel < 4; ++nextActiveChannel)
+    {
+        if (Scheduler.EventScheduled(dmaChannels_[nextActiveChannel].GetDmaEvent()))
+        {
+            activeDmaChannel_ = nextActiveChannel;
+            break;
+        }
+    }
+}
+
+void GameBoyAdvance::ScheduleDMA(std::array<bool, 4>& enabledChannels)
+{
+    for (int channelIndex = 0; channelIndex < 4; ++channelIndex)
+    {
+        // Do nothing on channels not triggered to start on the current event or ones already scheduled to run.
+        if (!enabledChannels[channelIndex] || Scheduler.EventScheduled(dmaChannels_[channelIndex].GetDmaEvent()))
+        {
+            continue;
+        }
+
+        if (!activeDmaChannel_.has_value())
+        {
+            // Immediately start the DMA channel at the current index if no other channels are actively running
+            activeDmaChannel_ = channelIndex;
+            EventType dmaEvent = dmaChannels_[channelIndex].GetDmaEvent();
+            int cyclesUntilEvent = dmaChannels_[channelIndex].TransferCycleCount(this);
+            Scheduler.ScheduleEvent(dmaEvent, cyclesUntilEvent);
+        }
+        else if (activeDmaChannel_.value() < channelIndex)
+        {
+            // Don't start this channel until all higher priority channels have completed.
+            EventType dmaEvent = dmaChannels_[channelIndex].GetDmaEvent();
+            int cyclesUntilEvent = dmaChannels_[channelIndex].TransferCycleCount(this);
+
+            for (int higherPriorityIndex = channelIndex - 1; higherPriorityIndex >= 0; --higherPriorityIndex)
+            {
+                auto higherPriorityRemainingCycles = Scheduler.CyclesRemaining(dmaChannels_[higherPriorityIndex].GetDmaEvent());
+
+                if (higherPriorityRemainingCycles.has_value())
+                {
+                    cyclesUntilEvent += higherPriorityRemainingCycles.value();
+                    break;
+                }
+            }
+
+            Scheduler.ScheduleEvent(dmaEvent, cyclesUntilEvent);
+        }
+        else
+        {
+            // Event and timing for current channel index
+            EventType newDmaEvent = dmaChannels_[channelIndex].GetDmaEvent();
+            int cyclesUntilNewEvent = dmaChannels_[channelIndex].TransferCycleCount(this);
+
+            // Currently running DMA channel info
+            int currentActiveIndex = activeDmaChannel_.value();
+            EventType currentActiveEvent = dmaChannels_[activeDmaChannel_.value()].GetDmaEvent();
+            int currentActiveCatchUpCycles = Scheduler.ElapsedCycles(currentActiveEvent).value();
+            int currentActiveRemainingCycles = Scheduler.CyclesRemaining(currentActiveEvent).value();
+
+            // Catch up and reschedule current channel
+            dmaChannels_[activeDmaChannel_.value()].PartiallyExecute(this, currentActiveCatchUpCycles);
+            Scheduler.UnscheduleEvent(currentActiveEvent);
+            Scheduler.ScheduleEvent(currentActiveEvent, cyclesUntilNewEvent + currentActiveRemainingCycles);
+
+            // Push back any other lower priority channels that were waiting on the currently running channel
+            int higherPriorityCyclesRemaining = cyclesUntilNewEvent + currentActiveRemainingCycles;
+
+            for (int channelToPushback = currentActiveIndex + 1; channelToPushback < 4; ++channelToPushback)
+            {
+                EventType pushedBackEvent = dmaChannels_[channelToPushback].GetDmaEvent();
+                auto pushedBackEventLength = Scheduler.EventLength(pushedBackEvent);
+
+                if (pushedBackEventLength.has_value())
+                {
+                    Scheduler.UnscheduleEvent(pushedBackEvent);
+                    Scheduler.ScheduleEvent(pushedBackEvent, higherPriorityCyclesRemaining + pushedBackEventLength.value());
+                    higherPriorityCyclesRemaining += pushedBackEventLength.value();
+                }
+            }
+
+            // Mark the current channel index as active and schedule it
+            activeDmaChannel_ = channelIndex;
+            Scheduler.ScheduleEvent(newDmaEvent, cyclesUntilNewEvent);
+        }
+    }
+}
+
 //                Bus   Read      Write     Cycles
 //  BIOS ROM      32    8/16/32   -         1/1/1
 
@@ -268,7 +404,6 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadBIOS(uint32_t addr, AccessSize alig
 
 //  Region        Bus   Read      Write     Cycles
 //  Work RAM 256K 16    8/16/32   8/16/32   3/3/6 **
-//  **  Default waitstate settings (TODO)
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadOnBoardWRAM(uint32_t addr, AccessSize alignment)
 {
@@ -281,7 +416,7 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadOnBoardWRAM(uint32_t addr, AccessSi
     size_t index = addr - WRAM_ON_BOARD_ADDR_MIN;
     uint8_t* bytePtr = &(onBoardWRAM_.at(index));
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1};
+    return {value, alignment == AccessSize::WORD ? 6 : 3};
 }
 
 int GameBoyAdvance::WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize alignment)
@@ -295,7 +430,7 @@ int GameBoyAdvance::WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize a
     size_t index = addr - WRAM_ON_BOARD_ADDR_MIN;
     uint8_t* bytePtr = &(onBoardWRAM_.at(index));
     WritePointer(bytePtr, value, alignment);
-    return 1;
+    return (alignment == AccessSize::WORD ? 6 : 3);
 }
 
 //                Bus   Read      Write     Cycles
@@ -355,11 +490,11 @@ std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessS
     }
     else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return ReadDmaRegister(addr, alignment);
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        return {timers_.ReadIoReg(addr, alignment), 1, false};
+        return {timer_.ReadIoReg(addr, alignment), 1, false};
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {
@@ -414,12 +549,11 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignme
     }
     else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
     {
-        WritePointer(bytePtr, value, alignment);
-        return 1;
+        return WriteDmaRegister(addr, value, alignment);
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        timers_.WriteIoReg(addr, value, alignment);
+        timer_.WriteIoReg(addr, value, alignment);
         return 1;
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
@@ -587,6 +721,28 @@ int GameBoyAdvance::WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment
     uint8_t* bytePtr = &(OAM_.at(index));
     WritePointer(bytePtr, value, alignment);
     return 1;
+}
+
+std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadDmaRegister(uint32_t addr, AccessSize alignment)
+{
+    if (addr > 0x0400'00DF)
+    {
+        return {0, 1, true};
+    }
+
+    size_t channelIndex = (addr - DMA_TRANSFER_CHANNELS_IO_ADDR_MIN) / 12;
+    return dmaChannels_[channelIndex].ReadRegister(addr, alignment);
+}
+
+int GameBoyAdvance::WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (addr > 0x0400'00DF)
+    {
+        return 1;
+    }
+
+    size_t channelIndex = (addr - DMA_TRANSFER_CHANNELS_IO_ADDR_MIN) / 12;
+    return dmaChannels_[channelIndex].WriteRegister(addr, value, alignment, this);
 }
 
 // Open Bus (TODO)

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -8,6 +7,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <System/MemoryMap.hpp>
 
 namespace fs = std::filesystem;
 
@@ -65,7 +65,21 @@ public:
     /// @return Number of cycles to write.
     int WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment);
 
+    /// @brief Get the number of cycles taken to non sequentially access an address in the GamePak.
+    /// @return Number of non sequential cycles.
+    int NonSequentialAccessTime() const;
+
+    /// @brief Get the number of cycles take to sequentially access an address in the GamePak.
+    /// @param addr Address being accessed.
+    /// @return Number of sequential cycles.
+    int SequentialAccessTime(uint32_t addr) const;
+
 private:
+    /// @brief Determine which region of ROM is being accessed.
+    /// @param addr ROM address being accessed.
+    /// @return Which region is being accessed.
+    int WaitStateRegion(uint32_t addr) const;
+
     /// @brief Determine the number of cycles to read ROM or SRAM.
     /// @param waitState Wait State 0, 1, 2 for ROM, or 3 for SRAM
     /// @return Number of cycles to read specified wait state.
@@ -79,6 +93,9 @@ private:
     // Memory
     std::vector<uint8_t> ROM_;
     std::array<uint8_t, 64 * KiB> SRAM_;
+
+    // Prefetch buffer and access timing info
+    uint32_t lastAddrRead_;
 
     // Registers
     union WAITCNT

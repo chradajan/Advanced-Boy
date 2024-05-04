@@ -92,7 +92,7 @@ void EventScheduler::UnscheduleEvent(EventType eventType)
     }
 }
 
-std::optional<uint64_t> EventScheduler::ElapsedCycles(EventType eventType)
+std::optional<int> EventScheduler::ElapsedCycles(EventType eventType) const
 {
     for (Event const& event : queue_)
     {
@@ -103,4 +103,43 @@ std::optional<uint64_t> EventScheduler::ElapsedCycles(EventType eventType)
     }
 
     return {};
+}
+
+std::optional<int> EventScheduler::CyclesRemaining(EventType eventType) const
+{
+    for (Event const& event : queue_)
+    {
+        if (event.eventType_ == eventType)
+        {
+            return event.cycleToExecute_ - totalCycles_;
+        }
+    }
+
+    return {};
+}
+
+std::optional<int> EventScheduler::EventLength(EventType eventType) const
+{
+    for (Event const& event : queue_)
+    {
+        if (event.eventType_ == eventType)
+        {
+            return event.cycleToExecute_ - event.cycleQueued_;
+        }
+    }
+
+    return {};
+}
+
+bool EventScheduler::EventScheduled(EventType eventType) const
+{
+    for (Event const& event : queue_)
+    {
+        if (event.eventType_ == eventType)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
