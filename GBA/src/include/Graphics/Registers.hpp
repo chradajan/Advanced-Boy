@@ -90,4 +90,40 @@ union BGCNT
 
     uint16_t halfword_;
 };
+
+struct WININ
+{
+    uint16_t win0Bg0Enabled_ : 1;
+    uint16_t win0Bg1Enabled_ : 1;
+    uint16_t win0Bg2Enabled_ : 1;
+    uint16_t win0Bg3Enabled_ : 1;
+    uint16_t win0ObjEnabled_ : 1;
+    uint16_t win0SpecialEffect_ : 1;
+    uint16_t : 2;
+    uint16_t win1Bg0Enabled_ : 1;
+    uint16_t win1Bg1Enabled_ : 1;
+    uint16_t win1Bg2Enabled_ : 1;
+    uint16_t win1Bg3Enabled_ : 1;
+    uint16_t win1ObjEnabled_ : 1;
+    uint16_t win1SpecialEffect_ : 1;
+    uint16_t : 2;
+};
+
+struct WINOUT
+{
+    uint16_t outsideBg0Enabled_ : 1;
+    uint16_t outsideBg1Enabled_ : 1;
+    uint16_t outsideBg2Enabled_ : 1;
+    uint16_t outsideBg3Enabled_ : 1;
+    uint16_t outsideObjEnabled_ : 1;
+    uint16_t outsideSpecialEffect_ : 1;
+    uint16_t : 2;
+    uint16_t objWinBg0Enabled_ : 1;
+    uint16_t objWinBg1Enabled_ : 1;
+    uint16_t objWinBg2Enabled_ : 1;
+    uint16_t objWinBg3Enabled_ : 1;
+    uint16_t objWinObjEnabled_ : 1;
+    uint16_t objWinSpecialEffect_ : 1;
+    uint16_t : 2;
+};
 }

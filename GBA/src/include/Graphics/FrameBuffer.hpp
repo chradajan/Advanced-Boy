@@ -43,6 +43,21 @@ struct Pixel
     bool initialized_;
 };
 
+enum class SpecialEffect : uint8_t
+{
+    None = 0,
+    AlphaBlending,
+    BrightnessIncrease,
+    BrightnessDecrease
+};
+
+struct WindowSettings
+{
+    std::array<bool, 4> bgEnabled_;
+    bool objEnabled_;
+    bool effectsEnabled_;
+};
+
 class FrameBuffer
 {
 public:
@@ -60,13 +75,37 @@ public:
 
     /// @brief Iterate through each pixel of current scanline and render the highest priority pixel for each dot.
     /// @param backdrop BGR555 value of backdrop color to use if no pixels were drawn at a location.
-    void RenderScanline(uint16_t backdrop);
+    /// @param windowEnabled Whether to apply window settings when determining special effects.
+    void RenderScanline(uint16_t backdrop, bool windowEnabled);
 
     /// @brief Reset the frame index to begin drawing at the top of the screen again.
     void ResetFrameIndex() { frameIndex_ = 0; }
 
+    /// @brief Uninitialize all pixels in sprite scanline buffer.
+    void ClearSpritePixels();
+
+    /// @brief Get a sprite pixel on the current scanline at a particular dot.
+    /// @param dot Dot to get sprite pixel at.
+    /// @return Reference to pixel at specified dot.
+    Pixel& GetSpritePixel(size_t dot) { return spriteScanline_.at(dot); }
+
+    /// @brief Merge the sprite pixels scanline buffer into the main scanline buffer.
+    void PushSpritePixels();
+
+    /// @brief Initialize the window settings by setting each pixel to a default setting.
+    /// @param outsideSettings Default window settings for each pixel.
+    void InitializeWindow(WindowSettings defaultSettings) { windowScanline_.fill(defaultSettings); }
+
+    /// @brief Get the window settings at a dot on the current scanline.
+    /// @param dot Index to get window settings at.
+    /// @return Window settings at specified dot.
+    WindowSettings& GetWindowSettings(size_t dot) { return windowScanline_.at(dot); }
+
 private:
     std::array<std::vector<Pixel>, LCD_WIDTH> scanline_;
+    std::array<Pixel, LCD_WIDTH> spriteScanline_;
+    std::array<WindowSettings, LCD_WIDTH> windowScanline_;
+
     std::array<uint16_t, LCD_WIDTH * LCD_HEIGHT> frameBuffer_;
     size_t frameIndex_;
 };

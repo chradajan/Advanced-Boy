@@ -57,6 +57,15 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VDraw(int extraCycles);
 
+    /// @brief Determine whether window 0 and window 1 are active on the current scanline.
+    void SetNonObjWindowEnabled();
+
+    /// @brief Apply window settings to pixels within a window on the current scanline.
+    /// @param leftEdge X1 - Left edge of window (inclusive).
+    /// @param rightEdge X2 - Right edge of window (exclusive).
+    /// @param settings Settings for inside this window region.
+    void ConfigureNonObjWindow(uint8_t leftEdge, uint8_t rightEdge, WindowSettings settings);
+
     /// @brief Render a scanline in BG Mode 0.
     void RenderMode0Scanline();
 
@@ -67,7 +76,8 @@ private:
     void RenderMode4Scanline();
 
     /// @brief Render sprites and mix with background.
-    void RenderSprites();
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprites.
+    void EvaluateOAM(WindowSettings* windowSettingsPtr = nullptr);
 
     /// @brief Render a tiled text background scanline.
     /// @param bgIndex Which background to render.
@@ -82,8 +92,8 @@ private:
     /// @param width Width of sprite in pixels.
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
-    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
-    void Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a one dimensional 8bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -91,8 +101,8 @@ private:
     /// @param width Width of sprite in pixels.
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
-    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
-    void Render1d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render1d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a two dimensional 4bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -100,8 +110,8 @@ private:
     /// @param width Width of sprite in pixels.
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
-    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
-    void Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a two dimensional 8bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -109,12 +119,14 @@ private:
     /// @param width Width of sprite in pixels.
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
-    /// @param pixels Array of pixels to draw to. Any pixels already in array are from a sprite with a lower OAM index.
-    void Render2d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels);
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render2d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     // Frame status
     FrameBuffer frameBuffer_;
     uint8_t scanline_;
+    bool window0EnabledOnScanline_;
+    bool window1EnabledOnScanline_;
 
     // LCD I/O Registers (0400'0000h - 0400'005Fh)
     std::array<uint8_t, 0x60> lcdRegisters_;

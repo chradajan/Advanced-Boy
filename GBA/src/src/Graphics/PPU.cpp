@@ -35,6 +35,8 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     OAM_(OAM)
 {
     scanline_ = 0;
+    window0EnabledOnScanline_ = false;
+    window1EnabledOnScanline_ = false;
     lcdRegisters_.fill(0);
 
     Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
@@ -116,6 +118,8 @@ void PPU::VDraw(int extraCycles)
         lcdStatus_.flags_.vCounter = 0;
     }
 
+    SetNonObjWindowEnabled();
+
     // Event Scheduling
     int cyclesUntilHBlank = (960 - extraCycles) + 46;
     Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
@@ -140,6 +144,7 @@ void PPU::HBlank(int extraCycles)
     if (scanline_ < 160)
     {
         uint16_t backdrop = *reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+        bool windowEnabled = (lcdControl_.halfword_ & 0xE000) != 0;
 
         if (lcdControl_.flags_.forceBlank)
         {
@@ -147,9 +152,83 @@ void PPU::HBlank(int extraCycles)
         }
         else
         {
+            if (windowEnabled)
+            {
+                WININ const& winin = *reinterpret_cast<WININ const*>(&lcdRegisters_[0x48]);
+                WINOUT const& winout = *reinterpret_cast<WINOUT const*>(&lcdRegisters_[0x4A]);
+
+                WindowSettings outOfWindow = {
+                    {winout.outsideBg0Enabled_, winout.outsideBg1Enabled_, winout.outsideBg2Enabled_, winout.outsideBg3Enabled_},
+                    winout.outsideObjEnabled_,
+                    winout.outsideSpecialEffect_
+                };
+
+                frameBuffer_.InitializeWindow(outOfWindow);
+
+                if (lcdControl_.flags_.screenDisplayObj && lcdControl_.flags_.objWindowDisplay)
+                {
+                    WindowSettings objWindow = {
+                        {winout.objWinBg0Enabled_, winout.objWinBg1Enabled_, winout.objWinBg2Enabled_, winout.objWinBg3Enabled_},
+                        winout.objWinObjEnabled_,
+                        winout.objWinSpecialEffect_
+                    };
+
+                    EvaluateOAM(&objWindow);
+                }
+
+                if (lcdControl_.flags_.window1Display)
+                {
+                    WindowSettings window1 = {
+                        {winin.win1Bg0Enabled_, winin.win1Bg1Enabled_, winin.win1Bg2Enabled_, winin.win1Bg3Enabled_},
+                        winin.win1ObjEnabled_,
+                        winin.win1SpecialEffect_
+                    };
+
+                    uint8_t x1 = lcdRegisters_[0x43];
+                    uint8_t x2 = lcdRegisters_[0x42];
+
+                    if (window1EnabledOnScanline_)
+                    {
+                        ConfigureNonObjWindow(x1, x2, window1);
+                    }
+                }
+
+                if (lcdControl_.flags_.window0Display)
+                {
+                    WindowSettings window0 = {
+                        {winin.win0Bg0Enabled_, winin.win0Bg1Enabled_, winin.win0Bg2Enabled_, winin.win0Bg3Enabled_},
+                        winin.win0ObjEnabled_,
+                        winin.win0SpecialEffect_
+                    };
+
+                    uint8_t x1 = lcdRegisters_[0x41];
+                    uint8_t x2 = lcdRegisters_[0x40];
+
+                    if (window0EnabledOnScanline_)
+                    {
+                        ConfigureNonObjWindow(x1, x2, window0);
+                    }
+                }
+            }
+            else
+            {
+                WindowSettings allEnabled = {
+                    {true, true, true, true},
+                    true,
+                    true
+                };
+
+                frameBuffer_.InitializeWindow(allEnabled);
+            }
+
             if (lcdControl_.flags_.screenDisplayObj)
             {
-                RenderSprites();
+                EvaluateOAM();
+            }
+
+            if (lcdControl_.flags_.screenDisplayObj)
+            {
+                frameBuffer_.PushSpritePixels();
             }
 
             switch (lcdControl_.flags_.bgMode)
@@ -169,7 +248,7 @@ void PPU::HBlank(int extraCycles)
             }
         }
 
-        frameBuffer_.RenderScanline(backdrop);
+        frameBuffer_.RenderScanline(backdrop, windowEnabled);
     }
 }
 
@@ -211,8 +290,69 @@ void PPU::VBlank(int extraCycles)
         lcdStatus_.flags_.vCounter = 0;
     }
 
+    SetNonObjWindowEnabled();
+
     // Event Scheduling
     Scheduler.ScheduleEvent(EventType::HBlank, (960 - extraCycles) + 46);
+}
+
+void PPU::SetNonObjWindowEnabled()
+{
+    // Window 1 scanline in range check
+    uint8_t y1 = lcdRegisters_[0x47];  // Top
+    uint8_t y2 = lcdRegisters_[0x46];  // Bottom
+
+    if (scanline_ == y1)
+    {
+        window1EnabledOnScanline_ = true;
+    }
+
+    if (scanline_ == y2)
+    {
+        window1EnabledOnScanline_ = false;
+    }
+
+    // Window 0 scanline in range check
+    y1 = lcdRegisters_[0x45];  // Top
+    y2 = lcdRegisters_[0x44];  // Bottom
+
+    if (scanline_ == y1)
+    {
+        window0EnabledOnScanline_ = true;
+    }
+
+    if (scanline_ == y2)
+    {
+        window0EnabledOnScanline_ = false;
+    }
+}
+
+void PPU::ConfigureNonObjWindow(uint8_t leftEdge, uint8_t rightEdge, WindowSettings settings)
+{
+    if (rightEdge > 240)
+    {
+        rightEdge = 240;
+    }
+
+    if (leftEdge <= rightEdge)
+    {
+        for (int dot = leftEdge; dot < rightEdge; ++dot)
+        {
+            frameBuffer_.GetWindowSettings(dot) = settings;
+        }
+    }
+    else
+    {
+        for (int dot = 0; dot < rightEdge; ++dot)
+        {
+            frameBuffer_.GetWindowSettings(dot) = settings;
+        }
+
+        for (int dot = leftEdge; dot < 240; ++dot)
+        {
+            frameBuffer_.GetWindowSettings(dot) = settings;
+        }
+    }
 }
 
 void PPU::RenderMode0Scanline()
@@ -237,9 +377,13 @@ void PPU::RenderMode3Scanline()
 
     if (lcdControl_.flags_.screenDisplayBg2)
     {
-        for (int i = 0; i < 240; ++i)
+        for (int dot = 0; dot < 240; ++dot)
         {
-            frameBuffer_.PushPixel({PixelSrc::BG2, *vramPtr, bgControl.flags_.bgPriority_, false}, i);
+            if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[2])
+            {
+                frameBuffer_.PushPixel({PixelSrc::BG2, *vramPtr, bgControl.flags_.bgPriority_, false}, dot);
+            }
+
             ++vramPtr;
         }
     }
@@ -258,7 +402,7 @@ void PPU::RenderMode4Scanline()
 
     if (lcdControl_.flags_.screenDisplayBg2)
     {
-        for (int i = 0; i < 240; ++i)
+        for (int dot = 0; dot < 240; ++dot)
         {
             uint8_t paletteIndex = VRAM_.at(vramIndex++);
             bool transparent = false;
@@ -270,19 +414,31 @@ void PPU::RenderMode4Scanline()
             }
 
             uint16_t bgr555 = palettePtr[paletteIndex];
-            frameBuffer_.PushPixel({PixelSrc::BG2, bgr555, bgControl.flags_.bgPriority_, transparent}, i);
+
+            if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[2])
+            {
+                frameBuffer_.PushPixel({PixelSrc::BG2, bgr555, bgControl.flags_.bgPriority_, transparent}, dot);
+            }
         }
     }
 }
 
-void PPU::RenderSprites()
+void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
 {
-    std::array<Pixel, 240> pixels;
+    frameBuffer_.ClearSpritePixels();
     OamEntry const* oam = reinterpret_cast<OamEntry const*>(OAM_.data());
+    bool const evaluateWindowSprites = windowSettingsPtr != nullptr;
 
     for (int i = 0; i < 128; ++i)
     {
         OamEntry const& oamEntry = oam[i];
+
+        // Skip window sprites when evaluating visible sprites, and vice versa
+        if ((evaluateWindowSprites && (oamEntry.attribute0_.objMode_ != 2)) ||
+            (!evaluateWindowSprites && (oamEntry.attribute0_.objMode_ == 2)))
+        {
+            continue;
+        }
 
         // Check if this sprite is disabled
         if (!oamEntry.attribute0_.rotationOrScaling_ && oamEntry.attribute0_.doubleSizeOrDisable_)
@@ -381,50 +537,35 @@ void PPU::RenderSprites()
             continue;
         }
 
-        if (oamEntry.attribute0_.objMode_ == 2)
+        if (lcdControl_.flags_.objCharacterVramMapping)
         {
-            // Window sprite, TODO
-            continue;
-        }
-        else
-        {
-            if (lcdControl_.flags_.objCharacterVramMapping)
+            // One dimensional mapping
+            if (oamEntry.attribute0_.colorMode_)
             {
-                // One dimensional mapping
-                if (oamEntry.attribute0_.colorMode_)
-                {
-                    // 8bpp
-                    continue;
-                }
-                else
-                {
-                    // 4bpp
-                    Render1d4bppSprite(x, y, width, height, oamEntry, pixels);
-                }
+                // 8bpp
+                continue;
             }
             else
             {
-                // Two dimensional mapping
-                if (oamEntry.attribute0_.colorMode_)
-                {
-                    // 8bpp
-                    continue;
-                }
-                else
-                {
-                    // 4bpp
-                    Render2d4bppSprite(x, y, width, height, oamEntry, pixels);
-                }
+                // 4bpp
+                Render1d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
             }
         }
-    }
-
-    for (size_t i = 0; i < 240; ++i)
-    {
-        if (pixels[i].initialized_)
+        else
         {
-            frameBuffer_.PushPixel(pixels[i], i);
+            // Two dimensional mapping
+            if (oamEntry.attribute0_.colorMode_)
+            {
+                // 8bpp
+                continue;
+            }
+            else
+            {
+                // 4bpp
+                Render2d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+            }
         }
+        // }
     }
 }
 
@@ -511,7 +652,11 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
                 uint16_t bgr555 = palettePtr[paletteIndex];
                 bool transparent = (paletteIndex == 0);
 
-                frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+                if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+                {
+                    frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+                }
+
                 tileX += flipped ? -1 : 1;
                 ++pixelsDrawn;
                 ++dot;
@@ -544,7 +689,12 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
                 }
 
                 uint16_t bgr555 = palettePtr[paletteIndex];
-                frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+
+                if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+                {
+                    frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+                }
+
                 tileX += flipped ? -1 : 1;
                 ++pixelsDrawn;
                 ++dot;
@@ -568,7 +718,7 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
     }
 }
 
-void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels)
+void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     int const widthInTiles = width / 8;
     int const heightInTiles = height / 8;
@@ -619,15 +769,25 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
             bool transparent = (paletteIndex & 0x0F) == 0;
             uint16_t bgr555 = palettePtr[paletteIndex];
 
-            if (!pixels.at(dot).initialized_ ||
-                (!transparent && pixels[dot].transparent_) ||
-                (priority < pixels[dot].priority_))
+            if (windowSettingsPtr == nullptr)
             {
-                pixels[dot] = Pixel(PixelSrc::OBJ,
-                                    bgr555,
-                                    priority,
-                                    transparent,
-                                    (oamEntry.attribute0_.objMode_ == 1));
+                // Visible Sprite
+                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
+                    ((!frameBuffer_.GetSpritePixel(dot).initialized_ ||
+                    (!transparent && frameBuffer_.GetSpritePixel(dot).transparent_) ||
+                    (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
+                {
+                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
+                                                            bgr555,
+                                                            priority,
+                                                            transparent,
+                                                            (oamEntry.attribute0_.objMode_ == 1));
+                }
+            }
+            else if (!transparent)
+            {
+                // Opaque OBJ window sprite pixel
+                frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
             }
 
             --pixelsToDraw;
@@ -638,7 +798,7 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
     }
 }
 
-void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, std::array<Pixel, 240>& pixels)
+void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
     uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
@@ -697,15 +857,25 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
             bool transparent = (paletteIndex & 0x0F) == 0;
             uint16_t bgr555 = palettePtr[paletteIndex];
 
-            if (!pixels.at(dot).initialized_ ||
-                (!transparent && pixels[dot].transparent_) ||
-                (priority < pixels[dot].priority_))
+            if (windowSettingsPtr == nullptr)
             {
-                pixels[dot] = Pixel(PixelSrc::OBJ,
-                                    bgr555,
-                                    priority,
-                                    transparent,
-                                    (oamEntry.attribute0_.objMode_ == 1));
+                // Visible Sprite
+                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
+                    ((!frameBuffer_.GetSpritePixel(dot).initialized_ ||
+                    (!transparent && frameBuffer_.GetSpritePixel(dot).transparent_) ||
+                    (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
+                {
+                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
+                                                            bgr555,
+                                                            priority,
+                                                            transparent,
+                                                            (oamEntry.attribute0_.objMode_ == 1));
+                }
+            }
+            else if (!transparent)
+            {
+                // Opaque OBJ window sprite pixel
+                frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
             }
 
             --pixelsToDraw;

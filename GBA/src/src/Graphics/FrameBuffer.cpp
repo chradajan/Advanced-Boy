@@ -40,8 +40,10 @@ void FrameBuffer::PushPixel(Pixel pixel, int dot)
     scanline_[dot].push_back(pixel);
 }
 
-void FrameBuffer::RenderScanline(uint16_t backdrop)
+void FrameBuffer::RenderScanline(uint16_t backdrop, bool windowEnabled)
 {
+    (void)windowEnabled;
+
     for (auto& pixels : scanline_)
     {
         if (pixels.empty())
@@ -55,6 +57,25 @@ void FrameBuffer::RenderScanline(uint16_t backdrop)
             uint16_t bgr555 = pixel.transparent_ ? backdrop : pixel.bgr555_;
             frameBuffer_.at(frameIndex_++) = bgr555;
             pixels.clear();
+        }
+    }
+}
+
+void FrameBuffer::ClearSpritePixels()
+{
+    for (Pixel& pixel : spriteScanline_)
+    {
+        pixel.initialized_ = false;
+    }
+}
+
+void FrameBuffer::PushSpritePixels()
+{
+    for (size_t dot = 0; dot < LCD_WIDTH; ++dot)
+    {
+        if (spriteScanline_[dot].initialized_)
+        {
+            scanline_[dot].push_back(spriteScanline_[dot]);
         }
     }
 }
