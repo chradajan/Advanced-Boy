@@ -14,7 +14,7 @@ uint32_t AlignAddress(uint32_t addr, AccessSize alignment)
 
 uint32_t ReadPointer(uint8_t* bytePtr, AccessSize alignment)
 {
-    uint32_t value;
+    uint32_t value = 0;
 
     switch (alignment)
     {
@@ -46,4 +46,55 @@ void WritePointer(uint8_t* bytePtr, uint32_t value, AccessSize alignment)
             *reinterpret_cast<uint32_t*>(bytePtr) = value;
             break;
     }
+}
+
+int8_t SignExtend8(uint8_t input, size_t signBit)
+{
+    if (signBit > 7)
+    {
+        return input;
+    }
+
+    uint8_t signMask = 0x01 << signBit;
+
+    if ((input & signMask) == signMask)
+    {
+        return static_cast<int8_t>(input | ~(signMask - 1));
+    }
+
+    return static_cast<int8_t>(input);
+}
+
+int16_t SignExtend16(uint16_t input, size_t signBit)
+{
+    if (signBit > 15)
+    {
+        return input;
+    }
+
+    uint16_t signMask = 0x01 << signBit;
+
+    if ((input & signMask) == signMask)
+    {
+        return static_cast<int16_t>(input | ~(signMask - 1));
+    }
+
+    return static_cast<int16_t>(input);
+}
+
+int32_t SignExtend32(uint32_t input, size_t signBit)
+{
+    if (signBit > 31)
+    {
+        return input;
+    }
+
+    uint32_t signMask = 0x01 << signBit;
+
+    if ((input & signMask) == signMask)
+    {
+        return static_cast<int32_t>(input | ~(signMask - 1));
+    }
+
+    return static_cast<int32_t>(input);
 }

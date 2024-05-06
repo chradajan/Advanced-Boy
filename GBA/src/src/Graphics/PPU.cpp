@@ -12,6 +12,14 @@
 #include <System/Scheduler.hpp>
 #include <System/Utilities.hpp>
 
+namespace
+{
+int WrapModulo(int dividend, int divisor)
+{
+    return ((dividend % divisor) + divisor) % divisor;
+}
+}
+
 namespace Graphics
 {
 static_assert(sizeof(ScreenBlock) == SCREENBLOCK_SIZE);
@@ -87,6 +95,25 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
     size_t index = addr - LCD_IO_ADDR_MIN;
     uint8_t* bytePtr = &(lcdRegisters_.at(index));
     WritePointer(bytePtr, value, alignment);
+
+    if ((addr >= 0x28) && (addr <= 0x2B))
+    {
+        bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
+    }
+    else if ((addr >= 0x2C) && (addr <= 0x2F))
+    {
+        bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
+    }
+    else if ((addr >= 0x38) && (addr <= 0x3B))
+    {
+        bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
+    }
+    else if ((addr >= 0x3C) && (addr <= 0x3F))
+    {
+        bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
+    }
+
+
     return 1;
 }
 
@@ -236,6 +263,12 @@ void PPU::HBlank(int extraCycles)
                 case 0:
                     RenderMode0Scanline();
                     break;
+                case 1:
+                    RenderMode1Scanline();
+                    break;
+                case 2:
+                    RenderMode2Scanline();
+                    break;
                 case 3:
                     RenderMode3Scanline();
                     break;
@@ -249,6 +282,7 @@ void PPU::HBlank(int extraCycles)
         }
 
         frameBuffer_.RenderScanline(backdrop, windowEnabled);
+        IncrementAffineBackgroundReferencePoints();
     }
 }
 
@@ -270,6 +304,11 @@ void PPU::VBlank(int extraCycles)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
         }
+
+        bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
+        bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
+        bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
+        bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
     }
     else if (scanline_ == 227)
     {
@@ -366,6 +405,47 @@ void PPU::RenderMode0Scanline()
             uint16_t yOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x12 + (4 * i)]) & 0x01FF;
             RenderRegularTiledBackgroundScanline(i, bgControl, xOffset, yOffset);
         }
+    }
+}
+
+void PPU::RenderMode1Scanline()
+{
+    for (uint16_t i = 0; i < 2; ++i)
+    {
+        if (lcdControl_.halfword_ & (0x100 << i))
+        {
+            BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
+            uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
+            uint16_t yOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x12 + (4 * i)]) & 0x01FF;
+            RenderRegularTiledBackgroundScanline(i, bgControl, xOffset, yOffset);
+        }
+    }
+
+    if (lcdControl_.flags_.screenDisplayBg2)
+    {
+        BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
+        int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
+        int16_t pc = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x24]);
+        RenderAffineTiledBackgroundScanline(2, bgControl, bg2RefX_, bg2RefY_, pa, pc);
+    }
+}
+
+void PPU::RenderMode2Scanline()
+{
+    if (lcdControl_.flags_.screenDisplayBg2)
+    {
+        BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
+        int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
+        int16_t pc = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x24]);
+        RenderAffineTiledBackgroundScanline(2, bgControl, bg2RefX_, bg2RefY_, pa, pc);
+    }
+
+    if (lcdControl_.flags_.screenDisplayBg3)
+    {
+        BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0E]);
+        int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x30]);
+        int16_t pc = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x34]);
+        RenderAffineTiledBackgroundScanline(3, bgControl, bg3RefX_, bg3RefY_, pa, pc);
     }
 }
 
@@ -565,7 +645,6 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
                 Render2d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
             }
         }
-        // }
     }
 }
 
@@ -718,6 +797,76 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
     }
 }
 
+void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control, int32_t dx, int32_t dy, int16_t pa, int16_t pc)
+{
+    // Map size
+    int mapSizeInTiles;
+
+    switch (control.flags_.screenSize_)
+    {
+        case 0:
+            mapSizeInTiles = 16;
+            break;
+        case 1:
+            mapSizeInTiles = 32;
+            break;
+        case 2:
+            mapSizeInTiles = 64;
+            break;
+        case 3:
+            mapSizeInTiles = 128;
+            break;
+    }
+
+    int const mapSizeInPixels = mapSizeInTiles * 8;
+
+    // Initialize affine position
+    int32_t affineX = dx;
+    int32_t affineY = dy;
+
+    // Control fields
+    bool const wrapOnOverflow = control.flags_.overflowMode_;
+    int const priority = control.flags_.bgPriority_;
+    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
+
+    // VRAM pointers
+    uint8_t const* screenBlockPtr = &VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE];
+    TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+
+    for (int dot = 0; dot < LCD_WIDTH; ++dot)
+    {
+        if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+        {
+            int32_t screenX = affineX >> 8;
+            int32_t screenY = affineY >> 8;
+            size_t paletteIndex = 0;
+            bool transparent = true;
+            bool calculateTile = wrapOnOverflow ||
+                                 ((screenX >= 0) && (screenX < mapSizeInPixels) && (screenY >= 0) && (screenY < mapSizeInPixels));
+
+            if (calculateTile)
+            {
+                screenX = WrapModulo(screenX, mapSizeInPixels);
+                screenY = WrapModulo(screenY, mapSizeInPixels);
+                int mapX = screenX / 8;
+                int mapY = screenY / 8;
+                int tileX = screenX % 8;
+                int tileY = screenY % 8;
+                size_t tileIndex = screenBlockPtr[mapX + (mapY * mapSizeInTiles)];
+                paletteIndex = tilePtr[tileIndex].paletteIndex_[tileY][tileX];
+                transparent = (paletteIndex == 0);
+            }
+
+            uint16_t bgr555 = palettePtr[paletteIndex];
+            frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+        }
+
+        affineX += pa;
+        affineY += pc;
+    }
+}
+
 void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     int const widthInTiles = width / 8;
@@ -778,10 +927,10 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
                     (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
                 {
                     frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
-                                                            bgr555,
-                                                            priority,
-                                                            transparent,
-                                                            (oamEntry.attribute0_.objMode_ == 1));
+                                                             bgr555,
+                                                             priority,
+                                                             transparent,
+                                                             (oamEntry.attribute0_.objMode_ == 1));
                 }
             }
             else if (!transparent)
@@ -866,10 +1015,10 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
                     (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
                 {
                     frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
-                                                            bgr555,
-                                                            priority,
-                                                            transparent,
-                                                            (oamEntry.attribute0_.objMode_ == 1));
+                                                             bgr555,
+                                                             priority,
+                                                             transparent,
+                                                             (oamEntry.attribute0_.objMode_ == 1));
                 }
             }
             else if (!transparent)
@@ -897,5 +1046,13 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
             tileDataPtr = nullptr;
         }
     }
+}
+
+void PPU::IncrementAffineBackgroundReferencePoints()
+{
+    bg2RefX_ += *reinterpret_cast<int16_t*>(&lcdRegisters_[0x22]);  // PB
+    bg2RefY_ += *reinterpret_cast<int16_t*>(&lcdRegisters_[0x26]);  // PD
+    bg3RefX_ += *reinterpret_cast<int16_t*>(&lcdRegisters_[0x32]);  // PB
+    bg3RefY_ += *reinterpret_cast<int16_t*>(&lcdRegisters_[0x36]);  // PD
 }
 }

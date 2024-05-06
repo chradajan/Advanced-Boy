@@ -20,3 +20,21 @@ uint32_t ReadPointer(uint8_t* bytePtr, AccessSize alignment);
 /// @param alignment Access size.
 /// @return Value to write to specified address.
 void WritePointer(uint8_t* bytePtr, uint32_t value, AccessSize alignment);
+
+/// @brief Sign extend to an 8 bit signed type.
+/// @param input Unsigned value to sign extend.
+/// @param signBit Which bit is the current sign bit.
+/// @return 8 bit signed value.
+int8_t SignExtend8(uint8_t input, size_t signBit);
+
+/// @brief Sign extend to a 16 bit signed type.
+/// @param input Unsigned value to sign extend.
+/// @param signBit Which bit is the current sign bit.
+/// @return 16 bit signed value.
+int16_t SignExtend16(uint16_t input, size_t signBit);
+
+/// @brief Sign extend to a 32 bit signed type.
+/// @param input Unsigned value to sign extend.
+/// @param signBit Which bit is the current sign bit.
+/// @return 32 bit signed value.
+int32_t SignExtend32(uint32_t input, size_t signBit);

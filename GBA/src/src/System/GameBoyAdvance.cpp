@@ -281,13 +281,21 @@ bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
 void GameBoyAdvance::HBlank(int extraCycles)
 {
     ppu_.HBlank(extraCycles);
-    ScheduleDMA(dmaOnHBlank_);
+
+    if (ppu_.CurrentScanline() < 160)
+    {
+        ScheduleDMA(dmaOnHBlank_);
+    }
 }
 
 void GameBoyAdvance::VBlank(int extraCycles)
 {
     ppu_.VBlank(extraCycles);
-    ScheduleDMA(dmaOnVBlank_);
+
+    if (ppu_.CurrentScanline() == 160)
+    {
+        ScheduleDMA(dmaOnVBlank_);
+    }
 }
 
 void GameBoyAdvance::ExecuteDMA(int dmaChannelIndex)
