@@ -516,6 +516,237 @@ void PPU::RenderMode4Scanline()
     }
 }
 
+void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset)
+{
+    int const width = (control.flags_.screenSize_ & 0b01) ? 512 : 256;
+    int const height = (control.flags_.screenSize_ & 0b10) ? 512 : 256;
+
+    int const x = xOffset % width;
+    int const y = (scanline_ + yOffset) % height;
+
+    if (control.flags_.colorMode_)
+    {
+        RenderRegular8bppBackground(bgIndex, control, x, y, width);
+    }
+    else
+    {
+        RenderRegular4bppBackground(bgIndex, control, x, y, width);
+    }
+}
+
+void PPU::RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width)
+{
+    ScreenBlock const* screenBlockPtr =
+        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE]);
+
+    if (y > 255)
+    {
+        ++screenBlockPtr;
+
+        if (width == 512)
+        {
+            ++screenBlockPtr;
+        }
+    }
+
+    int const mapY = (y / 8) % 32;
+    TileData4bpp const* baseTilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
+    ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
+
+    // Control data
+    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
+    int const priority = control.flags_.bgPriority_;
+
+    // Screen block entry
+    TileData4bpp const* tileData = nullptr;
+    bool horizontalFlip = false;
+    bool verticalFlip = false;
+    size_t palette = 0;
+    int tileY = 0;
+
+    for (int dot = 0; dot < LCD_WIDTH; ++dot)
+    {
+        if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+        {
+            if (screenBlockEntryPtr == nullptr)
+            {
+                int mapX = x / 8;
+                size_t screenBlockIndex = (mapX > 31) ? 1 : 0;
+                screenBlockEntryPtr = &screenBlockPtr[screenBlockIndex].screenBlockEntry_[mapY][mapX % 32];
+
+                tileData = &baseTilePtr[screenBlockEntryPtr->tile_];
+                horizontalFlip = screenBlockEntryPtr->horizontalFlip_;
+                verticalFlip = screenBlockEntryPtr->verticalFlip_;
+                palette = (screenBlockEntryPtr->palette_ << 4);
+                tileY = verticalFlip ? ((y % 8) ^ 7) : (y % 8);
+            }
+
+            int tileX = horizontalFlip ? ((x % 8) ^ 7) : (x % 8);
+            bool left = (tileX % 2) == 0;
+            auto tileNibbles = tileData->paletteIndex_[tileY][tileX / 2];
+            size_t paletteIndex = palette | (left ? tileNibbles.leftNibble_ : tileNibbles.rightNibble_);
+            bool transparent = (paletteIndex & 0x0F) == 0;
+
+            if (transparent)
+            {
+                paletteIndex = 0;
+            }
+
+            uint16_t bgr555 = palettePtr[paletteIndex];
+            frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+        }
+
+        x = (x + 1) % width;
+
+        if ((x % 8) == 0)
+        {
+            screenBlockEntryPtr = nullptr;
+        }
+    }
+}
+
+void PPU::RenderRegular8bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width)
+{
+    ScreenBlock const* screenBlockPtr =
+        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE]);
+
+    if (y > 255)
+    {
+        ++screenBlockPtr;
+
+        if (width == 512)
+        {
+            ++screenBlockPtr;
+        }
+    }
+
+    int const mapY = (y / 8) % 32;
+    size_t const charBlockAddr = control.flags_.charBaseBlock_ * CHARBLOCK_SIZE;
+    TileData8bpp const* baseTilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[charBlockAddr]);
+    ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
+
+    // Control data
+    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
+    int const priority = control.flags_.bgPriority_;
+
+    // Screen block entry
+    TileData8bpp const* tileData = nullptr;
+    bool horizontalFlip = false;
+    bool verticalFlip = false;
+    int tileY = 0;
+    bool outOfRange = false;
+
+    for (int dot = 0; dot < LCD_WIDTH; ++dot)
+    {
+        if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+        {
+            if (screenBlockEntryPtr == nullptr)
+            {
+                int mapX = x / 8;
+                size_t screenBlockIndex = (mapX > 31) ? 1 : 0;
+                screenBlockEntryPtr = &screenBlockPtr[screenBlockIndex].screenBlockEntry_[mapY][mapX % 32];
+                outOfRange = (charBlockAddr + (screenBlockEntryPtr->tile_ * sizeof(TileData8bpp))) >= 0x0001'0000;
+
+                if (!outOfRange)
+                {
+                    tileData = &baseTilePtr[screenBlockEntryPtr->tile_];
+                    horizontalFlip = screenBlockEntryPtr->horizontalFlip_;
+                    verticalFlip = screenBlockEntryPtr->verticalFlip_;
+                    tileY = verticalFlip ? ((y % 8) ^ 7) : (y % 8);
+                }
+            }
+
+            if (!outOfRange)
+            {
+                int tileX = horizontalFlip ? ((x % 8) ^ 7) : (x % 8);
+                size_t paletteIndex = tileData->paletteIndex_[tileY][tileX];
+                bool transparent = (paletteIndex == 0);
+                uint16_t bgr555 = palettePtr[paletteIndex];
+                frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+            }
+        }
+
+        x = (x + 1) % width;
+
+        if ((x % 8) == 0)
+        {
+            screenBlockEntryPtr = nullptr;
+        }
+    }
+}
+
+void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control, int32_t dx, int32_t dy, int16_t pa, int16_t pc)
+{
+    // Map size
+    int mapSizeInTiles;
+
+    switch (control.flags_.screenSize_)
+    {
+        case 0:
+            mapSizeInTiles = 16;
+            break;
+        case 1:
+            mapSizeInTiles = 32;
+            break;
+        case 2:
+            mapSizeInTiles = 64;
+            break;
+        case 3:
+            mapSizeInTiles = 128;
+            break;
+    }
+
+    int const mapSizeInPixels = mapSizeInTiles * 8;
+
+    // Initialize affine position
+    int32_t affineX = dx;
+    int32_t affineY = dy;
+
+    // Control fields
+    bool const wrapOnOverflow = control.flags_.overflowMode_;
+    int const priority = control.flags_.bgPriority_;
+    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
+
+    // VRAM pointers
+    uint8_t const* screenBlockPtr = &VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE];
+    TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+
+    for (int dot = 0; dot < LCD_WIDTH; ++dot)
+    {
+        if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
+        {
+            int32_t screenX = affineX >> 8;
+            int32_t screenY = affineY >> 8;
+            size_t paletteIndex = 0;
+            bool transparent = true;
+            bool calculateTile = wrapOnOverflow ||
+                                 ((screenX >= 0) && (screenX < mapSizeInPixels) && (screenY >= 0) && (screenY < mapSizeInPixels));
+
+            if (calculateTile)
+            {
+                screenX = WrapModulo(screenX, mapSizeInPixels);
+                screenY = WrapModulo(screenY, mapSizeInPixels);
+                int mapX = screenX / 8;
+                int mapY = screenY / 8;
+                int tileX = screenX % 8;
+                int tileY = screenY % 8;
+                size_t tileIndex = screenBlockPtr[mapX + (mapY * mapSizeInTiles)];
+                paletteIndex = tilePtr[tileIndex].paletteIndex_[tileY][tileX];
+                transparent = (paletteIndex == 0);
+            }
+
+            uint16_t bgr555 = palettePtr[paletteIndex];
+            frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
+        }
+
+        affineX += pa;
+        affineY += pc;
+    }
+}
+
 void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
 {
     frameBuffer_.ClearSpritePixels();
@@ -658,225 +889,6 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
                 Render2d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
             }
         }
-    }
-}
-
-void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset)
-{
-    // Map size in pixels
-    int const mapPixelWidth = (control.flags_.screenSize_ & 0x01) ? 512 : 256;
-    int const mapPixelHeight = (control.flags_.screenSize_ & 0x02) ? 512 : 256;
-
-    // Pixel coordinates
-    int dotX = xOffset % mapPixelWidth;
-    int const dotY = (scanline_ + yOffset) % mapPixelHeight;
-
-    // Screen entry coordinates
-    int mapX = dotX / 8;
-    int mapY = dotY / 8;
-
-    // Screenblock/Charblock addresses
-    size_t screenBlockAddr = control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE;
-    size_t const charBlockAddr = control.flags_.charBaseBlock_ * CHARBLOCK_SIZE;
-
-    if (mapY > 31)
-    {
-        screenBlockAddr += (SCREENBLOCK_SIZE * ((mapPixelWidth == 256) ? 1 : 2));
-        mapY %= 32;
-    }
-
-    // Memory pointers
-    ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
-
-    // Status
-    int totalPixelsDrawn = 0;
-    int dot = 0;
-    int const priority = control.flags_.bgPriority_;
-    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
-
-    while (totalPixelsDrawn < 240)
-    {
-        if (screenBlockEntryPtr == nullptr)
-        {
-            mapX = dotX / 8;
-            ScreenBlock const* screenBlockPtr = reinterpret_cast<ScreenBlock const*>(&VRAM_.at(screenBlockAddr));
-
-            if (mapX > 31)
-            {
-                ++screenBlockPtr;
-                mapX %= 32;
-            }
-
-            screenBlockEntryPtr = &(screenBlockPtr->screenBlockEntry_[mapY][mapX]);
-        }
-
-        int tileX = dotX % 8;
-        int tileY = dotY % 8;
-        int pixelsToDraw = std::min(8 - tileX, 240 - totalPixelsDrawn);
-        int pixelsDrawn = 0;
-
-        if (screenBlockEntryPtr->verticalFlip_)
-        {
-            tileY ^= 7;
-        }
-
-        if (control.flags_.colorMode_)
-        {
-            // 8bpp
-            TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_.at(charBlockAddr));
-            bool flipped = screenBlockEntryPtr->horizontalFlip_;
-
-            if (flipped)
-            {
-                tileX ^= 7;
-            }
-
-            while (pixelsDrawn < pixelsToDraw)
-            {
-                size_t paletteIndex = 0;
-
-                if (screenBlockEntryPtr->tile_ < 512)
-                {
-                    paletteIndex = tilePtr[screenBlockEntryPtr->tile_].paletteIndex_[tileY][tileX];
-                }
-
-                uint16_t bgr555 = palettePtr[paletteIndex];
-                bool transparent = (paletteIndex == 0);
-
-                if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
-                {
-                    frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
-                }
-
-                tileX += flipped ? -1 : 1;
-                ++pixelsDrawn;
-                ++dot;
-            }
-        }
-        else
-        {
-            // 4bpp
-            TileData4bpp const* tilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_.at(charBlockAddr));
-            bool flipped = screenBlockEntryPtr->horizontalFlip_;
-
-            if (flipped)
-            {
-                tileX ^= 7;
-            }
-
-            bool leftHalf = (tileX % 2) == 0;
-
-            while (pixelsDrawn < pixelsToDraw)
-            {
-                size_t paletteIndex = screenBlockEntryPtr->palette_ << 4;
-                auto paletteData = tilePtr[screenBlockEntryPtr->tile_].paletteIndex_[tileY][tileX / 2];
-                paletteIndex |= leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_;
-                bool transparent = false;
-
-                if ((paletteIndex & 0x0F) == 0)
-                {
-                    transparent = true;
-                    paletteIndex = 0;
-                }
-
-                uint16_t bgr555 = palettePtr[paletteIndex];
-
-                if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
-                {
-                    frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
-                }
-
-                tileX += flipped ? -1 : 1;
-                ++pixelsDrawn;
-                ++dot;
-                leftHalf = !leftHalf;
-            }
-        }
-
-        int nextDotX = (dotX + pixelsDrawn) % mapPixelWidth;
-
-        if ((nextDotX / 256) != (dotX / 256))
-        {
-            screenBlockEntryPtr = nullptr;
-        }
-        else
-        {
-            ++screenBlockEntryPtr;
-        }
-
-        dotX = nextDotX;
-        totalPixelsDrawn += pixelsDrawn;
-    }
-}
-
-void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control, int32_t dx, int32_t dy, int16_t pa, int16_t pc)
-{
-    // Map size
-    int mapSizeInTiles;
-
-    switch (control.flags_.screenSize_)
-    {
-        case 0:
-            mapSizeInTiles = 16;
-            break;
-        case 1:
-            mapSizeInTiles = 32;
-            break;
-        case 2:
-            mapSizeInTiles = 64;
-            break;
-        case 3:
-            mapSizeInTiles = 128;
-            break;
-    }
-
-    int const mapSizeInPixels = mapSizeInTiles * 8;
-
-    // Initialize affine position
-    int32_t affineX = dx;
-    int32_t affineY = dy;
-
-    // Control fields
-    bool const wrapOnOverflow = control.flags_.overflowMode_;
-    int const priority = control.flags_.bgPriority_;
-    PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
-
-    // VRAM pointers
-    uint8_t const* screenBlockPtr = &VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE];
-    TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
-
-    for (int dot = 0; dot < LCD_WIDTH; ++dot)
-    {
-        if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[bgIndex])
-        {
-            int32_t screenX = affineX >> 8;
-            int32_t screenY = affineY >> 8;
-            size_t paletteIndex = 0;
-            bool transparent = true;
-            bool calculateTile = wrapOnOverflow ||
-                                 ((screenX >= 0) && (screenX < mapSizeInPixels) && (screenY >= 0) && (screenY < mapSizeInPixels));
-
-            if (calculateTile)
-            {
-                screenX = WrapModulo(screenX, mapSizeInPixels);
-                screenY = WrapModulo(screenY, mapSizeInPixels);
-                int mapX = screenX / 8;
-                int mapY = screenY / 8;
-                int tileX = screenX % 8;
-                int tileY = screenY % 8;
-                size_t tileIndex = screenBlockPtr[mapX + (mapY * mapSizeInTiles)];
-                paletteIndex = tilePtr[tileIndex].paletteIndex_[tileY][tileX];
-                transparent = (paletteIndex == 0);
-            }
-
-            uint16_t bgr555 = palettePtr[paletteIndex];
-            frameBuffer_.PushPixel({src, bgr555, priority, transparent}, dot);
-        }
-
-        affineX += pa;
-        affineY += pc;
     }
 }
 

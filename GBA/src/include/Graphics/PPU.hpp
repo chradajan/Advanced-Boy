@@ -85,16 +85,28 @@ private:
     /// @brief Render BG pixels in mode 4.
     void RenderMode4Scanline();
 
-    /// @brief Render sprites and mix with background.
-    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprites.
-    void EvaluateOAM(WindowSettings* windowSettingsPtr = nullptr);
-
-    /// @brief Render a tiled text background scanline.
+    /// @brief Render a regular tiled text background scanline.
     /// @param bgIndex Which background to render.
     /// @param control Control register of specified background.
     /// @param xOffset X offset register value of specified background.
     /// @param yOffset Y offset register value of specified background.
     void RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset);
+
+    /// @brief Render a regular tiled text background scanline that uses 4bpp colors.
+    /// @param bgIndex Which background to render.
+    /// @param control Control register of specified background.
+    /// @param x X-coordinate within background map.
+    /// @param y Y-Coordinate within background map.
+    /// @param width Width of map.
+    void RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width);
+
+    /// @brief Render a regular tiled text background scanline that uses 8bpp colors.
+    /// @param bgIndex Which background to render.
+    /// @param control Control register of specified background.
+    /// @param x X-coordinate within background map.
+    /// @param y Y-Coordinate within background map.
+    /// @param width Width of map.
+    void RenderRegular8bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width);
 
     /// @brief Render a tiled affined background scanline.
     /// @param bgIndex Which background to render.
@@ -104,6 +116,10 @@ private:
     /// @param pa Amount to increment x-coordinate by after each pixel.
     /// @param pc Amount to increment y-coordinate by after each pixel.
     void RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control, int32_t dx, int32_t dy, int16_t pa, int16_t pc);
+
+    /// @brief Render sprites and mix with background.
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprites.
+    void EvaluateOAM(WindowSettings* windowSettingsPtr = nullptr);
 
     /// @brief Render a one dimensional 4bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
