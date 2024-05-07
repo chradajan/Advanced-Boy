@@ -197,32 +197,41 @@ void PPU::HBlank(int extraCycles)
                 WININ const& winin = *reinterpret_cast<WININ const*>(&lcdRegisters_[0x48]);
                 WINOUT const& winout = *reinterpret_cast<WINOUT const*>(&lcdRegisters_[0x4A]);
 
+                #pragma GCC diagnostic push
+                #pragma GCC diagnostic ignored "-Wnarrowing"
                 WindowSettings outOfWindow = {
                     {winout.outsideBg0Enabled_, winout.outsideBg1Enabled_, winout.outsideBg2Enabled_, winout.outsideBg3Enabled_},
                     winout.outsideObjEnabled_,
                     winout.outsideSpecialEffect_
                 };
+                #pragma GCC diagnostic pop
 
                 frameBuffer_.InitializeWindow(outOfWindow);
 
                 if (lcdControl_.flags_.screenDisplayObj && lcdControl_.flags_.objWindowDisplay)
                 {
+                    #pragma GCC diagnostic push
+                    #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings objWindow = {
                         {winout.objWinBg0Enabled_, winout.objWinBg1Enabled_, winout.objWinBg2Enabled_, winout.objWinBg3Enabled_},
                         winout.objWinObjEnabled_,
                         winout.objWinSpecialEffect_
                     };
+                    #pragma GCC diagnostic pop
 
                     EvaluateOAM(&objWindow);
                 }
 
                 if (lcdControl_.flags_.window1Display)
                 {
+                    #pragma GCC diagnostic push
+                    #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings window1 = {
                         {winin.win1Bg0Enabled_, winin.win1Bg1Enabled_, winin.win1Bg2Enabled_, winin.win1Bg3Enabled_},
                         winin.win1ObjEnabled_,
                         winin.win1SpecialEffect_
                     };
+                    #pragma GCC diagnostic pop
 
                     uint8_t x1 = lcdRegisters_[0x43];
                     uint8_t x2 = lcdRegisters_[0x42];
@@ -235,11 +244,14 @@ void PPU::HBlank(int extraCycles)
 
                 if (lcdControl_.flags_.window0Display)
                 {
+                    #pragma GCC diagnostic push
+                    #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings window0 = {
                         {winin.win0Bg0Enabled_, winin.win0Bg1Enabled_, winin.win0Bg2Enabled_, winin.win0Bg3Enabled_},
                         winin.win0ObjEnabled_,
                         winin.win0SpecialEffect_
                     };
+                    #pragma GCC diagnostic pop
 
                     uint8_t x1 = lcdRegisters_[0x41];
                     uint8_t x2 = lcdRegisters_[0x40];
