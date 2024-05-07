@@ -72,16 +72,26 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
     {
         // Write to DISPSTAT; not all bits are writable. If writing a word, the next register is VCOUNT so don't write that either.
         static constexpr uint16_t DISPSTAT_WRITABLE_MASK = 0b1111'1111'1011'1000;
-        value &= DISPSTAT_WRITABLE_MASK;
 
-        if (alignment == AccessSize::BYTE)
+        switch (alignment)
         {
-            value &= MAX_U8;
-            lcdStatus_ = (lcdStatus_.halfword_ & ~(DISPSTAT_WRITABLE_MASK & MAX_U8)) | value;
-        }
-        else
-        {
-            lcdStatus_.halfword_ = (lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | value;
+            case AccessSize::BYTE:
+            {
+                if (addr == DISPSTAT_ADDR)
+                {
+                    lcdStatus_.halfword_ = (lcdStatus_.halfword_ & 0xFF00) |
+                                           (((lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
+                }
+                else
+                {
+                    lcdStatus_.flags_.vCountSetting = (value & MAX_U8);
+                }
+                break;
+            }
+            case AccessSize::HALFWORD:
+            case AccessSize::WORD:
+                lcdStatus_.halfword_ = (lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
+                break;
         }
 
         return 1;
@@ -96,21 +106,24 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
     uint8_t* bytePtr = &(lcdRegisters_.at(index));
     WritePointer(bytePtr, value, alignment);
 
-    if ((addr >= 0x28) && (addr <= 0x2B))
+    if ((index >= 0x28) && (index <= 0x3F))
     {
-        bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
-    }
-    else if ((addr >= 0x2C) && (addr <= 0x2F))
-    {
-        bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
-    }
-    else if ((addr >= 0x38) && (addr <= 0x3B))
-    {
-        bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
-    }
-    else if ((addr >= 0x3C) && (addr <= 0x3F))
-    {
-        bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
+        if (index <= 0x2B)
+        {
+            bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
+        }
+        else if (index <= 0x2F)
+        {
+            bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
+        }
+        else if (index <= 0x3B)
+        {
+            bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
+        }
+        else
+        {
+            bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
+        }
     }
 
 
