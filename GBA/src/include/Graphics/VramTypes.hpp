@@ -44,9 +44,8 @@ struct OamEntry
     struct
     {
         uint16_t yCoordinate_ : 8;
-        uint16_t rotationOrScaling_ : 1;
-        uint16_t doubleSizeOrDisable_ : 1;
         uint16_t objMode_ : 2;
+        uint16_t gfxMode_ : 2;
         uint16_t objMosaic_ : 1;
         uint16_t colorMode_ : 1;
         uint16_t objShape_ : 2;
@@ -56,9 +55,9 @@ struct OamEntry
     {
         struct
         {
-            uint16_t xCoordinate_ : 9;
+            uint16_t : 9;
             uint16_t parameterSelection_ : 5;
-            uint16_t objSize_ : 2;
+            uint16_t : 2;
         } rotationOrScaling_;
 
         struct
@@ -95,5 +94,20 @@ struct TwoDim4bppMap
 struct TwoDim8bppMap
 {
     TileData8bpp tileData_[16][32];
+};
+
+struct AffineObjMatrix
+{
+    uint16_t filler0[3];
+    int16_t pa_;
+
+    uint16_t filler1[3];
+    int16_t pb_;
+
+    uint16_t filler2[3];
+    int16_t pc_;
+
+    uint16_t filler3[3];
+    int16_t pd_;
 };
 }

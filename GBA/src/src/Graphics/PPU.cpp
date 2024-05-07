@@ -27,6 +27,7 @@ static_assert(sizeof(ScreenBlockEntry) == 2);
 static_assert(sizeof(TileData8bpp) == 64);
 static_assert(sizeof(TileData4bpp) == 32);
 static_assert(sizeof(OamEntry) == 8);
+static_assert(sizeof(AffineObjMatrix) == 32);
 static_assert(sizeof(TwoDim4bppMap) == 2 * CHARBLOCK_SIZE);
 static_assert(sizeof(TwoDim8bppMap) == 2 * CHARBLOCK_SIZE);
 
@@ -126,7 +127,6 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
         }
     }
 
-
     return 1;
 }
 
@@ -177,13 +177,13 @@ void PPU::HBlank(int extraCycles)
 
     // Event scheduling
     int cyclesUntilNextEvent = 226 - extraCycles;
-    EventType nextEvent = (scanline_ < 159) ? EventType::VDraw : EventType::VBlank;
+    EventType nextEvent = ((scanline_ < 159) || (scanline_ == 227)) ? EventType::VDraw : EventType::VBlank;
     Scheduler.ScheduleEvent(nextEvent, cyclesUntilNextEvent);
 
     // Draw scanline if not in VBlank
     if (scanline_ < 160)
     {
-        uint16_t backdrop = *reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+        uint16_t backdrop = *reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
         bool windowEnabled = (lcdControl_.halfword_ & 0xE000) != 0;
 
         if (lcdControl_.flags_.forceBlank)
@@ -275,11 +275,8 @@ void PPU::HBlank(int extraCycles)
 
             if (lcdControl_.flags_.screenDisplayObj)
             {
+                frameBuffer_.ClearSpritePixels();
                 EvaluateOAM();
-            }
-
-            if (lcdControl_.flags_.screenDisplayObj)
-            {
                 frameBuffer_.PushSpritePixels();
             }
 
@@ -761,30 +758,23 @@ void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control,
 
 void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
 {
-    frameBuffer_.ClearSpritePixels();
     OamEntry const* oam = reinterpret_cast<OamEntry const*>(OAM_.data());
-    bool const evaluateWindowSprites = windowSettingsPtr != nullptr;
+    bool const evaluateWindowSprites = (windowSettingsPtr != nullptr);
 
     for (int i = 0; i < 128; ++i)
     {
         OamEntry const& oamEntry = oam[i];
 
         // Skip window sprites when evaluating visible sprites, and vice versa
-        if ((evaluateWindowSprites && (oamEntry.attribute0_.objMode_ != 2)) ||
-            (!evaluateWindowSprites && (oamEntry.attribute0_.objMode_ == 2)))
+        if ((evaluateWindowSprites && (oamEntry.attribute0_.gfxMode_ != 2)) ||
+            (!evaluateWindowSprites && (oamEntry.attribute0_.gfxMode_ == 2)))
         {
             continue;
         }
 
-        // Check if this sprite is disabled
-        if (!oamEntry.attribute0_.rotationOrScaling_ && oamEntry.attribute0_.doubleSizeOrDisable_)
+        // Skip disabled sprites and illegal sprites
+        if ((oamEntry.attribute0_.objMode_ == 2) || (oamEntry.attribute0_.gfxMode_ == 3))
         {
-            continue;
-        }
-
-        if (oamEntry.attribute0_.rotationOrScaling_)
-        {
-            // Affine sprite, TODO
             continue;
         }
 
@@ -867,8 +857,19 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             x = (~0x01FF) | (x & 0x01FF);
         }
 
+        int topEdge = y;
+        int bottomEdge = y + height - 1;
+
+        if (oamEntry.attribute0_.objMode_ == 3)
+        {
+            y += (height / 2);
+            x += (width / 2);
+            topEdge = y - (height / 2);
+            bottomEdge = topEdge + (2 * height) - 1;
+        }
+
         // Check if this sprite exists on the current scanline
-        if ((y > scanline_) || (scanline_ > (y + height - 1)))
+        if ((topEdge > scanline_) || (scanline_ > bottomEdge))
         {
             continue;
         }
@@ -884,7 +885,14 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             else
             {
                 // 4bpp
-                Render1d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                if (oamEntry.attribute0_.objMode_ == 0)
+                {
+                    Render1d4bppRegularSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
+                else
+                {
+                    Render1d4bppAffineSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
             }
         }
         else
@@ -898,13 +906,20 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             else
             {
                 // 4bpp
-                Render2d4bppSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                if (oamEntry.attribute0_.objMode_ == 0)
+                {
+                    Render2d4bppRegularSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
+                else
+                {
+                    Render2d4bppAffineSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
             }
         }
     }
 }
 
-void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+void PPU::Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     int const widthInTiles = width / 8;
     int const heightInTiles = height / 8;
@@ -929,6 +944,7 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
     int dot = leftEdge;
     int const palette = oamEntry.attribute2_.palette_ << 4;
     int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
 
     while (dot <= rightEdge)
     {
@@ -958,16 +974,10 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
             if (windowSettingsPtr == nullptr)
             {
                 // Visible Sprite
-                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
-                    ((!frameBuffer_.GetSpritePixel(dot).initialized_ ||
-                    (!transparent && frameBuffer_.GetSpritePixel(dot).transparent_) ||
-                    (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
+                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                    (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
                 {
-                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
-                                                             bgr555,
-                                                             priority,
-                                                             transparent,
-                                                             (oamEntry.attribute0_.objMode_ == 1));
+                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
                 }
             }
             else if (!transparent)
@@ -984,7 +994,7 @@ void PPU::Render1d4bppSprite(int x, int y, int width, int height, OamEntry const
     }
 }
 
-void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
     uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
@@ -1014,6 +1024,7 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
     int dot = leftEdge;
     int const palette = oamEntry.attribute2_.palette_ << 4;
     int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
 
     while (dot <= rightEdge)
     {
@@ -1046,16 +1057,10 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
             if (windowSettingsPtr == nullptr)
             {
                 // Visible Sprite
-                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
-                    ((!frameBuffer_.GetSpritePixel(dot).initialized_ ||
-                    (!transparent && frameBuffer_.GetSpritePixel(dot).transparent_) ||
-                    (priority < frameBuffer_.GetSpritePixel(dot).priority_))))
+                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                    (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
                 {
-                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ,
-                                                             bgr555,
-                                                             priority,
-                                                             transparent,
-                                                             (oamEntry.attribute0_.objMode_ == 1));
+                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
                 }
             }
             else if (!transparent)
@@ -1081,6 +1086,179 @@ void PPU::Render2d4bppSprite(int x, int y, int width, int height, OamEntry const
         else
         {
             tileDataPtr = nullptr;
+        }
+    }
+}
+
+void PPU::Render1d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    TileData4bpp const* tileMapPtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    AffineObjMatrix const* affineMatrix =
+        &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
+
+    int16_t const pa = affineMatrix->pa_;
+    int16_t const pb = affineMatrix->pb_;
+    int16_t const pc = affineMatrix->pc_;
+    int16_t const pd = affineMatrix->pd_;
+
+    int leftEdge = x;
+    int rightEdge = x + width - 1;
+    int topEdge = y;
+    int const halfWidth = width / 2;
+    int const halfHeight = height / 2;
+    bool doubleSize = (oamEntry.attribute0_.objMode_ == 3);
+
+    if (doubleSize)
+    {
+        leftEdge -= halfWidth;
+        rightEdge += halfWidth;
+        topEdge -= halfHeight;
+    }
+
+    // Rotation center
+    int16_t const x0 = doubleSize ? width : halfWidth;
+    int16_t const y0 = doubleSize ? height : halfHeight;
+
+    // Screen position
+    int16_t const x1 = 0;
+    int16_t const y1 = scanline_ - topEdge;
+
+    int32_t affineX = (pa * (x1 - x0)) + (pb * (y1 - y0)) + (halfWidth << 8);
+    int32_t affineY = (pc * (x1 - x0)) + (pd * (y1 - y0)) + (halfHeight << 8);
+
+    size_t const palette = oamEntry.attribute2_.palette_ << 4;
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
+    size_t const widthInTiles = width / 8;
+    size_t const baseTileIndex = oamEntry.attribute2_.tile_;
+
+    for (int dot = leftEdge; (dot <= rightEdge) && (dot < LCD_WIDTH); ++dot)
+    {
+        int32_t textureX = (affineX >> 8);
+        int32_t textureY = (affineY >> 8);
+        affineX += pa;
+        affineY += pc;
+
+        if ((dot < 0) || (textureX < 0) || (textureX >= width) || (textureY < 0) || (textureY >= height))
+        {
+            continue;
+        }
+
+        size_t tileOffset = ((textureX / 8) % widthInTiles) + ((textureY / 8) * widthInTiles);
+        TileData4bpp const* tileDataPtr = &tileMapPtr[(baseTileIndex + tileOffset) % 1024];
+
+        size_t tileX = textureX % 8;
+        size_t tileY = textureY % 8;
+        bool left = (tileX % 2) == 0;
+        auto tileNibbles = tileDataPtr->paletteIndex_[tileY][tileX / 2];
+        size_t paletteIndex = palette | (left ? tileNibbles.leftNibble_ : tileNibbles.rightNibble_);
+        bool transparent = (paletteIndex & 0x0F) == 0;
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
+            }
+        }
+        else if (!transparent)
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
+        }
+    }
+}
+
+void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    TwoDim4bppMap const* tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    AffineObjMatrix const* affineMatrix =
+        &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
+
+    int16_t const pa = affineMatrix->pa_;
+    int16_t const pb = affineMatrix->pb_;
+    int16_t const pc = affineMatrix->pc_;
+    int16_t const pd = affineMatrix->pd_;
+
+    int leftEdge = x;
+    int rightEdge = x + width - 1;
+    int topEdge = y;
+    int const halfWidth = width / 2;
+    int const halfHeight = height / 2;
+    bool doubleSize = (oamEntry.attribute0_.objMode_ == 3);
+
+    if (doubleSize)
+    {
+        leftEdge -= halfWidth;
+        rightEdge += halfWidth;
+        topEdge -= halfHeight;
+    }
+
+    // Rotation center
+    int16_t const x0 = doubleSize ? width : halfWidth;
+    int16_t const y0 = doubleSize ? height : halfHeight;
+
+    // Screen position
+    int16_t const x1 = 0;
+    int16_t const y1 = scanline_ - topEdge;
+
+    int32_t affineX = (pa * (x1 - x0)) + (pb * (y1 - y0)) + (halfWidth << 8);
+    int32_t affineY = (pc * (x1 - x0)) + (pd * (y1 - y0)) + (halfHeight << 8);
+
+    size_t const palette = oamEntry.attribute2_.palette_ << 4;
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
+    size_t const baseMapX = oamEntry.attribute2_.tile_ % 32;
+    size_t const baseMapY = oamEntry.attribute2_.tile_ / 32;
+
+    for (int dot = x; (dot < x + width) && (dot < LCD_WIDTH); ++dot)
+    {
+        int32_t textureX = (affineX >> 8);
+        int32_t textureY = (affineY >> 8);
+        affineX += pa;
+        affineY += pc;
+
+        if ((dot < 0) || (textureX < 0) || (textureX >= width) || (textureY < 0) || (textureY >= height))
+        {
+            continue;
+        }
+
+        size_t mapX = (baseMapX + (textureX / 8)) % 32;
+        size_t mapY = (baseMapY + (textureY / 8)) % 32;
+        size_t tileX = textureX % 8;
+        size_t tileY = textureY % 8;
+        bool left = (tileX % 2) == 0;
+        TileData4bpp const* tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
+        auto tileNibbles = tileDataPtr->paletteIndex_[tileY][tileX / 2];
+        size_t paletteIndex = palette | (left ? tileNibbles.leftNibble_ : tileNibbles.rightNibble_);
+        bool transparent = (paletteIndex & 0x0F) == 0;
+
+        if (transparent)
+        {
+            paletteIndex = 0;
+        }
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
+            }
+        }
+        else if (!transparent)
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
         }
     }
 }

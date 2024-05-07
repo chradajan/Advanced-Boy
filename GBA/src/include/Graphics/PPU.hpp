@@ -128,7 +128,7 @@ private:
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
     /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
-    void Render1d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+    void Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a one dimensional 8bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -137,7 +137,7 @@ private:
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
     /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
-    void Render1d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+    void Render1d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a two dimensional 4bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -146,7 +146,7 @@ private:
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
     /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
-    void Render2d4bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+    void Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Render a two dimensional 8bpp sprite into an array of pixels.
     /// @param x X-coordinate of top left corner of sprite.
@@ -155,7 +155,25 @@ private:
     /// @param height Height of sprite in pixels.
     /// @param oamEntry Reference to OAM entry for sprite.
     /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
-    void Render2d8bppSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+    void Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+
+    /// @brief Render a one dimensional 4bpp affine sprite into an array of pixels.
+    /// @param x X-coordinate of top left corner of sprite.
+    /// @param y Y-coordinate of top left corner of sprite.
+    /// @param width Width of sprite in pixels.
+    /// @param height Height of sprite in pixels.
+    /// @param oamEntry Reference to OAM entry for sprite.
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render1d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
+
+    /// @brief Render a two dimensional 4bpp affine sprite into an array of pixels.
+    /// @param x X-coordinate of top left corner of sprite.
+    /// @param y Y-coordinate of top left corner of sprite.
+    /// @param width Width of sprite in pixels.
+    /// @param height Height of sprite in pixels.
+    /// @param oamEntry Reference to OAM entry for sprite.
+    /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
+    void Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
     /// @brief Increment BG2 and BG3 reference points after a scanline is rendered.
     void IncrementAffineBackgroundReferencePoints();
