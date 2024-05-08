@@ -93,7 +93,7 @@ struct TwoDim4bppMap
 
 struct TwoDim8bppMap
 {
-    TileData8bpp tileData_[16][32];
+    TileData8bpp tileData_[32][16];
 };
 
 struct AffineObjMatrix

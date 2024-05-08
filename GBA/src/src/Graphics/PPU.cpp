@@ -901,7 +901,14 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             if (oamEntry.attribute0_.colorMode_)
             {
                 // 8bpp
-                continue;
+                if (oamEntry.attribute0_.objMode_ == 0)
+                {
+                    Render2d8bppRegularSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
+                else
+                {
+                    Render2d8bppAffineSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
             }
             else
             {
@@ -1031,7 +1038,7 @@ void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntr
         if (tileDataPtr == nullptr)
         {
             mapX = horizontalFlip ?
-                ((baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 32) :
+                (baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 32 :
                 (baseMapX + ((dot - x) / 8)) % 32;
 
             tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
@@ -1086,6 +1093,77 @@ void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntr
         else
         {
             tileDataPtr = nullptr;
+        }
+    }
+}
+
+void PPU::Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    TwoDim8bppMap const* const tileMapPtr = reinterpret_cast<TwoDim8bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    TileData8bpp const* tileDataPtr = nullptr;
+
+    int const leftEdge = std::max(0, x);
+    int const rightEdge = std::min(LCD_WIDTH, x + width);
+
+    int const widthInTiles = width / 8;
+    int const heightInTiles = height / 8;
+
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
+    bool const verticalFlip = oamEntry.attribute1_.noRotationOrScaling_.verticalFlip_;
+    bool const horizontalFlip = oamEntry.attribute1_.noRotationOrScaling_.horizontalFlip_;
+
+    size_t const tileIndex = oamEntry.attribute2_.tile_ / 2;
+    size_t const baseMapX = tileIndex % 16;
+    size_t const baseMapY = (tileIndex / 16) % 32;
+
+    size_t const mapY = verticalFlip ?
+        (baseMapY + (heightInTiles - ((scanline_ - y) / 8) - 1)) % 32 :
+        (baseMapY + ((scanline_ - y) / 8)) % 32;
+
+    size_t const tileY = verticalFlip ?
+        ((scanline_ - y) % 8) ^ 7 :
+        (scanline_ - y) % 8;
+
+    for (int dot = leftEdge; dot < rightEdge; ++dot)
+    {
+        if (((dot - x) % 8) == 0)
+        {
+            tileDataPtr = nullptr;
+        }
+
+        if (tileDataPtr == nullptr)
+        {
+            size_t mapX = horizontalFlip ?
+            (baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 16 :
+            (baseMapX + ((dot - x) / 8)) % 16;
+
+            tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
+        }
+
+        size_t tileX = horizontalFlip ?
+            ((dot - x) % 8) ^ 7 :
+            (dot - x) % 8;
+
+        size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
+        bool transparent = (paletteIndex == 0);
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
+            }
+        }
+        else if (!transparent)
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
         }
     }
 }
@@ -1187,7 +1265,7 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
     int16_t const pd = affineMatrix->pd_;
 
     int leftEdge = x;
-    int rightEdge = x + width - 1;
+    int rightEdge = x + width;
     int topEdge = y;
     int const halfWidth = width / 2;
     int const halfHeight = height / 2;
@@ -1217,7 +1295,7 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
     size_t const baseMapX = oamEntry.attribute2_.tile_ % 32;
     size_t const baseMapY = oamEntry.attribute2_.tile_ / 32;
 
-    for (int dot = x; (dot < x + width) && (dot < LCD_WIDTH); ++dot)
+    for (int dot = x; (dot < rightEdge) && (dot < LCD_WIDTH); ++dot)
     {
         int32_t textureX = (affineX >> 8);
         int32_t textureY = (affineY >> 8);
@@ -1243,6 +1321,89 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
         {
             paletteIndex = 0;
         }
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, alphaBlending);
+            }
+        }
+        else if (!transparent)
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
+        }
+    }
+}
+
+void PPU::Render2d8bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    TwoDim8bppMap const* tileMapPtr = reinterpret_cast<TwoDim8bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    AffineObjMatrix const* affineMatrix =
+        &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
+
+    int16_t const pa = affineMatrix->pa_;
+    int16_t const pb = affineMatrix->pb_;
+    int16_t const pc = affineMatrix->pc_;
+    int16_t const pd = affineMatrix->pd_;
+
+    int leftEdge = x;
+    int rightEdge = x + width;
+    int topEdge = y;
+    int const halfWidth = width / 2;
+    int const halfHeight = height / 2;
+    bool doubleSize = (oamEntry.attribute0_.objMode_ == 3);
+
+    if (doubleSize)
+    {
+        leftEdge -= halfWidth;
+        rightEdge += halfWidth;
+        topEdge -= halfHeight;
+    }
+
+    // Rotation center
+    int16_t const x0 = doubleSize ? width : halfWidth;
+    int16_t const y0 = doubleSize ? height : halfHeight;
+
+    // Screen position
+    int16_t const x1 = 0;
+    int16_t const y1 = scanline_ - topEdge;
+
+    int32_t affineX = (pa * (x1 - x0)) + (pb * (y1 - y0)) + (halfWidth << 8);
+    int32_t affineY = (pc * (x1 - x0)) + (pd * (y1 - y0)) + (halfHeight << 8);
+
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const alphaBlending = (oamEntry.attribute0_.gfxMode_ == 1);
+
+    size_t const tileIndex = oamEntry.attribute2_.tile_ / 2;
+    size_t const baseMapX = tileIndex % 16;
+    size_t const baseMapY = (tileIndex / 16) % 32;
+
+    for (int dot = x; (dot < rightEdge) && (dot < LCD_WIDTH); ++dot)
+    {
+        int32_t textureX = (affineX >> 8);
+        int32_t textureY = (affineY >> 8);
+        affineX += pa;
+        affineY += pc;
+
+        if ((dot < 0) || (textureX < 0) || (textureX >= width) || (textureY < 0) || (textureY >= height))
+        {
+            continue;
+        }
+
+        size_t mapX = (baseMapX + (textureX / 8)) % 16;
+        size_t mapY = (baseMapY + (textureY / 8)) % 32;
+        size_t tileX = textureX % 8;
+        size_t tileY = textureY % 8;
+        TileData8bpp const* tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
+        size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
+        bool transparent = (paletteIndex == 0);
 
         if (windowSettingsPtr == nullptr)
         {
