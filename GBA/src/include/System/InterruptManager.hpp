@@ -22,10 +22,10 @@ enum class InterruptType : uint16_t
     TIMER_2_OVERFLOW        = 0x0020,
     TIMER_3_OVERFLOW        = 0x0040,
     SERIAL_COMMUNICATION    = 0x0080,
-    DMA0                   = 0x0100,
-    DMA1                   = 0x0200,
-    DMA2                   = 0x0400,
-    DMA3                   = 0x0800,
+    DMA0                    = 0x0100,
+    DMA1                    = 0x0200,
+    DMA2                    = 0x0400,
+    DMA3                    = 0x0800,
     KEYPAD                  = 0x1000,
     GAME_PAK                = 0x2000
 };

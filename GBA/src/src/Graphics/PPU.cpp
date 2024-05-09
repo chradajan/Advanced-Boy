@@ -85,7 +85,7 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
                 }
                 else
                 {
-                    lcdStatus_.flags_.vCountSetting = (value & MAX_U8);
+                    lcdStatus_.flags_.vCountSetting_ = (value & MAX_U8);
                 }
                 break;
             }
@@ -138,24 +138,23 @@ void PPU::VDraw(int extraCycles)
     if (scanline_ == 228)
     {
         scanline_ = 0;
-        lcdStatus_.flags_.vBlank = 0;
     }
 
-    verticalCounter_.flags_.currentScanline = scanline_;
-    lcdStatus_.flags_.hBlank = 0;
+    verticalCounter_.flags_.currentScanline_ = scanline_;
+    lcdStatus_.flags_.hBlank_ = 0;
 
-    if (scanline_ == lcdStatus_.flags_.vCountSetting)
+    if (scanline_ == lcdStatus_.flags_.vCountSetting_)
     {
-        lcdStatus_.flags_.vCounter = 1;
+        lcdStatus_.flags_.vCounter_ = 1;
 
-        if (lcdStatus_.flags_.vCounterIrqEnable)
+        if (lcdStatus_.flags_.vCounterIrqEnable_)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        lcdStatus_.flags_.vCounter = 0;
+        lcdStatus_.flags_.vCounter_ = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -168,9 +167,9 @@ void PPU::VDraw(int extraCycles)
 void PPU::HBlank(int extraCycles)
 {
     // HBlank register updates
-    lcdStatus_.flags_.hBlank = 1;
+    lcdStatus_.flags_.hBlank_ = 1;
 
-    if (lcdStatus_.flags_.hBlankIrqEnable)
+    if (lcdStatus_.flags_.hBlankIrqEnable_)
     {
         InterruptMgr.RequestInterrupt(InterruptType::LCD_HBLANK);
     }
@@ -185,7 +184,7 @@ void PPU::HBlank(int extraCycles)
     {
         uint16_t backdrop = *reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
         bool windowEnabled = (lcdControl_.halfword_ & 0xE000) != 0;
-        bool forceBlank = lcdControl_.flags_.forceBlank;
+        bool forceBlank = lcdControl_.flags_.forceBlank_;
 
         if (!forceBlank)
         {
@@ -205,7 +204,7 @@ void PPU::HBlank(int extraCycles)
 
                 frameBuffer_.InitializeWindow(outOfWindow);
 
-                if (lcdControl_.flags_.screenDisplayObj && lcdControl_.flags_.objWindowDisplay)
+                if (lcdControl_.flags_.screenDisplayObj_ && lcdControl_.flags_.objWindowDisplay_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -219,7 +218,7 @@ void PPU::HBlank(int extraCycles)
                     EvaluateOAM(&objWindow);
                 }
 
-                if (lcdControl_.flags_.window1Display)
+                if (lcdControl_.flags_.window1Display_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -239,7 +238,7 @@ void PPU::HBlank(int extraCycles)
                     }
                 }
 
-                if (lcdControl_.flags_.window0Display)
+                if (lcdControl_.flags_.window0Display_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -270,14 +269,14 @@ void PPU::HBlank(int extraCycles)
                 frameBuffer_.InitializeWindow(allEnabled);
             }
 
-            if (lcdControl_.flags_.screenDisplayObj)
+            if (lcdControl_.flags_.screenDisplayObj_)
             {
                 frameBuffer_.ClearSpritePixels();
                 EvaluateOAM();
                 frameBuffer_.PushSpritePixels();
             }
 
-            switch (lcdControl_.flags_.bgMode)
+            switch (lcdControl_.flags_.bgMode_)
             {
                 case 0:
                     RenderMode0Scanline();
@@ -313,17 +312,17 @@ void PPU::VBlank(int extraCycles)
 {
     // VBlank register updates
     ++scanline_;
-    verticalCounter_.flags_.currentScanline = scanline_;
-    lcdStatus_.flags_.hBlank = 0;
+    verticalCounter_.flags_.currentScanline_ = scanline_;
+    lcdStatus_.flags_.hBlank_ = 0;
 
     if (scanline_ == 160)
     {
         // First time entering VBlank
-        lcdStatus_.flags_.vBlank = 1;
+        lcdStatus_.flags_.vBlank_ = 1;
         Scheduler.ScheduleEvent(EventType::RefreshScreen, SCHEDULE_NOW);
         frameBuffer_.ResetFrameIndex();
 
-        if (lcdStatus_.flags_.vBlankIrqEnable)
+        if (lcdStatus_.flags_.vBlankIrqEnable_)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
         }
@@ -335,21 +334,21 @@ void PPU::VBlank(int extraCycles)
     }
     else if (scanline_ == 227)
     {
-        lcdStatus_.flags_.vBlank = 0;
+        lcdStatus_.flags_.vBlank_ = 0;
     }
 
-    if (scanline_ == lcdStatus_.flags_.vCountSetting)
+    if (scanline_ == lcdStatus_.flags_.vCountSetting_)
     {
-        lcdStatus_.flags_.vCounter = 1;
+        lcdStatus_.flags_.vCounter_ = 1;
 
-        if (lcdStatus_.flags_.vCounterIrqEnable)
+        if (lcdStatus_.flags_.vCounterIrqEnable_)
         {
             InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        lcdStatus_.flags_.vCounter = 0;
+        lcdStatus_.flags_.vCounter_ = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -444,7 +443,7 @@ void PPU::RenderMode1Scanline()
         }
     }
 
-    if (lcdControl_.flags_.screenDisplayBg2)
+    if (lcdControl_.flags_.screenDisplayBg2_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -455,7 +454,7 @@ void PPU::RenderMode1Scanline()
 
 void PPU::RenderMode2Scanline()
 {
-    if (lcdControl_.flags_.screenDisplayBg2)
+    if (lcdControl_.flags_.screenDisplayBg2_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -463,7 +462,7 @@ void PPU::RenderMode2Scanline()
         RenderAffineTiledBackgroundScanline(2, bgControl, bg2RefX_, bg2RefY_, pa, pc);
     }
 
-    if (lcdControl_.flags_.screenDisplayBg3)
+    if (lcdControl_.flags_.screenDisplayBg3_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0E]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x30]);
@@ -478,7 +477,7 @@ void PPU::RenderMode3Scanline()
     size_t vramIndex = scanline_ * 480;
     uint16_t const* vramPtr = reinterpret_cast<uint16_t const*>(&VRAM_.at(vramIndex));
 
-    if (lcdControl_.flags_.screenDisplayBg2)
+    if (lcdControl_.flags_.screenDisplayBg2_)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
@@ -498,12 +497,12 @@ void PPU::RenderMode4Scanline()
     size_t vramIndex = scanline_ * 240;
     uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
 
-    if (lcdControl_.flags_.displayFrameSelect)
+    if (lcdControl_.flags_.displayFrameSelect_)
     {
         vramIndex += 0xA000;
     }
 
-    if (lcdControl_.flags_.screenDisplayBg2)
+    if (lcdControl_.flags_.screenDisplayBg2_)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
@@ -875,7 +874,7 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             continue;
         }
 
-        if (lcdControl_.flags_.objCharacterVramMapping)
+        if (lcdControl_.flags_.objCharacterVramMapping_)
         {
             // One dimensional mapping
             if (oamEntry.attribute0_.colorMode_)

@@ -46,7 +46,7 @@ public:
 
     /// @brief Return the current background mode.
     /// @return Current background mode.
-    uint8_t BgMode() const { return lcdControl_.flags_.bgMode; }
+    uint8_t BgMode() const { return lcdControl_.flags_.bgMode_; }
 
     /// @brief Function to call on HBlank events.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.

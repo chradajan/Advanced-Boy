@@ -20,20 +20,20 @@ union DISPCNT
 
     struct
     {
-        uint16_t bgMode : 3;
-        uint16_t cgbMode : 1;
-        uint16_t displayFrameSelect : 1;
-        uint16_t hBlankIntervalFree : 1;
-        uint16_t objCharacterVramMapping : 1;
-        uint16_t forceBlank : 1;
-        uint16_t screenDisplayBg0 : 1;
-        uint16_t screenDisplayBg1 : 1;
-        uint16_t screenDisplayBg2 : 1;
-        uint16_t screenDisplayBg3 : 1;
-        uint16_t screenDisplayObj : 1;
-        uint16_t window0Display : 1;
-        uint16_t window1Display : 1;
-        uint16_t objWindowDisplay : 1;
+        uint16_t bgMode_ : 3;
+        uint16_t cgbMode_ : 1;
+        uint16_t displayFrameSelect_ : 1;
+        uint16_t hBlankIntervalFree_ : 1;
+        uint16_t objCharacterVramMapping_ : 1;
+        uint16_t forceBlank_ : 1;
+        uint16_t screenDisplayBg0_ : 1;
+        uint16_t screenDisplayBg1_ : 1;
+        uint16_t screenDisplayBg2_ : 1;
+        uint16_t screenDisplayBg3_ : 1;
+        uint16_t screenDisplayObj_ : 1;
+        uint16_t window0Display_ : 1;
+        uint16_t window1Display_ : 1;
+        uint16_t objWindowDisplay_ : 1;
     } flags_;
 
     uint16_t halfword_;
@@ -46,14 +46,14 @@ union DISPSTAT
 
     struct
     {
-        uint16_t vBlank : 1;
-        uint16_t hBlank : 1;
-        uint16_t vCounter : 1;
-        uint16_t vBlankIrqEnable : 1;
-        uint16_t hBlankIrqEnable : 1;
-        uint16_t vCounterIrqEnable : 1;
+        uint16_t vBlank_ : 1;
+        uint16_t hBlank_ : 1;
+        uint16_t vCounter_ : 1;
+        uint16_t vBlankIrqEnable_ : 1;
+        uint16_t hBlankIrqEnable_ : 1;
+        uint16_t vCounterIrqEnable_ : 1;
         uint16_t : 2;
-        uint16_t vCountSetting : 8;
+        uint16_t vCountSetting_ : 8;
     } flags_;
 
     uint16_t halfword_;
@@ -66,7 +66,7 @@ union VCOUNT
 
     struct
     {
-        uint16_t currentScanline : 8;
+        uint16_t currentScanline_ : 8;
         uint16_t : 8;
     } flags_;
 
