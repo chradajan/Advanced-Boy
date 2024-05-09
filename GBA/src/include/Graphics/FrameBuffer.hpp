@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <vector>
+#include <Graphics/Registers.hpp>
 
 /// @brief 
 namespace Graphics
@@ -10,37 +11,14 @@ namespace Graphics
 constexpr int LCD_WIDTH = 240;
 constexpr int LCD_HEIGHT = 160;
 
-enum class PixelSrc : int
+enum class PixelSrc : uint8_t
 {
     OBJ = 0,
     BG0,
     BG1,
     BG2,
     BG3,
-};
-
-struct Pixel
-{
-    Pixel() : initialized_(false) {}
-
-    Pixel(PixelSrc src, uint16_t bgr555, int priority, bool transparent, bool alphaBlend = false) :
-        src_(src),
-        bgr555_(bgr555),
-        priority_(priority),
-        transparent_(transparent),
-        alphaBlend_(alphaBlend),
-        initialized_(true)
-    {
-    }
-
-    bool operator<(Pixel const& rhs) const;
-
-    PixelSrc src_;
-    uint16_t bgr555_;
-    int priority_;
-    bool transparent_;
-    bool alphaBlend_;
-    bool initialized_;
+    BD
 };
 
 enum class SpecialEffect : uint8_t
@@ -56,6 +34,40 @@ struct WindowSettings
     std::array<bool, 4> bgEnabled_;
     bool objEnabled_;
     bool effectsEnabled_;
+};
+
+struct Pixel
+{
+    /// @brief Default construct a Pixel as uninitialized.
+    Pixel() : initialized_(false) {}
+
+    /// @brief Create a Pixel.
+    /// @param src Source that generated this pixel.
+    /// @param bgr555 Color value of this pixel.
+    /// @param priority Priority (0-3) of this pixel.
+    /// @param transparent Whether this pixel is transparent.
+    /// @param semiTransparent If this is a OBJ pixel, then whether this pixel is part of a semi-transparent sprite.
+    Pixel(PixelSrc src, uint16_t bgr555, int priority, bool transparent, bool semiTransparent = false) :
+        src_(src),
+        bgr555_(bgr555),
+        priority_(priority),
+        transparent_(transparent),
+        semiTransparent_(semiTransparent),
+        initialized_(true)
+    {
+    }
+
+    /// @brief Compare the priority of two pixels. If Pixel A < Pixel B, then A has higher priority and should be drawn over B.
+    /// @param rhs Pixel to compare to.
+    /// @return True if this pixel has a higher priority than rhs.
+    bool operator<(Pixel const& rhs) const;
+
+    PixelSrc src_;
+    uint16_t bgr555_;
+    int priority_;
+    bool transparent_;
+    bool semiTransparent_;
+    bool initialized_;
 };
 
 class FrameBuffer
@@ -74,9 +86,10 @@ public:
     void PushPixel(Pixel pixel, int dot);
 
     /// @brief Iterate through each pixel of current scanline and render the highest priority pixel for each dot.
-    /// @param backdrop BGR555 value of backdrop color to use if no pixels were drawn at a location.
+    /// @param backdropColor BGR555 value of backdrop color to use if no pixels were drawn at a location.
     /// @param windowEnabled Whether to apply window settings when determining special effects.
-    void RenderScanline(uint16_t backdrop, bool windowEnabled);
+    /// @param forceBlank Whether to force display a white screen.
+    void RenderScanline(uint16_t backdropColor, bool forceBlank, BLDCNT const& bldcnt, BLDALPHA const& bldalpha, BLDY const& bldy);
 
     /// @brief Reset the frame index to begin drawing at the top of the screen again.
     void ResetFrameIndex() { frameIndex_ = 0; }

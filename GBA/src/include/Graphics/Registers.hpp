@@ -126,4 +126,51 @@ struct WINOUT
     uint16_t objWinSpecialEffect_ : 1;
     uint16_t : 2;
 };
+
+union BLDCNT
+{
+    struct
+    {
+        uint16_t bg0A : 1;
+        uint16_t bg1A : 1;
+        uint16_t bg2A : 1;
+        uint16_t bg3A : 1;
+        uint16_t objA : 1;
+        uint16_t bdA : 1;
+        uint16_t specialEffect : 2;
+        uint16_t bg0B : 1;
+        uint16_t bg1B : 1;
+        uint16_t bg2B : 1;
+        uint16_t bg3B : 1;
+        uint16_t objB : 1;
+        uint16_t bdB : 1;
+        uint16_t : 2;
+    } flags_;
+
+    uint16_t halfword_;
+};
+
+union BLDALPHA
+{
+    struct
+    {
+        uint16_t evaCoefficient_ : 5;
+        uint16_t : 3;
+        uint16_t evbCoefficient_ : 5;
+        uint16_t : 3;
+    } flags_;
+
+    uint16_t halfword_;
+};
+
+union BLDY
+{
+    struct
+    {
+        uint8_t evyCoefficient_ : 5;
+        uint8_t : 3;
+    } flags_;
+
+    uint8_t byte_;
+};
 }
