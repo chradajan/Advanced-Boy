@@ -13,6 +13,13 @@ namespace fs = std::filesystem;
 
 namespace Cartridge
 {
+enum class BackupType : uint8_t
+{
+    None = 0,
+    SRAM,
+    EEPROM
+};
+
 class GamePak
 {
 public:
@@ -74,6 +81,26 @@ public:
     /// @return Number of sequential cycles.
     int SequentialAccessTime(uint32_t addr) const;
 
+    /// @brief Check if EEPROM is being accessed via DMA.
+    /// @param addr Address being accessed.
+    /// @return True if accessing EEPROM.
+    bool EepromAccess(uint32_t addr) const;
+
+    /// @brief Set the EEPROM index to be read from on the next EEPROM read.
+    /// @param index Index to read from.
+    /// @param indexLength Number of bits (6 or 14) in index.
+    void SetEepromIndex(size_t index, int indexLength);
+
+    /// @brief Get the double word at previously set EEPROM index.
+    /// @return Double word at EEPROM index.
+    uint64_t GetEepromDoubleWord();
+
+    /// @brief Write a double word to EEPROM.
+    /// @param index Index to write to.
+    /// @param indexLength Number of bits (6 or 14) in index.
+    /// @param doubleWord Double word to write to EEPROM.
+    void WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord);
+
 private:
     /// @brief Determine which region of ROM is being accessed.
     /// @param addr ROM address being accessed.
@@ -92,7 +119,12 @@ private:
 
     // Memory
     std::vector<uint8_t> ROM_;
+
+    // Backup Media
+    BackupType backupType_;
     std::array<uint8_t, 64 * KiB> SRAM_;
+    std::vector<uint64_t> EEPROM_;
+    size_t eepromIndex_;
 
     // Prefetch buffer and access timing info
     uint32_t lastAddrRead_;

@@ -13,7 +13,9 @@ DmaChannel::DmaChannel(int index) :
     SAD_(*reinterpret_cast<uint32_t*>(&dmaChannelRegisters_[0])),
     DAD_(*reinterpret_cast<uint32_t*>(&dmaChannelRegisters_[4])),
     dmaControl_(*reinterpret_cast<DMAXCNT*>(&dmaChannelRegisters_[8])),
-    dmaChannelIndex_(index)
+    dmaChannelIndex_(index),
+    eepromRead_(false),
+    eepromWrite_(false)
 {
     switch (index)
     {
@@ -106,12 +108,130 @@ int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignmen
 
 void DmaChannel::Execute(GameBoyAdvance* gbaPtr)
 {
-    while (internalWordCount_ > 0)
+    if (eepromRead_ && eepromWrite_)
     {
-        auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
-        gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
-        --internalWordCount_;
-        UpdateInternalAddresses();
+        // This probably won't happen, so just do nothing. TODO?
+    }
+    else if (eepromRead_)
+    {
+        // EEPROM can only be accessed by DMA channel 3, with src and dest addresses set to increment, and using 16 bit transfers.
+        // Reads always transfer 64 bits with 4 throwaway bits, so check transfer length too.
+        if ((dmaChannelIndex_ == 3) &&
+            (dmaControl_.flags_.destAddrControl_ == 0) &&
+            (dmaControl_.flags_.srcAddrControl_ == 0) &&
+            (dmaControl_.flags_.xferType_ == 0) &&
+            (internalWordCount_ == 68))
+        {
+            uint64_t eepromData = gbaPtr->gamePak_->GetEepromDoubleWord();
+
+            for (int i = 0; i < 4; ++i)
+            {
+                // First send 4 bits of irrelevant data that should be ignored.
+                gbaPtr->WriteMemory(internalDestAddr_, 0, AccessSize::HALFWORD);
+                internalDestAddr_ += 2;
+                internalSrcAddr_ += 2;
+                --internalWordCount_;
+            }
+
+            while (internalWordCount_ > 0)
+            {
+                uint16_t value = (eepromData & 0x8000'0000'0000'0000) >> 63;
+                eepromData <<= 1;
+                gbaPtr->WriteMemory(internalDestAddr_, value, AccessSize::HALFWORD);
+                internalDestAddr_ += 2;
+                internalSrcAddr_ += 2;
+                --internalWordCount_;
+            }
+        }
+    }
+    else if (eepromWrite_)
+    {
+        // See EEPROM restrictions above.
+        if ((dmaChannelIndex_ == 3) &&
+            (dmaControl_.flags_.destAddrControl_ == 0) &&
+            (dmaControl_.flags_.srcAddrControl_ == 0) &&
+            (dmaControl_.flags_.xferType_ == 0) &&
+            ((internalWordCount_ == 9) || (internalWordCount_ == 17) || (internalWordCount_ == 73) || (internalWordCount_ == 81)))
+        {
+            if ((internalWordCount_ == 9) || (internalWordCount_ == 17))
+            {
+                // Write to set up for a EEPROM read.
+                size_t index = 0;
+                int indexLength = internalWordCount_ - 3;
+
+                // Ignore first 2 bits (which should be 0b11 to indicate a read request)
+                internalWordCount_ -= 2;
+                internalDestAddr_ += 4;
+                internalSrcAddr_ += 4;
+
+                // Get EEPROM index to read from
+                for (int i = 0; i < indexLength; ++i)
+                {
+                    index <<= 1;
+                    index |= (gbaPtr->ReadMemory(internalSrcAddr_, AccessSize::HALFWORD).first & 0x01);
+                    --internalWordCount_;
+                    internalDestAddr_ += 2;
+                    internalSrcAddr_ += 2;
+                }
+
+                // Ignore last bit (which should be 0)
+                --internalWordCount_;
+                internalDestAddr_ += 2;
+                internalSrcAddr_ += 2;
+
+                gbaPtr->gamePak_->SetEepromIndex(index, indexLength);
+            }
+            else
+            {
+                // Write double word to EEPROM
+                size_t index = 0;
+                int indexLength = internalWordCount_ - 67;
+                uint64_t doubleWord = 0;
+
+                // Ignore first 2 bits (which should be 0b10 to indicate a write request)
+                internalWordCount_ -= 2;
+                internalDestAddr_ += 4;
+                internalSrcAddr_ += 4;
+
+                // Get EEPROM index to write to
+                for (int i = 0; i < indexLength; ++i)
+                {
+                    index <<= 1;
+                    index |= (gbaPtr->ReadMemory(internalSrcAddr_, AccessSize::HALFWORD).first & 0x01);
+                    --internalWordCount_;
+                    internalDestAddr_ += 2;
+                    internalSrcAddr_ += 2;
+                }
+
+                // Get double word from memory buffer to transfer to EEPROM
+                for (int i = 0; i < 64; ++i)
+                {
+                    doubleWord <<= 1;
+                    doubleWord |= (gbaPtr->ReadMemory(internalSrcAddr_, AccessSize::HALFWORD).first & 0x01);
+                    --internalWordCount_;
+                    internalDestAddr_ += 2;
+                    internalSrcAddr_ += 2;
+                }
+
+                // Ignore last bit (which should be 0)
+                --internalWordCount_;
+                internalDestAddr_ += 2;
+                internalSrcAddr_ += 2;
+
+                gbaPtr->gamePak_->WriteToEeprom(index, indexLength, doubleWord);
+            }
+        }
+    }
+    else
+    {
+        // Normal DMA transfer
+        while (internalWordCount_ > 0)
+        {
+            auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
+            gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
+            --internalWordCount_;
+            UpdateInternalAddresses();
+        }
     }
 
     if (dmaControl_.flags_.repeat_ && (dmaControl_.flags_.startTiming_ != 0))
@@ -139,6 +259,11 @@ void DmaChannel::Execute(GameBoyAdvance* gbaPtr)
 
 void DmaChannel::PartiallyExecute(GameBoyAdvance* gbaPtr, int cycles)
 {
+    if (eepromRead_ || eepromWrite_)
+    {
+        return;
+    }
+
     int wordsToTransfer = cycles / cyclesPerTransfer_;
 
     while ((wordsToTransfer > 0) && (internalWordCount_ > 0))
@@ -160,6 +285,9 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
 
     uint8_t const readPage = (internalSrcAddr_ & 0x0F00'0000) >> 24;
     uint8_t const writePage = (internalDestAddr_ & 0x0F00'0000) >> 24;
+
+    eepromRead_ = false;
+    eepromWrite_ = false;
 
     if ((internalSrcAddr_ < 0x0800'0000) || (internalSrcAddr_ > 0x0FFF'FFFF))
     {
@@ -187,9 +315,18 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     {
         // GamePak
         romToRomDma = true;
-        int sequentialReads = ((xferAlignment_ == AccessSize::WORD) ? (2 * internalWordCount_) : internalWordCount_) - 1;
-        readCycles = gbaPtr->gamePak_->NonSequentialAccessTime() +
-                     (sequentialReads * gbaPtr->gamePak_->SequentialAccessTime(internalSrcAddr_));
+
+        if (gbaPtr->gamePak_->EepromAccess(internalSrcAddr_))
+        {
+            readCycles = internalWordCount_ * 8;
+            eepromRead_ = true;
+        }
+        else
+        {
+            int sequentialReads = ((xferAlignment_ == AccessSize::WORD) ? (2 * internalWordCount_) : internalWordCount_) - 1;
+            readCycles = gbaPtr->gamePak_->NonSequentialAccessTime() +
+                         (sequentialReads * gbaPtr->gamePak_->SequentialAccessTime(internalSrcAddr_));
+        }
     }
 
     if ((internalDestAddr_ < 0x0800'0000) || (internalDestAddr_ > 0x0FFF'FFFF))
@@ -218,7 +355,15 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     else
     {
         // GamePak
-        writeCycles = internalWordCount_;
+        if (gbaPtr->gamePak_->EepromAccess(internalDestAddr_))
+        {
+            writeCycles = internalWordCount_ * 8;
+            eepromWrite_ = true;
+        }
+        else
+        {
+            writeCycles = internalWordCount_;
+        }
     }
 
     if (romToRomDma)

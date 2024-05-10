@@ -22,6 +22,8 @@ GamePak::GamePak(fs::path const romPath) :
     romLoaded_(false),
     romTitle_(""),
     romPath_(romPath),
+    backupType_(BackupType::None),
+    eepromIndex_(0),
     waitStateControl_(0)
 {
     if (romPath.empty())
@@ -66,7 +68,25 @@ GamePak::GamePak(fs::path const romPath) :
 
         if (!saveFile.fail())
         {
-            saveFile.read(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+            uint8_t firstByte = 0;
+            saveFile.read(reinterpret_cast<char*>(&firstByte), 1);
+            auto backupType = BackupType{firstByte};
+
+            switch (backupType)
+            {
+                case BackupType::SRAM:
+                    saveFile.read(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+                    backupType_ = backupType;
+                    break;
+                case BackupType::EEPROM:
+                    EEPROM_.resize(fs::file_size(savePath) - 1);
+                    saveFile.read(reinterpret_cast<char*>(EEPROM_.data()), EEPROM_.size());
+                    backupType_ = backupType;
+                    break;
+                default:
+                    backupType_ = BackupType::None;
+                    break;
+            }
         }
     }
 
@@ -84,7 +104,19 @@ GamePak::~GamePak()
 
         if (!saveFile.fail())
         {
-            saveFile.write(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+            switch (backupType_)
+            {
+                case BackupType::None:
+                    break;
+                case BackupType::SRAM:
+                    saveFile.write(reinterpret_cast<char*>(&backupType_), 1);
+                    saveFile.write(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
+                    break;
+                case BackupType::EEPROM:
+                    saveFile.write(reinterpret_cast<char*>(&backupType_), 1);
+                    saveFile.write(reinterpret_cast<char*>(EEPROM_.data()), EEPROM_.size());
+                    break;
+            }
         }
     }
 }
@@ -96,7 +128,11 @@ std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize align
     int cycles = WaitStateCycles(waitState);
     size_t index = addr % MAX_ROM_SIZE;
 
-    if (index >= ROM_.size())
+    if ((backupType_ == BackupType::EEPROM) && EepromAccess(addr))
+    {
+        return {1, cycles, false};
+    }
+    else if (index >= ROM_.size())
     {
         return {0, cycles, true};
     }
@@ -142,6 +178,7 @@ int GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
         addr = GAME_PAK_SRAM_ADDR_MIN + (addr % (64 * KiB));
     }
 
+    backupType_ = BackupType::SRAM;
     int cycles = WaitStateCycles(3);
     uint32_t alignedAddr = AlignAddress(addr, alignment);
     size_t index = alignedAddr - GAME_PAK_SRAM_ADDR_MIN;
@@ -161,7 +198,7 @@ std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignmen
 {
     uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
     uint8_t offset = addr & 0x03;
-    uint32_t value;
+    uint32_t value = 0;
 
     switch (alignment)
     {
@@ -191,6 +228,68 @@ int GamePak::SequentialAccessTime(uint32_t addr) const
     return 1 + SequentialWaitStates[waitStateRegion][waitStateIndex];
 }
 
+bool GamePak::EepromAccess(uint32_t addr) const
+{
+    if (ROM_.size() > 16 * MiB)
+    {
+        return (GAME_PAK_EEPROM_ADDR_LARGE_CART_MIN <= addr) && (addr <= GAME_PAK_EEPROM_ADDR_MAX);
+    }
+
+    return (GAME_PAK_EEPROM_ADDR_SMALL_CART_MIN <= addr) && (addr <= GAME_PAK_EEPROM_ADDR_MAX);
+}
+
+void GamePak::SetEepromIndex(size_t index, int indexLength)
+{
+    if (EEPROM_.size() == 0)
+    {
+        if (indexLength == 6)
+        {
+            EEPROM_.resize(0x40, 0xFFFF'FFFF'FFFF'FFFF);  // 512 bytes
+        }
+        else if (indexLength == 14)
+        {
+            EEPROM_.resize(0x400, 0xFFFF'FFFF'FFFF'FFFF);  // 8 KiB
+        }
+    }
+
+    backupType_ = BackupType::EEPROM;
+    eepromIndex_ = index & 0x03FF;
+}
+
+uint64_t GamePak::GetEepromDoubleWord()
+{
+    if ((EEPROM_.size() == 0) || (eepromIndex_ >= EEPROM_.size()))
+    {
+        return 0;
+    }
+
+    backupType_ = BackupType::EEPROM;
+    return EEPROM_[eepromIndex_];
+}
+
+void GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
+{
+    if (EEPROM_.size() == 0)
+    {
+        if (indexLength == 6)
+        {
+            EEPROM_.resize(0x40, 0xFFFF'FFFF'FFFF'FFFF);  // 512 bytes
+        }
+        else if (indexLength == 14)
+        {
+            EEPROM_.resize(0x400, 0xFFFF'FFFF'FFFF'FFFF);  // 8 KiB
+        }
+    }
+
+    backupType_ = BackupType::EEPROM;
+    index &= 0x03FF;
+
+    if (index < EEPROM_.size())
+    {
+        EEPROM_[index] = doubleWord;
+    }
+}
+
 int GamePak::WaitStateRegion(uint32_t addr) const
 {
     uint8_t page = (addr & 0x0F00'0000) >> 24;
@@ -210,7 +309,6 @@ int GamePak::WaitStateRegion(uint32_t addr) const
         default:
             waitState = 0;
             break;
-            //throw std::runtime_error(std::format("Illegal wait state region. Addr: {:08X}, Page: {:02X}", addr, page));
     }
 
     return waitState;

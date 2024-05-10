@@ -94,6 +94,8 @@ private:
     int dmaChannelIndex_;
     int totalTransferCycles_;
     int cyclesPerTransfer_;
+    bool eepromRead_;
+    bool eepromWrite_;
 
     // Scheduling
     EventType dmaEvent_;
