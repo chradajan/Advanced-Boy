@@ -1123,7 +1123,7 @@ int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 
     bool carryOut = cpu.registers_.IsCarry();
 
-    uint32_t result;
+    uint32_t result = 0;
     uint32_t operand = cpu.registers_.ReadRegister(instruction_.flags.Rs);
     uint8_t shiftAmount = instruction_.flags.Offset5;
 

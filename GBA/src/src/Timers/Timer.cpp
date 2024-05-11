@@ -70,6 +70,8 @@ uint32_t Timer::ReadIoReg(uint32_t addr, AccessSize alignment)
                 case AccessSize::HALFWORD:
                     value = (timerControl_.word_ >> 16) & MAX_U16;
                     break;
+                default:
+                    break;
             }
 
             break;
@@ -136,7 +138,7 @@ int Timer::Overflow(int extraCycles)
     {
         uint64_t timerDurationInCycles = ((0x0001'0000 - internalTimer_) * GetDivider());
 
-        if (extraCycles > timerDurationInCycles)
+        if (static_cast<uint64_t>(extraCycles) > timerDurationInCycles)
         {
             numberOfOverflows += extraCycles / timerDurationInCycles;
             extraCycles = extraCycles % timerDurationInCycles;
