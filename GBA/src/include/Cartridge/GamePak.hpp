@@ -13,11 +13,22 @@ namespace fs = std::filesystem;
 
 namespace Cartridge
 {
+constexpr uint32_t EEPROM_ADDR_SMALL_CART_MIN = 0x0D00'0000;
+constexpr uint32_t EEPROM_ADDR_LARGE_CART_MIN = 0x0DFF'FF00;
+constexpr uint32_t EEPROM_ADDR_MAX = 0x0DFF'FFFF;
+
+constexpr uint32_t SRAM_FLASH_ADDR_MIN = 0x0E00'0000;
+constexpr uint32_t SRAM_FLASH_ADDR_MAX = 0x0FFF'FFFF;
+
+constexpr uint32_t MAX_ROM_SIZE = 32 * MiB;
+constexpr uint32_t ROM_ADDR_MAX = 0x0DFF'FFFF;
+
 enum class BackupType : uint8_t
 {
     None = 0,
     SRAM,
-    EEPROM
+    EEPROM,
+    FLASH
 };
 
 class GamePak
@@ -44,24 +55,18 @@ public:
     /// @return Title of ROM.
     std::string RomTitle() const { return romTitle_; }
 
-    /// @brief Read an address in GamePak ROM.
-    /// @param addr Address (will get aligned) to read.
+    /// @brief Read an address on the cartridge. Includes ROM, SRAM, EEPROM, and Flash.
+    /// @param addr Address to read.
     /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Value at specified address, number of cycles to read, and whether this read triggered open bus behavior.
-    std::tuple<uint32_t, int, bool> ReadROM(uint32_t addr, AccessSize alignment);
+    std::tuple<uint32_t, int, bool> ReadGamePak(uint32_t addr, AccessSize alignment);
 
-    /// @brief Read an address in GamePak SRAM.
-    /// @param addr Address (will get aligned) to read.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value at specified address and number of cycles to read.
-    std::pair<uint32_t, int> ReadSRAM(uint32_t addr, AccessSize alignment);
-
-    /// @brief Write to an address in GamePak SRAM.
-    /// @param addr Address (will get aligned) to write.
+    /// @brief Write to an address on the cartridge. Includes SRAM, EEPROM, and Flash.
+    /// @param addr Address to write.
     /// @param value Value to write.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles to write.
-    int WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+    /// @return Number of cycles taken to write.
+    int WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Get value of WAITCNT register.
     /// @return Value of WAITCNT and number of cycles taken to read.
@@ -72,19 +77,27 @@ public:
     /// @return Number of cycles to write.
     int WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief Get the number of cycles taken to non sequentially access an address in the GamePak.
-    /// @return Number of non sequential cycles.
-    int NonSequentialAccessTime() const;
-
-    /// @brief Get the number of cycles take to sequentially access an address in the GamePak.
+    /// @brief Check how many cycles it will take to access an address on the cartridge.
     /// @param addr Address being accessed.
-    /// @return Number of sequential cycles.
-    int SequentialAccessTime(uint32_t addr) const;
+    /// @param sequential Whether the address is sequential to the last accessed address.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Number of cycles (1 + wait states) to access the specified address.
+    int AccessTime(uint32_t addr, bool sequential, AccessSize alignment) const;
 
-    /// @brief Check if EEPROM is being accessed via DMA.
+    /// @brief Check if this cartridge contains EEPROM and the address being accessed maps to it.
     /// @param addr Address being accessed.
     /// @return True if accessing EEPROM.
     bool EepromAccess(uint32_t addr) const;
+
+    /// @brief Check if this cartridge contains SRAM and the address being accessed maps to it.
+    /// @param addr Address being accessed.
+    /// @return True if accessing SRAM.
+    bool SramAccess(uint32_t addr) const;
+
+    /// @brief Check if this cartridge contains Flash and the address being accessed maps to it.
+    /// @param addr Address being accessed.
+    /// @return True if accessing Flash.
+    bool FlashAccess(uint32_t addr) const;
 
     /// @brief Set the EEPROM index to be read from on the next EEPROM read.
     /// @param index Index to read from.
@@ -102,15 +115,21 @@ public:
     void WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord);
 
 private:
-    /// @brief Determine which region of ROM is being accessed.
-    /// @param addr ROM address being accessed.
-    /// @return Which region is being accessed.
-    int WaitStateRegion(uint32_t addr) const;
+    /// @brief Read an address in GamePak SRAM.
+    /// @param addr Address to read.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value at specified address.
+    uint32_t ReadSRAM(uint32_t addr, AccessSize alignment);
 
-    /// @brief Determine the number of cycles to read ROM or SRAM.
-    /// @param waitState Wait State 0, 1, 2 for ROM, or 3 for SRAM
-    /// @return Number of cycles to read specified wait state.
-    int WaitStateCycles(int waitState) { (void)waitState; return 1; };
+    /// @brief Write to an address in GamePak SRAM.
+    /// @param addr Address to write.
+    /// @param value Value to write.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    void WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    /// @brief Read the ROM for a string indicating what type of backup media this cartridge contains.
+    /// @return Backup type and if relevant, size of backup media in bytes.
+    std::pair<BackupType, size_t> DetectBackupType();
 
     // ROM Info
     bool romLoaded_;
@@ -122,8 +141,7 @@ private:
 
     // Backup Media
     BackupType backupType_;
-    std::array<uint8_t, 64 * KiB> SRAM_;
-    std::vector<uint64_t> EEPROM_;
+    std::vector<uint8_t> backupMedia_;
     size_t eepromIndex_;
 
     // Prefetch buffer and access timing info

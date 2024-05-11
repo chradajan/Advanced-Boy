@@ -315,18 +315,9 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     {
         // GamePak
         romToRomDma = true;
-
-        if (gbaPtr->gamePak_->EepromAccess(internalSrcAddr_))
-        {
-            readCycles = internalWordCount_ * 8;
-            eepromRead_ = true;
-        }
-        else
-        {
-            int sequentialReads = ((xferAlignment_ == AccessSize::WORD) ? (2 * internalWordCount_) : internalWordCount_) - 1;
-            readCycles = gbaPtr->gamePak_->NonSequentialAccessTime() +
-                         (sequentialReads * gbaPtr->gamePak_->SequentialAccessTime(internalSrcAddr_));
-        }
+        readCycles = gbaPtr->gamePak_->AccessTime(internalSrcAddr_, false, xferAlignment_);
+        readCycles += (gbaPtr->gamePak_->AccessTime(internalSrcAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        eepromRead_ = gbaPtr->gamePak_->EepromAccess(internalSrcAddr_);
     }
 
     if ((internalDestAddr_ < 0x0800'0000) || (internalDestAddr_ > 0x0FFF'FFFF))
@@ -355,15 +346,9 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     else
     {
         // GamePak
-        if (gbaPtr->gamePak_->EepromAccess(internalDestAddr_))
-        {
-            writeCycles = internalWordCount_ * 8;
-            eepromWrite_ = true;
-        }
-        else
-        {
-            writeCycles = internalWordCount_;
-        }
+        writeCycles = gbaPtr->gamePak_->AccessTime(internalDestAddr_, false, xferAlignment_);
+        writeCycles += (gbaPtr->gamePak_->AccessTime(internalDestAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        eepromWrite_ = gbaPtr->gamePak_->EepromAccess(internalDestAddr_);
     }
 
     if (romToRomDma)

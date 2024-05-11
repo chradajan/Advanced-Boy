@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 #include <System/MemoryMap.hpp>
 #include <System/Utilities.hpp>
@@ -58,7 +59,17 @@ GamePak::GamePak(fs::path const romPath) :
         titleStream << static_cast<char>(titleChar);
     }
 
-    // Check for save file
+    romTitle_ = titleStream.str();
+
+    // Setup backup media and load save file if present
+    auto [backupType, backupSize] = DetectBackupType();
+    backupType_ = backupType;
+
+    if ((backupType != BackupType::None) && (backupSize > 0))
+    {
+        backupMedia_.resize(backupSize, 0xFF);
+    }
+
     fs::path savePath = romPath;
     savePath.replace_extension("sav");
 
@@ -68,130 +79,96 @@ GamePak::GamePak(fs::path const romPath) :
 
         if (!saveFile.fail())
         {
-            uint8_t firstByte = 0;
-            saveFile.read(reinterpret_cast<char*>(&firstByte), 1);
-            auto backupType = BackupType{firstByte};
-
             switch (backupType)
             {
                 case BackupType::SRAM:
-                    saveFile.read(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
-                    backupType_ = backupType;
+                {
+                    if (fs::file_size(savePath) == backupMedia_.size())
+                    {
+                        saveFile.read(reinterpret_cast<char*>(backupMedia_.data()), backupMedia_.size());
+                    }
+
                     break;
+                }
                 case BackupType::EEPROM:
-                    EEPROM_.resize(fs::file_size(savePath) - 1);
-                    saveFile.read(reinterpret_cast<char*>(EEPROM_.data()), EEPROM_.size());
-                    backupType_ = backupType;
+                {
+                    size_t eepromSize = fs::file_size(savePath);
+
+                    if ((eepromSize == 512) || (eepromSize == 8 * KiB))
+                    {
+                        backupMedia_.resize(eepromSize);
+                        saveFile.read(reinterpret_cast<char*>(backupMedia_.data()), backupMedia_.size());
+                    }
+
+                    break;
+                }
+                case BackupType::FLASH:
                     break;
                 default:
-                    backupType_ = BackupType::None;
                     break;
             }
         }
     }
 
-    romTitle_ = titleStream.str();
     romLoaded_ = true;
 }
 
 GamePak::~GamePak()
 {
-    if (!romPath_.empty())
+    if (!romPath_.empty() && !backupMedia_.empty())
     {
         fs::path savePath = romPath_;
         savePath.replace_extension("sav");
         std::ofstream saveFile(savePath, std::ios::binary);
 
-        if (!saveFile.fail())
+        if (!saveFile.fail() && !backupMedia_.empty())
         {
-            switch (backupType_)
-            {
-                case BackupType::None:
-                    break;
-                case BackupType::SRAM:
-                    saveFile.write(reinterpret_cast<char*>(&backupType_), 1);
-                    saveFile.write(reinterpret_cast<char*>(SRAM_.data()), SRAM_.size());
-                    break;
-                case BackupType::EEPROM:
-                    saveFile.write(reinterpret_cast<char*>(&backupType_), 1);
-                    saveFile.write(reinterpret_cast<char*>(EEPROM_.data()), EEPROM_.size());
-                    break;
-            }
+            saveFile.write(reinterpret_cast<char*>(backupMedia_.data()), backupMedia_.size());
         }
     }
 }
 
-std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize alignment)
+std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize alignment)
 {
     addr = AlignAddress(addr, alignment);
-    int waitState = WaitStateRegion(addr);
-    int cycles = WaitStateCycles(waitState);
+    int accessTime = AccessTime(addr, false, alignment);
+
+    if (EepromAccess(addr))
+    {
+        return {1, accessTime, false};
+    }
+    else if (SramAccess(addr))
+    {
+        return {ReadSRAM(addr, alignment), accessTime, false};
+    }
+    else if (FlashAccess(addr))
+    {
+        return {0, accessTime, false};
+    }
+
     size_t index = addr % MAX_ROM_SIZE;
 
-    if ((backupType_ == BackupType::EEPROM) && EepromAccess(addr))
+    if ((addr > ROM_ADDR_MAX) || ((index + static_cast<uint8_t>(alignment)) > ROM_.size()))
     {
-        return {1, cycles, false};
-    }
-    else if (index >= ROM_.size())
-    {
-        return {0, cycles, true};
-    }
-    else if (index + static_cast<uint8_t>(alignment) > ROM_.size())
-    {
-        return {0, cycles, false};
+        return {0, 1, true};
     }
 
-    uint8_t* bytePtr = &(ROM_.at(index));
+    uint8_t* bytePtr = &ROM_[index];
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, cycles, false};
+    return {value, 1, false};  // TODO: Implement prefetch buffer and actual timing
 }
 
-std::pair<uint32_t, int> GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
+int GamePak::WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    if (addr > GAME_PAK_SRAM_ADDR_MAX)
+    int accessTime = AccessTime(addr, false, alignment);
+
+    if (SramAccess(addr))
     {
-        addr = GAME_PAK_SRAM_ADDR_MIN + (addr % (64 * KiB));
+        WriteSRAM(addr, value, alignment);
+        return accessTime;
     }
 
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - GAME_PAK_SRAM_ADDR_MIN;
-    uint8_t* bytePtr = &(SRAM_.at(index));
-    uint32_t value = ReadPointer(bytePtr, AccessSize::BYTE);
-    int cycles = WaitStateCycles(3);
-
-    if (alignment == AccessSize::HALFWORD)
-    {
-        value *= 0x0101;
-    }
-    else if (alignment == AccessSize::WORD)
-    {
-        value *= 0x0101'0101;
-    }
-
-    return {value, cycles};
-}
-
-int GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    if (addr > GAME_PAK_SRAM_ADDR_MAX)
-    {
-        addr = GAME_PAK_SRAM_ADDR_MIN + (addr % (64 * KiB));
-    }
-
-    backupType_ = BackupType::SRAM;
-    int cycles = WaitStateCycles(3);
-    uint32_t alignedAddr = AlignAddress(addr, alignment);
-    size_t index = alignedAddr - GAME_PAK_SRAM_ADDR_MIN;
-    uint8_t* bytePtr = &(SRAM_.at(index));
-
-    if (alignment != AccessSize::BYTE)
-    {
-        value = std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
-        alignment = AccessSize::BYTE;
-    }
-
-    WritePointer(bytePtr, value, alignment);
-    return cycles;
+    return 1;
 }
 
 std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignment)
@@ -216,102 +193,146 @@ std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignmen
     return {value, 1};
 }
 
-int GamePak::NonSequentialAccessTime() const
-{
-    return 1 + NonSequentialWaitStates[waitStateControl_.flags_.waitState0FirstAccess];
-}
-
-int GamePak::SequentialAccessTime(uint32_t addr) const
-{
-    int waitStateRegion = WaitStateRegion(addr);
-    int waitStateIndex = (waitStateControl_.word_ >> (4 + (3 * waitStateRegion))) & 0x01;
-    return 1 + SequentialWaitStates[waitStateRegion][waitStateIndex];
-}
-
 bool GamePak::EepromAccess(uint32_t addr) const
 {
-    if (ROM_.size() > 16 * MiB)
+    if (backupType_ != BackupType::EEPROM)
     {
-        return (GAME_PAK_EEPROM_ADDR_LARGE_CART_MIN <= addr) && (addr <= GAME_PAK_EEPROM_ADDR_MAX);
+        return false;
     }
 
-    return (GAME_PAK_EEPROM_ADDR_SMALL_CART_MIN <= addr) && (addr <= GAME_PAK_EEPROM_ADDR_MAX);
+    if (ROM_.size() > 16 * MiB)
+    {
+        return (EEPROM_ADDR_LARGE_CART_MIN <= addr) && (addr <= EEPROM_ADDR_MAX);
+    }
+
+    return (EEPROM_ADDR_SMALL_CART_MIN <= addr) && (addr <= EEPROM_ADDR_MAX);
+}
+
+bool GamePak::SramAccess(uint32_t addr) const
+{
+    return (backupType_ == BackupType::SRAM) && (SRAM_FLASH_ADDR_MIN <= addr) && (addr <= SRAM_FLASH_ADDR_MAX);
+}
+
+bool GamePak::FlashAccess(uint32_t addr) const
+{
+    return (backupType_ == BackupType::FLASH) && (SRAM_FLASH_ADDR_MIN <= addr) && (addr <= SRAM_FLASH_ADDR_MAX);
 }
 
 void GamePak::SetEepromIndex(size_t index, int indexLength)
 {
-    if (EEPROM_.size() == 0)
+    if (backupType_ != BackupType::EEPROM)
+    {
+        return;
+    }
+
+    if (backupMedia_.empty())
     {
         if (indexLength == 6)
         {
-            EEPROM_.resize(0x40, 0xFFFF'FFFF'FFFF'FFFF);  // 512 bytes
+            backupMedia_.resize(512, 0xFF);
         }
         else if (indexLength == 14)
         {
-            EEPROM_.resize(0x400, 0xFFFF'FFFF'FFFF'FFFF);  // 8 KiB
+            backupMedia_.resize(8 * KiB, 0xFF);
         }
     }
 
-    backupType_ = BackupType::EEPROM;
     eepromIndex_ = index & 0x03FF;
 }
 
 uint64_t GamePak::GetEepromDoubleWord()
 {
-    if ((EEPROM_.size() == 0) || (eepromIndex_ >= EEPROM_.size()))
+    if ((backupType_ != BackupType::EEPROM) || backupMedia_.empty() || ((eepromIndex_ * 8) >= backupMedia_.size()))
     {
-        return 0;
+        return 0xFFFF'FFFF'FFFF'FFFF;
     }
 
-    backupType_ = BackupType::EEPROM;
-    return EEPROM_[eepromIndex_];
+    uint64_t* eepromPtr = reinterpret_cast<uint64_t*>(backupMedia_.data());
+    return eepromPtr[eepromIndex_];
 }
 
 void GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
 {
-    if (EEPROM_.size() == 0)
+    if (backupType_ != BackupType::EEPROM)
+    {
+        return;
+    }
+
+    if (backupMedia_.empty())
     {
         if (indexLength == 6)
         {
-            EEPROM_.resize(0x40, 0xFFFF'FFFF'FFFF'FFFF);  // 512 bytes
+            backupMedia_.resize(512, 0xFF);
         }
         else if (indexLength == 14)
         {
-            EEPROM_.resize(0x400, 0xFFFF'FFFF'FFFF'FFFF);  // 8 KiB
+            backupMedia_.resize(8 * KiB, 0xFF);
         }
     }
 
-    backupType_ = BackupType::EEPROM;
     index &= 0x03FF;
 
-    if (index < EEPROM_.size())
+    if ((index * 8) < backupMedia_.size())
     {
-        EEPROM_[index] = doubleWord;
+        uint64_t* eepromPtr = reinterpret_cast<uint64_t*>(backupMedia_.data());
+        eepromPtr[index] = doubleWord;
     }
 }
 
-int GamePak::WaitStateRegion(uint32_t addr) const
+int GamePak::AccessTime(uint32_t addr, bool sequential, AccessSize alignment) const
 {
     uint8_t page = (addr & 0x0F00'0000) >> 24;
-    int waitState = 0;
+    int firstAccess = 0;
+    int secondAccess = 0;
 
     switch (page)
     {
         case 0x08 ... 0x09:
-            waitState = 0;
+        {
+            firstAccess = 1 + (sequential ? SequentialWaitStates[0][waitStateControl_.flags_.waitState0SecondAccess] :
+                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState0FirstAccess]);
+
+            if (alignment == AccessSize::WORD)
+            {
+                secondAccess = 1 + SequentialWaitStates[0][waitStateControl_.flags_.waitState0SecondAccess];
+            }
+
             break;
+        }
         case 0x0A ... 0x0B:
-            waitState = 1;
+        {
+            firstAccess = 1 + (sequential ? SequentialWaitStates[1][waitStateControl_.flags_.waitState1SecondAccess] :
+                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState1FirstAccess]);
+
+            if (alignment == AccessSize::WORD)
+            {
+                secondAccess = 1 + SequentialWaitStates[1][waitStateControl_.flags_.waitState1SecondAccess];
+            }
+
             break;
+        }
         case 0x0C ... 0x0D:
-            waitState = 2;
+        {
+            firstAccess = 1 + (sequential ? SequentialWaitStates[2][waitStateControl_.flags_.waitState2SecondAccess] :
+                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState2FirstAccess]);
+
+            if (alignment == AccessSize::WORD)
+            {
+                secondAccess = 1 + SequentialWaitStates[2][waitStateControl_.flags_.waitState2SecondAccess];
+            }
+
+            break;
+        }
+        case 0x0E:
+            firstAccess = 1 + NonSequentialWaitStates[waitStateControl_.flags_.sramWaitCtrl];
             break;
         default:
-            waitState = 0;
+            firstAccess = 1;
+            secondAccess = (alignment == AccessSize::WORD) ? 1 : 0;
             break;
     }
 
-    return waitState;
+    return firstAccess + secondAccess;
 }
 
 int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
@@ -333,5 +354,71 @@ int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
     }
 
     return 1;
+}
+
+uint32_t GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
+{
+    addr = AlignAddress(addr, alignment);
+    size_t index = (addr - SRAM_FLASH_ADDR_MIN) % backupMedia_.size();
+    uint8_t* bytePtr = &backupMedia_[index];
+    uint32_t value = ReadPointer(bytePtr, AccessSize::BYTE);
+
+    if (alignment == AccessSize::HALFWORD)
+    {
+        value *= 0x0101;
+    }
+    else if (alignment == AccessSize::WORD)
+    {
+        value *= 0x0101'0101;
+    }
+
+    return value;
+}
+
+void GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    addr = AlignAddress(addr, alignment);
+    size_t index = (addr - SRAM_FLASH_ADDR_MIN) % backupMedia_.size();
+    uint8_t* bytePtr = &backupMedia_[index];
+
+    if (alignment != AccessSize::BYTE)
+    {
+        value = std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
+        alignment = AccessSize::BYTE;
+    }
+
+    WritePointer(bytePtr, value, alignment);
+}
+
+std::pair<BackupType, size_t> GamePak::DetectBackupType()
+{
+    for (size_t i = 0; (i + 11) < ROM_.size(); i += 4)
+    {
+        char* start = reinterpret_cast<char*>(&ROM_[i]);
+        std::string idString;
+        idString.assign(start, 12);
+
+        if (idString.starts_with("EEPROM_V"))
+        {
+            return {BackupType::EEPROM, 0};
+        }
+        else if (idString.starts_with("SRAM_V"))
+        {
+            return {BackupType::SRAM, 32 * KiB};
+        }
+        else if (idString.starts_with("FLASH"))
+        {
+            if (idString.starts_with("FLASH_V") || idString.starts_with("FLASH512_V"))
+            {
+                return {BackupType::FLASH, 64 * KiB};
+            }
+            else if (idString.starts_with("FLASH1M_V"))
+            {
+                return {BackupType::FLASH, 128 * KiB};
+            }
+        }
+    }
+
+    return {BackupType::None, 0};
 }
 }

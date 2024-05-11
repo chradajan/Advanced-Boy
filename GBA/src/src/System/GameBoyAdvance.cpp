@@ -108,11 +108,11 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
         case 0x07:  // OAM
             std::tie(value, cycles) = ReadOAM(addr, alignment);
             break;
-        case 0x08 ... 0x0D:  // GamePak ROM/FlashROM
+        case 0x08 ... 0x0F:  // GamePak
         {
-            if (addr <= GAME_PAK_ROM_ADDR_MAX)
+            if (addr <= GAME_PAK_ADDR_MAX)
             {
-                std::tie(value, cycles, openBus) = gamePak_->ReadROM(addr, alignment);
+                std::tie(value, cycles, openBus) = gamePak_->ReadGamePak(addr, alignment);
             }
             else
             {
@@ -121,9 +121,6 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
 
             break;
         }
-        case 0x0E ... 0x0F:  // GamePak SRAM
-            std::tie(value, cycles) = gamePak_->ReadSRAM(addr, alignment);
-            break;
         default:
             openBus = true;
             break;
@@ -176,11 +173,15 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
         case 0x07:  // OAM
             cycles = WriteOAM(addr, value, alignment);
             break;
-        case 0x08 ... 0x0D:  // GamePak ROM/FlashROM
+        case 0x08 ... 0x0F:  // GamePak
+        {
+            if (addr <= GAME_PAK_ADDR_MAX)
+            {
+                cycles = gamePak_->WriteGamePak(addr, value, alignment);
+            }
+
             break;
-        case 0x0E ... 0x0F:  // GamePak SRAM
-            cycles = gamePak_->WriteSRAM(addr, value, alignment);
-            break;
+        }
         default:
             cycles = 1;
             break;
