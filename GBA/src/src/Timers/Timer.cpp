@@ -33,7 +33,7 @@ uint32_t Timer::ReadIoReg(uint32_t addr, AccessSize alignment)
     size_t index = addr & 0x03;
     uint32_t value = 0;
 
-    if (timerControl_.flags_.start_ && (addr < 2))
+    if (timerControl_.flags_.start_ && (index < 2))
     {
         UpdateInternalCounter(GetDivider());
     }
