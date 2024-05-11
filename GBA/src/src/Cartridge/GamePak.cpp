@@ -1,4 +1,5 @@
 #include <Cartridge/GamePak.hpp>
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -17,6 +18,30 @@
 static constexpr int NonSequentialWaitStates[4] = {4, 3, 2, 8};
 static constexpr int SequentialWaitStates[3][2] = { {2, 1}, {4, 1}, {8, 1} };
 
+namespace
+{
+uint32_t Read8BitBus(uint8_t byte, AccessSize alignment)
+{
+    uint32_t value = byte;
+
+    if (alignment == AccessSize::HALFWORD)
+    {
+        value *= 0x0101;
+    }
+    else if (alignment == AccessSize::WORD)
+    {
+        value *= 0x0101'0101;
+    }
+
+    return value;
+}
+
+uint8_t Write8BitBus(uint32_t addr, uint32_t value)
+{
+    return std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
+}
+}
+
 namespace Cartridge
 {
 GamePak::GamePak(fs::path const romPath) :
@@ -25,6 +50,10 @@ GamePak::GamePak(fs::path const romPath) :
     romPath_(romPath),
     backupType_(BackupType::None),
     eepromIndex_(0),
+    flashState_(FlashState::READY),
+    chipIdMode_(false),
+    eraseMode_(false),
+    flashBank_(0),
     waitStateControl_(0)
 {
     if (romPath.empty())
@@ -82,6 +111,7 @@ GamePak::GamePak(fs::path const romPath) :
             switch (backupType)
             {
                 case BackupType::SRAM:
+                case BackupType::FLASH:
                 {
                     if (fs::file_size(savePath) == backupMedia_.size())
                     {
@@ -102,8 +132,6 @@ GamePak::GamePak(fs::path const romPath) :
 
                     break;
                 }
-                case BackupType::FLASH:
-                    break;
                 default:
                     break;
             }
@@ -143,7 +171,7 @@ std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize a
     }
     else if (FlashAccess(addr))
     {
-        return {0, accessTime, false};
+        return {ReadFlash(addr, alignment), accessTime, false};
     }
 
     size_t index = addr % MAX_ROM_SIZE;
@@ -160,11 +188,17 @@ std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize a
 
 int GamePak::WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment)
 {
+    addr = AlignAddress(addr, alignment);
     int accessTime = AccessTime(addr, false, alignment);
 
     if (SramAccess(addr))
     {
         WriteSRAM(addr, value, alignment);
+        return accessTime;
+    }
+    else if (FlashAccess(addr))
+    {
+        WriteFlash(addr, value, alignment);
         return accessTime;
     }
 
@@ -358,18 +392,12 @@ int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
 
 uint32_t GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
     size_t index = (addr - SRAM_FLASH_ADDR_MIN) % backupMedia_.size();
-    uint8_t* bytePtr = &backupMedia_[index];
-    uint32_t value = ReadPointer(bytePtr, AccessSize::BYTE);
+    uint32_t value = backupMedia_[index];
 
-    if (alignment == AccessSize::HALFWORD)
+    if (alignment != AccessSize::BYTE)
     {
-        value *= 0x0101;
-    }
-    else if (alignment == AccessSize::WORD)
-    {
-        value *= 0x0101'0101;
+        value = Read8BitBus(value, alignment);
     }
 
     return value;
@@ -377,17 +405,179 @@ uint32_t GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
 
 void GamePak::WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
+    if (alignment != AccessSize::BYTE)
+    {
+        value = Write8BitBus(addr, value);
+    }
+
     size_t index = (addr - SRAM_FLASH_ADDR_MIN) % backupMedia_.size();
-    uint8_t* bytePtr = &backupMedia_[index];
+    backupMedia_[index] = value;
+}
+
+uint32_t GamePak::ReadFlash(uint32_t addr, AccessSize alignment)
+{
+    if (addr > 0x0E00'FFFF)
+    {
+        addr = (addr % (64 * KiB)) + SRAM_FLASH_ADDR_MIN;
+    }
+
+    uint32_t value = 0;
+
+    if (chipIdMode_ && (addr == 0x0E00'0000))
+    {
+        value = (backupMedia_.size() == 0x0001'0000) ? 0x32 : 0x62;
+    }
+    else if (chipIdMode_ && (addr == 0x0E00'0001))
+    {
+        value = (backupMedia_.size() == 0x0001'0000) ? 0x1B : 0x13;
+    }
+    else
+    {
+        size_t index = ((addr - SRAM_FLASH_ADDR_MIN) + (flashBank_ * 64 * KiB)) % backupMedia_.size();
+        value = backupMedia_[index];
+    }
 
     if (alignment != AccessSize::BYTE)
     {
-        value = std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
+        value = Read8BitBus(value, alignment);
+    }
+
+    return value;
+}
+
+void GamePak::WriteFlash(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    uint8_t byte = value & MAX_U8;
+
+    if (alignment != AccessSize::BYTE)
+    {
+        byte = Write8BitBus(addr, value);
         alignment = AccessSize::BYTE;
     }
 
-    WritePointer(bytePtr, value, alignment);
+    auto cmd = FlashCommand{byte};
+
+    if (addr > 0x0E00'FFFF)
+    {
+        addr = (addr % (64 * KiB)) + SRAM_FLASH_ADDR_MIN;
+    }
+
+    switch (flashState_)
+    {
+        case FlashState::READY:
+        {
+            if ((addr == 0x0E00'5555) && (cmd == FlashCommand::START_CMD_SEQ))
+            {
+                flashState_ = FlashState::CMD_SEQ_STARTED;
+            }
+
+            break;
+        }
+        case FlashState::CMD_SEQ_STARTED:
+        {
+            if ((addr == 0x0E00'2AAA) && (cmd == FlashCommand::AWAIT_CMD))
+            {
+                flashState_ = FlashState::AWAITING_CMD;
+            }
+
+            break;
+        }
+        case FlashState::AWAITING_CMD:
+        {
+            if (addr != 0x0E00'5555)
+            {
+                break;
+            }
+
+            switch (cmd)
+            {
+                case FlashCommand::ENTER_CHIP_ID_MODE:
+                    chipIdMode_ = true;
+                    flashState_ = FlashState::READY;
+                    break;
+                case FlashCommand::EXIT_CHIP_ID_MODE:
+                    chipIdMode_ = false;
+                    flashState_ = FlashState::READY;
+                    break;
+                case FlashCommand::PREPARE_TO_RCV_ERASE_CMD:
+                    flashState_ = FlashState::ERASE_SEQ_READY;
+                    break;
+                case FlashCommand::PREPARE_TO_WRITE_BYTE:
+                    flashState_ = FlashState::PREPARE_TO_WRITE;
+                    break;
+                case FlashCommand::SET_MEMORY_BANK:
+                    flashState_ = FlashState::AWAITING_MEMORY_BANK;
+                    break;
+                default:
+                    break;
+            }
+
+            break;
+        }
+        case FlashState::ERASE_SEQ_READY:
+        {
+            if ((addr == 0x0E00'5555) && (cmd == FlashCommand::START_CMD_SEQ))
+            {
+                flashState_ = FlashState::ERASE_SEQ_STARTED;
+            }
+
+            break;
+        }
+        case FlashState::ERASE_SEQ_STARTED:
+        {
+            if ((addr == 0x0E00'2AAA) && (cmd == FlashCommand::AWAIT_CMD))
+            {
+                flashState_ = FlashState::AWAITING_ERASE_CMD;
+            }
+
+            break;
+        }
+        case FlashState::AWAITING_ERASE_CMD:
+        {
+            switch (cmd)
+            {
+                case FlashCommand::ERASE_ENTIRE_CHIP:
+                {
+                    if (addr == 0x0E00'5555)
+                    {
+                        std::fill(backupMedia_.begin(), backupMedia_.end(), 0xFF);
+                        flashState_ = FlashState::READY;
+                    }
+
+                    break;
+                }
+                case FlashCommand::ERASE_4K_SECTOR:
+                {
+                    size_t index = (addr & 0x0000'F000) + (flashBank_ * 64 * KiB);
+                    std::fill(backupMedia_.begin() + index, backupMedia_.begin() + index + 0x1000, 0xFF);
+                    flashState_ = FlashState::READY;
+                    break;
+                }
+                default:
+                    break;
+            }
+
+            break;
+        }
+        case FlashState::PREPARE_TO_WRITE:
+        {
+            size_t index = ((addr - SRAM_FLASH_ADDR_MIN) + (flashBank_ * 64 * KiB)) % backupMedia_.size();
+            backupMedia_[index] = byte;
+            flashState_ = FlashState::READY;
+            break;
+        }
+        case FlashState::AWAITING_MEMORY_BANK:
+        {
+            if (addr != 0x0E00'0000)
+            {
+                break;
+            }
+
+            flashBank_ = byte & 0x01;
+            flashState_ = FlashState::READY;
+            break;
+        }
+    }
 }
 
 std::pair<BackupType, size_t> GamePak::DetectBackupType()

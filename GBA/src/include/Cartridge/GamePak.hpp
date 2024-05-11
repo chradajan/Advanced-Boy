@@ -31,6 +31,40 @@ enum class BackupType : uint8_t
     FLASH
 };
 
+enum class FlashCommand : uint8_t
+{
+    START_CMD_SEQ = 0xAA,
+    AWAIT_CMD = 0x55,
+
+    ENTER_CHIP_ID_MODE = 0x90,
+    EXIT_CHIP_ID_MODE = 0xF0,
+
+    PREPARE_TO_RCV_ERASE_CMD = 0x80,
+    ERASE_ENTIRE_CHIP = 0x10,
+    ERASE_4K_SECTOR = 0x30,
+
+    PREPARE_TO_WRITE_BYTE = 0xA0,
+
+    SET_MEMORY_BANK = 0xB0,
+
+    TERMINATE_WRITE_ERASE_CMD = 0xF0
+};
+
+enum class FlashState
+{
+    READY,
+    CMD_SEQ_STARTED,
+    AWAITING_CMD,
+
+    ERASE_SEQ_READY,
+    ERASE_SEQ_STARTED,
+    AWAITING_ERASE_CMD,
+
+    PREPARE_TO_WRITE,
+
+    AWAITING_MEMORY_BANK
+};
+
 class GamePak
 {
 public:
@@ -127,6 +161,18 @@ private:
     /// @param alignment BYTE, HALFWORD, or WORD.
     void WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
+    /// @brief Read from an address in GamePak flash.
+    /// @param addr Address to read.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @return Value at specified address.
+    uint32_t ReadFlash(uint32_t addr, AccessSize alignment);
+
+    /// @brief Write to GamePak flash and interpret flash commands.
+    /// @param addr Address to write.
+    /// @param value Value to write or flash command.
+    /// @param alignment BYTE, HALFWORD, or WORD.
+    void WriteFlash(uint32_t addr, uint32_t value, AccessSize alignment);
+
     /// @brief Read the ROM for a string indicating what type of backup media this cartridge contains.
     /// @return Backup type and if relevant, size of backup media in bytes.
     std::pair<BackupType, size_t> DetectBackupType();
@@ -143,6 +189,10 @@ private:
     BackupType backupType_;
     std::vector<uint8_t> backupMedia_;
     size_t eepromIndex_;
+    FlashState flashState_;
+    bool chipIdMode_;
+    bool eraseMode_;
+    size_t flashBank_;
 
     // Prefetch buffer and access timing info
     uint32_t lastAddrRead_;
