@@ -42,9 +42,20 @@ std::tuple<uint32_t, int, bool> DmaChannel::ReadRegister(uint32_t addr, AccessSi
 {
     size_t index = addr % 12;
 
-    if (index < 8)
+    if ((index < 8) || (index == 9))
     {
         return {0, 1, true};
+    }
+    else if (index == 8)
+    {
+        if (alignment == AccessSize::WORD)
+        {
+            return {0, 1, false};
+        }
+        else
+        {
+            return {0, 1, true};
+        }
     }
 
     uint8_t* bytePtr = &dmaChannelRegisters_[index];
@@ -75,6 +86,10 @@ int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignmen
         internalSrcAddr_ = SAD_ & (dmaChannelIndex_ == 0 ? 0x07FF'FFFF : 0x0FFF'FFFF);
         internalDestAddr_ = DAD_ & (dmaChannelIndex_ == 3 ? 0x0FFF'FFFF : 0x07FF'FFFF);
         xferAlignment_ = dmaControl_.flags_.xferType_ ? AccessSize::WORD : AccessSize::HALFWORD;
+
+        internalSrcAddr_ = AlignAddress(internalSrcAddr_, xferAlignment_);
+        internalDestAddr_ = AlignAddress(internalDestAddr_, xferAlignment_);
+
         SetInternalWordCount();
         ScheduleTransfer(gbaPtr);
     }
@@ -83,12 +98,14 @@ int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignmen
         gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
+        gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = false;
     }
     else if (nowEnabled && (previousTiming != currentTiming))
     {
         gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
+        gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = false;
 
         switch (currentTiming)
         {
@@ -99,7 +116,14 @@ int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignmen
                 gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = true;
                 break;
             case 3:  // Special
+            {
+                if ((dmaChannelIndex_ == 1) || (dmaChannelIndex_ == 2))
+                {
+                    gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = true;
+                }
+
                 break;
+            }
         }
     }
 
@@ -376,7 +400,13 @@ void DmaChannel::ScheduleTransfer(GameBoyAdvance* gbaPtr)
             gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = true;
             break;
         case 3:  // Special
+        {
+            if ((dmaChannelIndex_ == 1) || (dmaChannelIndex_ == 2))
+            {
+                gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = true;
+            }
             break;
+        }
     }
 }
 

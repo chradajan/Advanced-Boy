@@ -35,6 +35,7 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     dmaImmediately_.fill(false);
     dmaOnVBlank_.fill(false);
     dmaOnHBlank_.fill(false);
+    dmaSoundFifo_.fill(false);
     activeDmaChannel_ = {};
 
     // Open bus
@@ -762,6 +763,7 @@ int GameBoyAdvance::WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize a
 std::pair<uint32_t, int> GameBoyAdvance::ReadOpenBus(uint32_t addr, AccessSize alignment)
 {
     uint32_t value = lastReadValue_;
+    (void)addr;
 
     switch (alignment)
     {

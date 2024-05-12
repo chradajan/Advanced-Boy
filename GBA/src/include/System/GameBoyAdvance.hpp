@@ -151,6 +151,7 @@ private:
     std::array<bool, 4> dmaImmediately_;
     std::array<bool, 4> dmaOnVBlank_;
     std::array<bool, 4> dmaOnHBlank_;
+    std::array<bool, 4> dmaSoundFifo_;
     std::optional<int> activeDmaChannel_;
 
     // Memory
