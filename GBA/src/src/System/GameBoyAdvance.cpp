@@ -39,6 +39,7 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
 
     // Open bus
     lastBiosFetch_ = 0;
+    lastReadValue_ = 0;
 
     Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
     Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
@@ -55,8 +56,8 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
 {
     uint8_t page = (addr & 0x0F00'0000) >> 24;
-    uint32_t value;
-    int cycles;
+    uint32_t value = 0;
+    int cycles = 1;
     bool openBus = false;
 
     if (addr & 0xF000'0000)
@@ -129,6 +130,10 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
     if (openBus)
     {
         std::tie(value, cycles) = ReadOpenBus(addr, alignment);
+    }
+    else
+    {
+        lastReadValue_ = value;
     }
 
     return {value, cycles};
@@ -754,13 +759,22 @@ int GameBoyAdvance::WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize a
     return dmaChannels_[channelIndex].WriteRegister(addr, value, alignment, this);
 }
 
-// Open Bus (TODO)
-
 std::pair<uint32_t, int> GameBoyAdvance::ReadOpenBus(uint32_t addr, AccessSize alignment)
 {
-    (void)addr; (void)alignment;
-    return {0, 1};
+    uint32_t value = lastReadValue_;
 
-    throw std::runtime_error(
-        std::format("Open bus not implemented. Addr: {:08X}, Access Size: {}", addr, static_cast<uint8_t>(alignment)));
+    switch (alignment)
+    {
+        case AccessSize::BYTE:
+            value = lastReadValue_ & MAX_U8;
+            break;
+        case AccessSize::HALFWORD:
+            value = lastReadValue_ & MAX_U16;
+            break;
+        case AccessSize::WORD:
+            value = lastReadValue_;
+            break;
+    }
+
+    return {value, 1};
 }

@@ -165,6 +165,7 @@ private:
 
     // Open bus
     uint32_t lastBiosFetch_;
+    uint32_t lastReadValue_;
 
     // Friends
     friend class DmaChannel;
