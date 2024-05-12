@@ -880,7 +880,14 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             if (oamEntry.attribute0_.colorMode_)
             {
                 // 8bpp
-                continue;
+                if (oamEntry.attribute0_.objMode_ == 0)
+                {
+                    Render1d8bppRegularSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
+                else
+                {
+                    Render1d8bppAffineSprite(x, y, width, height, oamEntry, windowSettingsPtr);
+                }
             }
             else
             {
@@ -997,6 +1004,79 @@ void PPU::Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntr
             ++dot;
             leftHalf = !leftHalf;
             tileX += (horizontalFlip ? -1 : 1);
+        }
+    }
+}
+
+void PPU::Render1d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    TileData8bpp const* tileDataPtr = nullptr;
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+
+    int const widthInTiles = width / 8;
+    int const heightInTiles = height / 8;
+
+    bool const verticalFlip = oamEntry.attribute1_.noRotationOrScaling_.verticalFlip_;
+    bool const horizontalFlip = oamEntry.attribute1_.noRotationOrScaling_.horizontalFlip_;
+
+    size_t const verticalOffset = verticalFlip ? (heightInTiles - ((scanline_ - y) / 8) - 1) * widthInTiles * sizeof(TileData8bpp) :
+                                                 ((scanline_ - y) / 8) * widthInTiles * sizeof(TileData8bpp);
+
+    size_t const baseVramIndex = (oamEntry.attribute2_.tile_ * sizeof(TileData4bpp)) + verticalOffset;
+
+    size_t const tileY = verticalFlip ?
+        ((scanline_ - y) % 8) ^ 7 :
+        (scanline_ - y) % 8;
+
+    int const leftEdge = std::max(0, x);
+    int const rightEdge = std::min(240, x + width);
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const semiTransparent = (oamEntry.attribute0_.gfxMode_ == 1);
+
+    for (int dot = leftEdge; dot < rightEdge; ++dot)
+    {
+        if (((dot - x) % 8) == 0)
+        {
+            tileDataPtr = nullptr;
+        }
+
+        if (tileDataPtr == nullptr)
+        {
+            size_t horizontalOffset = horizontalFlip ? (widthInTiles - ((dot - x) / 8) - 1) * sizeof(TileData8bpp) :
+                                                       ((dot - x) / 8) * sizeof(TileData8bpp);
+
+            size_t vramIndex = OBJ_CHARBLOCK_ADDR + ((baseVramIndex + horizontalOffset) % 0x8000);
+
+            if ((vramIndex + sizeof(TileData8bpp)) >= VRAM_.size())
+            {
+                continue;
+            }
+
+            tileDataPtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[vramIndex]);
+        }
+
+        size_t tileX = horizontalFlip ?
+            ((dot - x) % 8) ^ 7 :
+            (dot - x) % 8;
+
+        size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
+        bool transparent = (paletteIndex == 0);
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
+            }
+        }
+        else
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
         }
     }
 }
@@ -1136,8 +1216,8 @@ void PPU::Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntr
         if (tileDataPtr == nullptr)
         {
             size_t mapX = horizontalFlip ?
-            (baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 16 :
-            (baseMapX + ((dot - x) / 8)) % 16;
+                (baseMapX + (widthInTiles - ((dot - x) / 8) - 1)) % 16 :
+                (baseMapX + ((dot - x) / 8)) % 16;
 
             tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
         }
@@ -1334,6 +1414,93 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
             }
         }
         else if (!transparent)
+        {
+            // Opaque OBJ window sprite pixel
+            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
+        }
+    }
+}
+
+void PPU::Render1d8bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
+{
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    AffineObjMatrix const* affineMatrix =
+        &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
+
+    int16_t const pa = affineMatrix->pa_;
+    int16_t const pb = affineMatrix->pb_;
+    int16_t const pc = affineMatrix->pc_;
+    int16_t const pd = affineMatrix->pd_;
+
+    int leftEdge = x;
+    int rightEdge = x + width;
+    int topEdge = y;
+    int const halfWidth = width / 2;
+    int const halfHeight = height / 2;
+    bool doubleSize = (oamEntry.attribute0_.objMode_ == 3);
+
+    if (doubleSize)
+    {
+        leftEdge -= halfWidth;
+        rightEdge += halfWidth;
+        topEdge -= halfHeight;
+    }
+
+    // Rotation center
+    int16_t const x0 = doubleSize ? width : halfWidth;
+    int16_t const y0 = doubleSize ? height : halfHeight;
+
+    // Screen position
+    int16_t const x1 = 0;
+    int16_t const y1 = scanline_ - topEdge;
+
+    int32_t affineX = (pa * (x1 - x0)) + (pb * (y1 - y0)) + (halfWidth << 8);
+    int32_t affineY = (pc * (x1 - x0)) + (pd * (y1 - y0)) + (halfHeight << 8);
+
+    int const priority = oamEntry.attribute2_.priority_;
+    bool const semiTransparent = (oamEntry.attribute0_.gfxMode_ == 1);
+    size_t const widthInTiles = width / 8;
+    size_t const baseVramIndex = oamEntry.attribute2_.tile_ * sizeof(TileData4bpp);
+
+    for (int dot = leftEdge; (dot < rightEdge) && (dot < LCD_WIDTH); ++dot)
+    {
+        int32_t textureX = (affineX >> 8);
+        int32_t textureY = (affineY >> 8);
+        affineX += pa;
+        affineY += pc;
+
+        if ((dot < 0) || (textureX < 0) || (textureX >= width) || (textureY < 0) || (textureY >= height))
+        {
+            continue;
+        }
+
+        size_t offset = (((textureX / 8) % widthInTiles) + ((textureY / 8) * widthInTiles)) * sizeof(TileData8bpp);
+        size_t vramIndex = OBJ_CHARBLOCK_ADDR + ((baseVramIndex + offset) % (2 * CHARBLOCK_SIZE));
+
+        if ((vramIndex + sizeof(TileData8bpp)) >= VRAM_.size())
+        {
+            continue;
+        }
+
+        TileData8bpp const* tileDataPtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[vramIndex]);
+
+        size_t tileX = textureX % 8;
+        size_t tileY = textureY % 8;
+        size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
+        bool transparent = (paletteIndex == 0);
+
+        if (windowSettingsPtr == nullptr)
+        {
+            // Visible sprite
+            uint16_t bgr555 = palettePtr[paletteIndex];
+
+            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
+                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
+            {
+                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
+            }
+        }
+        else
         {
             // Opaque OBJ window sprite pixel
             frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
