@@ -18,6 +18,14 @@ void Initialize(fs::path biosPath, std::function<void(int)> refreshScreenCallbac
 /// @pre Initialize must have been previously called.
 bool InsertCartridge(fs::path romPath);
 
+/// @brief Run the emulator until the specified number of audio samples have been produced.
+/// @param samples Number of audio samples to produce.
+void FillAudioBuffer(int samples);
+
+/// @brief Drain the emulator's internal audio buffer into the specified buffer.
+/// @param buffer Buffer to load internal audio buffer's samples into.
+void DrainAudioBuffer(float* buffer);
+
 /// @brief Run the GBA indefinitely.
 /// @pre Initialize must have been previously called and a GamePak must have been successfully loaded.
 void PowerOn();

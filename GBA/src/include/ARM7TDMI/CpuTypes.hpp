@@ -6,6 +6,8 @@
 
 namespace CPU
 {
+constexpr int CPU_FREQUENCY_HZ = 16'777'216;
+
 class ARM7TDMI;
 
 /// @brief Operating state of CPU (either ARM or THUMB instructions).

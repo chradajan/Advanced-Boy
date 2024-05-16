@@ -1,35 +1,37 @@
+#include <filesystem>
+#include <string>
 #include <AdvancedBoy.hpp>
 #include <MainWindow.hpp>
 #include <EmuThread.hpp>
+#include <SDL2/SDL.h>
 #include <QtCore/QtCore>
 #include <QtWidgets/QApplication>
-#include <filesystem>
-#include <string>
 
+#define main SDL_main
 namespace fs = std::filesystem;
 
-int main(int argc, char** argv)
+int main(int argv, char** args)
 {
-    QApplication app(argc, argv);
+    QApplication app(argv, args);
 
     // Until GUI is fully implemented, grab arguments from command line
     fs::path romPath = "";
     fs::path biosPath = "";
     bool logging = false;
 
-    for (int i = 1; i < argc; ++i)
+    for (int i = 1; i < argv; ++i)
     {
         switch (i)
         {
             case 1:
-                romPath = argv[1];
+                romPath = args[1];
                 break;
             case 2:
-                biosPath = argv[2];
+                biosPath = args[2];
                 break;
             case 3:
             {
-                std::string logStr = argv[3];
+                std::string logStr = args[3];
                 logging = (logStr != "0");
                 break;
             }

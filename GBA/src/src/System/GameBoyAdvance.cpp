@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <Audio/SoundController.hpp>
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
@@ -52,6 +53,41 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1));
 
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
+}
+
+void GameBoyAdvance::FillAudioBuffer(int samples)
+{
+    if (!biosLoaded_ && !gamePakLoaded_)
+    {
+        return;
+    }
+
+    try
+    {
+        while (apu_.SampleCount() < samples)
+        {
+            if (halted_ || activeDmaChannel_.has_value())
+            {
+                Scheduler.SkipToNextEvent();
+            }
+            else
+            {
+                int cpuCycles = cpu_.Tick();
+                Scheduler.Tick(cpuCycles);
+            }
+        }
+    }
+    catch (std::exception const& error)
+    {
+        Logging::LogMgr.LogException(error);
+        Logging::LogMgr.DumpLogs();
+        throw;
+    }
+}
+
+void GameBoyAdvance::DrainAudioBuffer(float* buffer)
+{
+    apu_.DrainInternalBuffer(buffer);
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
@@ -218,36 +254,6 @@ std::string GameBoyAdvance::RomTitle() const
     }
 
     return "";
-}
-
-void GameBoyAdvance::Run()
-{
-    if (!biosLoaded_ && !gamePakLoaded_)
-    {
-        return;
-    }
-
-    try
-    {
-        while (true)
-        {
-            if (halted_ || activeDmaChannel_.has_value())
-            {
-                Scheduler.SkipToNextEvent();
-            }
-            else
-            {
-                int cpuCycles = cpu_.Tick();
-                Scheduler.Tick(cpuCycles);
-            }
-        }
-    }
-    catch (std::exception const& error)
-    {
-        Logging::LogMgr.LogException(error);
-        Logging::LogMgr.DumpLogs();
-        throw;
-    }
 }
 
 void GameBoyAdvance::ZeroMemory()

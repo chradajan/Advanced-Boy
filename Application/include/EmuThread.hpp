@@ -1,15 +1,16 @@
 #pragma once
 
-#include <MainWindow.hpp>
-#include <QtCore/QThread>
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <MainWindow.hpp>
+#include <QtCore/QObject>
+#include <SDL2/SDL.h>
 
 namespace fs = std::filesystem;
 class MainWindow;
 
-class EmuThread : public QThread
+class EmuThread : public QObject
 {
     Q_OBJECT
 
@@ -21,15 +22,15 @@ public:
     /// @param mainWindow Reference to window where rendering takes place.
     EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow);
 
-    /// @brief Stop running the GBA.
-    void PowerOff();
-
     /// @brief Get the title of the currently loaded ROM.
     /// @return Title of ROM.
     std::string RomTitle() const;
 
-    /// @brief Run the GBA indefinitely.
-    void run();
+    /// @brief Unpause the audio device, therefore resuming emulation.
+    void Play();
+
+    /// @brief Pause the audio device, therefore stopping emulation.
+    void Pause();
 
 signals:
     void RefreshScreen();
@@ -40,4 +41,5 @@ private:
     void RefreshScreenCallback(int);
 
     bool gamePakSuccessfullyLoaded_;
+    SDL_AudioDeviceID audioDevice_;
 };

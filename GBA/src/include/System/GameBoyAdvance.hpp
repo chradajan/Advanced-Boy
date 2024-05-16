@@ -10,6 +10,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <Audio/SoundController.hpp>
 #include <Cartridge/GamePak.hpp>
 #include <Gamepad/GamepadManager.hpp>
 #include <Graphics/PPU.hpp>
@@ -33,6 +34,14 @@ public:
     GameBoyAdvance& operator=(GameBoyAdvance const&) = delete;
     GameBoyAdvance& operator=(GameBoyAdvance&&) = delete;
     ~GameBoyAdvance() = default;
+
+    /// @brief Run the emulator until a specified number of audio samples are generated.
+    /// @param samples Number of samples to generate.
+    void FillAudioBuffer(int samples);
+
+    /// @brief Empty the internal audio buffer into another buffer.
+    /// @param buffer Buffer to load samples into.
+    void DrainAudioBuffer(float* buffer);
 
     /// @brief Read from memory.
     /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
@@ -63,9 +72,6 @@ public:
     /// @brief Get the title of the currently loaded ROM.
     /// @return Title of ROM.
     std::string RomTitle() const;
-
-    /// @brief Run GBA indefinitely.
-    void Run();
 
 private:
     /// @brief Set all internal memory to 0.
@@ -140,6 +146,7 @@ private:
     bool halted_;
 
     // Components
+    Audio::SoundController apu_;
     CPU::ARM7TDMI cpu_;
     GamepadManager gamepad_;
     Graphics::PPU ppu_;

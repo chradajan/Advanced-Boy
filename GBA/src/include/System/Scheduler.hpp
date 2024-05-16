@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <set>
 #include <unordered_map>
+#include <vector>
 
 constexpr int SCHEDULE_NOW = 0;
 
@@ -14,6 +14,9 @@ enum class EventType
 {
     // External
     RefreshScreen,
+
+    // Audio
+    SampleAPU,
 
     // Low power mode
     Halt,
@@ -36,7 +39,10 @@ enum class EventType
     DMA0,
     DMA1,
     DMA2,
-    DMA3
+    DMA3,
+
+    // Number of unique events that can be scheduled. Do not schedule this, and do not place events below it.
+    COUNT
 };
 
 /// @brief Data needed to execute a scheduled event.
@@ -54,10 +60,10 @@ struct Event
     /// @brief Cycle that this event should execute its callback.
     uint64_t cycleToExecute_;
 
-    /// @brief Compare priority of events.
+    /// @brief Compare priority of events. If A > B, then B should execute first.
     /// @param rhs Event to compare.
     /// @return True if rhs is a lower priority event.
-    bool operator<(Event const& rhs) const;
+    bool operator>(Event const& rhs) const;
 };
 
 /// @brief Manager for scheduling and executing events.
@@ -109,9 +115,10 @@ public:
     bool EventScheduled(EventType eventType) const;
 
 private:
-    std::set<Event> queue_;
+    std::vector<Event> queue_;
     std::unordered_map<EventType, std::function<void(int)>> registeredEvents_;
     uint64_t totalCycles_;
+    Event currentEvent_;
 };
 
 extern EventScheduler Scheduler;

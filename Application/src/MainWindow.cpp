@@ -26,7 +26,7 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
     gbaThread = new EmuThread(romPath, biosPath, logging, *this);
     romTitle_ = gbaThread->RomTitle();
     setWindowTitle(QString::fromStdString(romTitle_));
-    gbaThread->start();
+    gbaThread->Play();
 
     connect(&frameTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
     frameTimer_.start(1000);
@@ -34,9 +34,9 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
 
 MainWindow::~MainWindow()
 {
-    gbaThread->PowerOff();
-    gbaThread->terminate();
-    gbaThread->wait();
+    // gbaThread->PowerOff();
+    // gbaThread->terminate();
+    // gbaThread->wait();
     delete gbaThread;
 }
 
