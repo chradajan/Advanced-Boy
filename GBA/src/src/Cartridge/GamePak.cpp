@@ -205,7 +205,7 @@ int GamePak::WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment)
     return 1;
 }
 
-std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignment)
+uint32_t GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignment)
 {
     uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
     uint8_t offset = addr & 0x03;
@@ -224,7 +224,7 @@ std::pair<uint32_t, int> GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignmen
             break;
     }
 
-    return {value, 1};
+    return value;
 }
 
 bool GamePak::EepromAccess(uint32_t addr) const
@@ -369,7 +369,7 @@ int GamePak::AccessTime(uint32_t addr, bool sequential, AccessSize alignment) co
     return firstAccess + secondAccess;
 }
 
-int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
+void GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
     uint8_t offset = addr & 0x03;
@@ -386,8 +386,6 @@ int GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
             *reinterpret_cast<uint32_t*>(&bytePtr[offset]) = value;
             break;
     }
-
-    return 1;
 }
 
 uint32_t GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)

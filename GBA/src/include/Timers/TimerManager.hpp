@@ -20,13 +20,13 @@ public:
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Value of specified register.
-    uint32_t ReadIoReg(uint32_t addr, AccessSize alignment);
+    uint32_t ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write a memory mapped timer register.
     /// @param addr Address of memory mapped register.
     /// @param value Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    void WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
 private:
     /// @brief Callback function for a timer 0 overflow event.

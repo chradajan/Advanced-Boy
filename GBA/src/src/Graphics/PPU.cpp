@@ -4,7 +4,6 @@
 #include <format>
 #include <functional>
 #include <stdexcept>
-#include <tuple>
 #include <utility>
 #include <Graphics/VramTypes.hpp>
 #include <System/InterruptManager.hpp>
@@ -36,9 +35,9 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
          std::array<uint8_t,   1 * KiB> const& OAM) :
     frameBuffer_(),
     lcdRegisters_(),
-    lcdControl_(*reinterpret_cast<DISPCNT*>(&lcdRegisters_.at(0))),
-    lcdStatus_(*reinterpret_cast<DISPSTAT*>(&lcdRegisters_.at(4))),
-    verticalCounter_(*reinterpret_cast<VCOUNT*>(&lcdRegisters_.at(6))),
+    lcdControl_(*reinterpret_cast<DISPCNT*>(&lcdRegisters_[0])),
+    lcdStatus_(*reinterpret_cast<DISPSTAT*>(&lcdRegisters_[4])),
+    verticalCounter_(*reinterpret_cast<VCOUNT*>(&lcdRegisters_[6])),
     paletteRAM_(paletteRAM),
     VRAM_(VRAM),
     OAM_(OAM)
@@ -52,23 +51,23 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
 }
 
-std::tuple<uint32_t, int, bool> PPU::ReadLcdReg(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> PPU::ReadReg(uint32_t addr, AccessSize alignment)
 {
     if (((addr >= BG0HOFS_ADDR) && (addr < WININ_ADDR)) ||
         ((addr >= MOSAIC_ADDR) && (addr < BLDCNT_ADDR)) ||
         (addr >= BLDY_ADDR))
     {
         // Write-only or unused regions
-        return {0, 1, true};
+        return {0, true};
     }
 
     size_t index = addr - LCD_IO_ADDR_MIN;
     uint8_t* bytePtr = &(lcdRegisters_.at(index));
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1, false};
+    return {value, false};
 }
 
-int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void PPU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if ((addr >= DISPSTAT_ADDR) && (addr < VCOUNT_ADDR))
     {
@@ -96,12 +95,12 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
                 break;
         }
 
-        return 1;
+        return;
     }
     else if ((addr >= VCOUNT_ADDR) && (addr < BG0CNT_ADDR))
     {
         // Write to VCOUNT which is read-only. VCOUNT is halfword aligned, so alignment must be byte or halfword.
-        return 1;
+        return;
     }
 
     size_t index = addr - LCD_IO_ADDR_MIN;
@@ -127,8 +126,6 @@ int PPU::WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment)
             bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
         }
     }
-
-    return 1;
 }
 
 void PPU::VDraw(int extraCycles)

@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include <tuple>
+#include <utility>
 #include <System/MemoryMap.hpp>
 
 constexpr uint32_t IE_ADDR  = 0x0400'0200;
@@ -44,15 +44,14 @@ public:
     /// @brief Read an I/O register managed by this.
     /// @param addr Address of memory mapped I/O register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value of specified register, number of cycles taken to read, and whether this read triggered open bus behavior.
-    std::tuple<uint32_t, int, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
+    /// @return Value of specified register and whether this read triggered open bus behavior.
+    std::pair<uint32_t, bool> ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write an I/O register managed by this.
     /// @param addr Address of memory mapped I/O register.
     /// @param value Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles taken to write.
-    int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Check if interrupts and enabled and if an interrupt type is both enabled and requested. If so, schedule an IRQ.
     void CheckForInterrupt();

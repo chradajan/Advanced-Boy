@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include <tuple>
+#include <utility>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
@@ -19,16 +19,15 @@ public:
     /// @brief Read a register associated with this DMA channel.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value of specified register, number of cycles taken to read, and whether this read triggered open bus behavior.
-    std::tuple<uint32_t, int, bool> ReadRegister(uint32_t addr, AccessSize alignment);
+    /// @return Value of specified register and whether this read triggered open bus behavior.
+    std::pair<uint32_t, bool> ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write a register associated with this DMA channel.
     /// @param addr Address of memory mapped register.
     /// @param value Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
     /// @param gbaPtr Pointer to GBA needed to schedule DMA events.
-    /// @return Number of cycles taken to write.
-    int WriteRegister(uint32_t addr, uint32_t value, AccessSize alignment, GameBoyAdvance* gbaPtr);
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment, GameBoyAdvance* gbaPtr);
 
     /// @brief Run DMA transfer until internalWordCount_ hits 0. Then disable this channel or set it up to repeat.
     /// @param gbaPtr Pointer to GBA needed to read/write memory during transfer.

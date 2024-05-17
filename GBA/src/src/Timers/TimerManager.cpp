@@ -16,7 +16,7 @@ TimerManager::TimerManager() :
     Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1));
 }
 
-uint32_t TimerManager::ReadIoReg(uint32_t addr, AccessSize alignment)
+uint32_t TimerManager::ReadReg(uint32_t addr, AccessSize alignment)
 {
     if (addr <= TIMER_0_ADDR_MAX)
     {
@@ -38,7 +38,7 @@ uint32_t TimerManager::ReadIoReg(uint32_t addr, AccessSize alignment)
     return 0;
 }
 
-void TimerManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void TimerManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr <= TIMER_0_ADDR_MAX)
     {

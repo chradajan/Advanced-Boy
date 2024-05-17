@@ -1,7 +1,7 @@
 #include <Gamepad/GamepadManager.hpp>
 #include <array>
 #include <cstdint>
-#include <tuple>
+#include <utility>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Utilities.hpp>
@@ -21,15 +21,15 @@ void GamepadManager::UpdateGamepad(Gamepad gamepad)
     CheckForGamepadIRQ();
 }
 
-std::tuple<uint32_t, int, bool> GamepadManager::ReadGamepadReg(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> GamepadManager::ReadReg(uint32_t addr, AccessSize alignment)
 {
     size_t index = addr - KEYPAD_INPUT_IO_ADDR_MIN;
     uint8_t* bytePtr = &(gamepadRegisters_.at(index));
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1, false};
+    return {value, false};
 }
 
-int GamepadManager::WriteGamepadReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void GamepadManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     size_t index = addr - KEYPAD_INPUT_IO_ADDR_MIN;
 
@@ -42,7 +42,7 @@ int GamepadManager::WriteGamepadReg(uint32_t addr, uint32_t value, AccessSize al
         }
         else
         {
-            return 1;
+            return;
         }
     }
     else
@@ -52,7 +52,6 @@ int GamepadManager::WriteGamepadReg(uint32_t addr, uint32_t value, AccessSize al
     }
 
     CheckForGamepadIRQ();
-    return 1;
 }
 
 void GamepadManager::CheckForGamepadIRQ()

@@ -4,7 +4,7 @@
 #include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
-#include <tuple>
+#include <utility>
 
 class GamepadManager
 {
@@ -19,15 +19,14 @@ public:
     /// @brief Read KEYINPUT or KEYCNT registers.
     /// @param addr Address to read.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value at specified address, number of cycles taken to read, and whether this read triggered open bus behavior.
-    std::tuple<uint32_t, int, bool> ReadGamepadReg(uint32_t addr, AccessSize alignment);
+    /// @return Value at specified address and whether this read triggered open bus behavior.
+    std::pair<uint32_t, bool> ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write KEYINPUT or KEYCNT registers.
     /// @param addr Address to write.
     /// @param value Value to write.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles taken to write.
-    int WriteGamepadReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
 private:
     /// @brief Check if Gamepad IRQ should be sent.

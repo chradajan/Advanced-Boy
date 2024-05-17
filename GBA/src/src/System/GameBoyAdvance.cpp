@@ -125,9 +125,11 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
             break;
         case 0x04:  // I/O Registers
         {
+            cycles = 1;
+
             if ((addr <= IO_REG_ADDR_MAX) || (((addr % 0x0001'0000) - 0x0800) < 4))
             {
-                std::tie(value, cycles, openBus) = ReadIoReg(addr, alignment);
+                std::tie(value, openBus) = ReadIoReg(addr, alignment);
             }
             else
             {
@@ -198,9 +200,11 @@ int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignm
             break;
         case 0x04:  // I/O Registers
         {
+            cycles = 1;
+
             if ((addr <= IO_REG_ADDR_MAX) || (((addr % 0x0001'0000) - 0x0800) < 4))
             {
-                cycles = WriteIoReg(addr, value, alignment);
+                WriteIoReg(addr, value, alignment);
             }
 
             break;
@@ -487,7 +491,7 @@ int GameBoyAdvance::WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize al
 //               Bus   Read      Write     Cycles
 // I/O           32    8/16/32   8/16/32   1/1/1
 
-std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize alignment)
 {
     if (addr > IO_REG_ADDR_MAX)
     {
@@ -502,50 +506,50 @@ std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessS
 
     if (addr <= LCD_IO_ADDR_MAX)
     {
-        return ppu_.ReadLcdReg(addr, alignment);
+        return ppu_.ReadReg(addr, alignment);
     }
     else if (addr <= SOUND_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return apu_.ReadReg(addr, alignment);
     }
     else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
     {
-        return ReadDmaRegister(addr, alignment);
+        return ReadDmaReg(addr, alignment);
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        return {timer_.ReadIoReg(addr, alignment), 1, false};
+        return {timer_.ReadReg(addr, alignment), false};
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return {ReadPointer(bytePtr, alignment), false};
     }
     else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
     {
-        return gamepad_.ReadGamepadReg(addr, alignment);
+        return gamepad_.ReadReg(addr, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
     {
-        return {ReadPointer(bytePtr, alignment), 1, false};
+        return {ReadPointer(bytePtr, alignment), false};
     }
     else if (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX)
     {
         if ((addr >= WAITCNT_ADDR) && (addr <= (WAITCNT_ADDR + 4)))
         {
-            auto [value, cycles] = gamePak_->ReadWAITCNT(addr, alignment);
-            return {value, cycles, false};
+            uint32_t value = gamePak_->ReadWAITCNT(addr, alignment);
+            return {value, false};
         }
 
-        return InterruptMgr.ReadIoReg(addr, alignment);
+        return InterruptMgr.ReadReg(addr, alignment);
     }
     else
     {
         addr = INT_WTST_PWRDWN_IO_ADDR_MIN + ((addr % 0x0001'0000) - 0x0800);
-        return InterruptMgr.ReadIoReg(addr, alignment);
+        return InterruptMgr.ReadReg(addr, alignment);
     }
 }
 
-int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr > IO_REG_ADDR_MAX)
     {
@@ -560,49 +564,45 @@ int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignme
 
     if (addr <= LCD_IO_ADDR_MAX)
     {
-        return ppu_.WriteLcdReg(addr, value, alignment);
+        ppu_.WriteReg(addr, value, alignment);
     }
     else if (addr <= SOUND_IO_ADDR_MAX)
     {
-        WritePointer(bytePtr, value, alignment);
-        return 1;
+        apu_.WriteReg(addr, value, alignment);
     }
     else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
     {
-        return WriteDmaRegister(addr, value, alignment);
+        WriteDmaReg(addr, value, alignment);
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        timer_.WriteIoReg(addr, value, alignment);
-        return 1;
+        timer_.WriteReg(addr, value, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {
         WritePointer(bytePtr, value, alignment);
-        return 1;
     }
     else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
     {
-        return gamepad_.WriteGamepadReg(addr, value, alignment);
+        gamepad_.WriteReg(addr, value, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
     {
         WritePointer(bytePtr, value, alignment);
-        return 1;
     }
     else if (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX)
     {
         if ((addr <= WAITCNT_ADDR) && (WAITCNT_ADDR <= (addr + static_cast<uint8_t>(alignment) - 1)))
         {
-            return gamePak_->WriteWAITCNT(addr, value, alignment);
+            gamePak_->WriteWAITCNT(addr, value, alignment);
         }
 
-        return InterruptMgr.WriteIoReg(addr, value, alignment);
+        InterruptMgr.WriteReg(addr, value, alignment);
     }
     else
     {
         addr = INT_WTST_PWRDWN_IO_ADDR_MIN + ((addr % 0x0001'0000) - 0x0800);
-        return InterruptMgr.WriteIoReg(addr, value, alignment);
+        InterruptMgr.WriteReg(addr, value, alignment);
     }
 }
 
@@ -743,26 +743,26 @@ int GameBoyAdvance::WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment
     return 1;
 }
 
-std::tuple<uint32_t, int, bool> GameBoyAdvance::ReadDmaRegister(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> GameBoyAdvance::ReadDmaReg(uint32_t addr, AccessSize alignment)
 {
     if (addr > 0x0400'00DF)
     {
-        return {0, 1, true};
+        return {0, true};
     }
 
     size_t channelIndex = (addr - DMA_TRANSFER_CHANNELS_IO_ADDR_MIN) / 12;
-    return dmaChannels_[channelIndex].ReadRegister(addr, alignment);
+    return dmaChannels_[channelIndex].ReadReg(addr, alignment);
 }
 
-int GameBoyAdvance::WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize alignment)
+void GameBoyAdvance::WriteDmaReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr > 0x0400'00DF)
     {
-        return 1;
+        return;
     }
 
     size_t channelIndex = (addr - DMA_TRANSFER_CHANNELS_IO_ADDR_MIN) / 12;
-    return dmaChannels_[channelIndex].WriteRegister(addr, value, alignment, this);
+    dmaChannels_[channelIndex].WriteReg(addr, value, alignment, this);
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadOpenBus(uint32_t addr, AccessSize alignment)

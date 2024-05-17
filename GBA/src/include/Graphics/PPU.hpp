@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
-#include <tuple>
+#include <utility>
 
 namespace Graphics
 {
@@ -34,15 +34,14 @@ public:
     /// @brief Read a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value of specified register, number of cycles taken to read, and whether this read triggered open bus behavior.
-    std::tuple<uint32_t, int, bool> ReadLcdReg(uint32_t addr, AccessSize alignment);
+    /// @return Value of specified register and whether this read triggered open bus behavior.
+    std::pair<uint32_t, bool> ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
     /// @param val Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles taken to write.
-    int WriteLcdReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Check the current scanline being processed.
     /// @return Current scanline [0, 227].

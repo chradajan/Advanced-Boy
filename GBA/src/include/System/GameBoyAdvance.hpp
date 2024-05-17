@@ -8,7 +8,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <Audio/SoundController.hpp>
 #include <Cartridge/GamePak.hpp>
@@ -126,8 +125,8 @@ private:
     std::pair<uint32_t, int> ReadOnChipWRAM(uint32_t addr, AccessSize alignment);
     int WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    std::tuple<uint32_t, int, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
-    int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    std::pair<uint32_t, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
+    void WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
     std::pair<uint32_t, int> ReadPaletteRAM(uint32_t addr, AccessSize alignment);
     int WritePaletteRAM(uint32_t addr, uint32_t value, AccessSize alignment);
@@ -138,8 +137,8 @@ private:
     std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
     int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    std::tuple<uint32_t, int, bool> ReadDmaRegister(uint32_t addr, AccessSize alignment);
-    int WriteDmaRegister(uint32_t addr, uint32_t value, AccessSize alignment);
+    std::pair<uint32_t, bool> ReadDmaReg(uint32_t addr, AccessSize alignment);
+    void WriteDmaReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
     std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 

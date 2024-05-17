@@ -1,7 +1,7 @@
 #include <System/InterruptManager.hpp>
 #include <cstdint>
 #include <stdexcept>
-#include <tuple>
+#include <utility>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 #include <System/Utilities.hpp>
@@ -27,10 +27,10 @@ void InterruptManager::RequestInterrupt(InterruptType interrupt)
     CheckForInterrupt();
 }
 
-std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> InterruptManager::ReadReg(uint32_t addr, AccessSize alignment)
 {
-    std::tuple<uint32_t, int, bool> openBusCondition = {0, 1, true};
-    std::tuple<uint32_t, int, bool> zeroCondition = {0, 1, false};
+    std::pair<uint32_t, bool> openBusCondition = {0, true};
+    std::pair<uint32_t, bool> zeroCondition = {0, false};
 
     if ((addr >= WAITCNT_ADDR) && (addr < IME_ADDR))
     {
@@ -69,10 +69,10 @@ std::tuple<uint32_t, int, bool> InterruptManager::ReadIoReg(uint32_t addr, Acces
     size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
     uint8_t* bytePtr = &(intWtstPwdDownRegisters_.at(index));
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1, false};
+    return {value, false};
 }
 
-int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void InterruptManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     uint32_t maxAddrWritten = addr + static_cast<uint8_t>(alignment) - 1;
     size_t index = addr - INT_WTST_PWRDWN_IO_ADDR_MIN;
@@ -141,8 +141,6 @@ int InterruptManager::WriteIoReg(uint32_t addr, uint32_t value, AccessSize align
     {
         CheckForInterrupt();
     }
-
-    return 1;
 }
 
 void InterruptManager::CheckForInterrupt()

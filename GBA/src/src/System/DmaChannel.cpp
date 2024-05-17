@@ -1,7 +1,7 @@
 #include <System/DmaChannel.hpp>
 #include <array>
 #include <cstdint>
-#include <tuple>
+#include <utility>
 #include <System/GameBoyAdvance.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
@@ -38,37 +38,37 @@ DmaChannel::DmaChannel(int index) :
     }
 }
 
-std::tuple<uint32_t, int, bool> DmaChannel::ReadRegister(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, bool> DmaChannel::ReadReg(uint32_t addr, AccessSize alignment)
 {
     size_t index = addr % 12;
 
     if ((index < 8) || (index == 9))
     {
-        return {0, 1, true};
+        return {0, true};
     }
     else if (index == 8)
     {
         if (alignment == AccessSize::WORD)
         {
-            return {0, 1, false};
+            return {0, false};
         }
         else
         {
-            return {0, 1, true};
+            return {0, true};
         }
     }
 
     uint8_t* bytePtr = &dmaChannelRegisters_[index];
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1, false};
+    return {value, false};
 }
 
-int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignment, GameBoyAdvance* gbaPtr)
+void DmaChannel::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment, GameBoyAdvance* gbaPtr)
 {
     if (gbaPtr->activeDmaChannel_.value_or(4) == dmaChannelIndex_)
     {
         // Ignore edge case where channel writes to its own registers.
-        return 1;
+        return;
     }
 
     bool wasEnabled = dmaControl_.flags_.dmaEnable_;
@@ -126,8 +126,6 @@ int DmaChannel::WriteRegister(uint32_t addr, uint32_t value, AccessSize alignmen
             }
         }
     }
-
-    return 1;
 }
 
 void DmaChannel::Execute(GameBoyAdvance* gbaPtr)

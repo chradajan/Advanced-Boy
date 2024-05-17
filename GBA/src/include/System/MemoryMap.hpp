@@ -14,6 +14,13 @@ enum class AccessSize : uint8_t
     WORD = 4
 };
 
+enum class ReadStatus
+{
+    VALID,
+    OPEN_BUS,
+    ZERO
+};
+
 // Useful 32-bit constants
 constexpr uint32_t MSB_32 = 0b1000'0000'0000'0000'0000'0000'0000'0000;
 constexpr uint32_t MAX_U32 = std::numeric_limits<uint32_t>::max();

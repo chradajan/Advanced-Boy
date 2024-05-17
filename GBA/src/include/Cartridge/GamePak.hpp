@@ -103,13 +103,12 @@ public:
     int WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Get value of WAITCNT register.
-    /// @return Value of WAITCNT and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadWAITCNT(uint32_t addr, AccessSize alignment);
+    /// @return Value of WAITCNT.
+    uint32_t ReadWAITCNT(uint32_t addr, AccessSize alignment);
 
     /// @brief Set value of WAITCNT register.
     /// @param value Value to set WAITCNT to.
-    /// @return Number of cycles to write.
-    int WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment);
+    void WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Check how many cycles it will take to access an address on the cartridge.
     /// @param addr Address being accessed.
