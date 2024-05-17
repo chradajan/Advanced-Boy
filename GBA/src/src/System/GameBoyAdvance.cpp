@@ -21,7 +21,7 @@
 
 namespace fs = std::filesystem;
 
-GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)> refreshScreenCallback) :
+GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     biosLoaded_(LoadBIOS(biosPath)),
     cpu_(this, biosLoaded_),
     ppu_(paletteRAM_, VRAM_, OAM_),
@@ -43,7 +43,6 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath, std::function<void(int)>
     lastBiosFetch_ = 0;
     lastReadValue_ = 0;
 
-    Scheduler.RegisterEvent(EventType::RefreshScreen, refreshScreenCallback);
     Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1));

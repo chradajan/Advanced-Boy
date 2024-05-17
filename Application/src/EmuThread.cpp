@@ -3,7 +3,6 @@
 #include <functional>
 #include <string>
 #include <AdvancedBoy.hpp>
-#include <MainWindow.hpp>
 #include <SDL2/SDL.h>
 #include <QtCore/QtCore>
 
@@ -17,12 +16,9 @@ void AudioCallback(void*, uint8_t* stream, int bufferSize)
 }
 }
 
-EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging, MainWindow const& mainWindow)
+EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging)
 {
-    Initialize(biosPath, std::bind(&RefreshScreenCallback, this, 0));
-
-    QObject::connect(this, &RefreshScreen,
-                     &mainWindow, &MainWindow::RefreshScreen);
+    Initialize(biosPath);
 
     gamePakSuccessfullyLoaded_ = InsertCartridge(romPath);
     EnableLogging(logging);
@@ -54,9 +50,4 @@ void EmuThread::Pause()
     SDL_LockAudioDevice(audioDevice_);
     SDL_PauseAudioDevice(audioDevice_, 1);
     SDL_Delay(20);
-}
-
-void EmuThread::RefreshScreenCallback(int)
-{
-    emit RefreshScreen();
 }

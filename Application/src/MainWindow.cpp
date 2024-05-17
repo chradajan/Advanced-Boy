@@ -14,22 +14,26 @@ namespace fs = std::filesystem;
 
 MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent) :
     QMainWindow(parent),
-    frameCounter_(0),
-    frameTimer_(this),
+    fpsTimer_(this),
     lcd_(this),
+    refreshScreenTimer_(this),
     screenScale_(4),
     pressedKeys_()
 {
     ResizeWindow();
     InitializeMenuBar();
     InitializeLCD();
-    gbaThread = new EmuThread(romPath, biosPath, logging, *this);
+    gbaThread = new EmuThread(romPath, biosPath, logging);
     romTitle_ = gbaThread->RomTitle();
     setWindowTitle(QString::fromStdString(romTitle_));
     gbaThread->Play();
 
-    connect(&frameTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
-    frameTimer_.start(1000);
+    refreshScreenTimer_.setTimerType(Qt::PreciseTimer);
+    connect(&refreshScreenTimer_, &QTimer::timeout, this, &RefreshScreen);
+    refreshScreenTimer_.start(10);
+
+    connect(&fpsTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
+    fpsTimer_.start(1000);
 }
 
 MainWindow::~MainWindow()
@@ -109,16 +113,15 @@ void MainWindow::SendKeyPresses() const
 
 void MainWindow::UpdateWindowTitle()
 {
-    std::string newTitle = std::format("{} ({} fps)", romTitle_, frameCounter_);
+    int frames = ::GetAndResetFrameCounter();
+    std::string newTitle = std::format("{} ({} fps)", romTitle_, frames);
     setWindowTitle(QString::fromStdString(newTitle));
-    frameCounter_ = 0;
 }
 
 void MainWindow::RefreshScreen()
 {
     SendKeyPresses();
-    auto image = QImage(GetRawFrameBuffer(), 240, 160, QImage::Format_RGB555);
+    auto image = QImage(::GetRawFrameBuffer(), 240, 160, QImage::Format_RGB555);
     image.rgbSwap();
     lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
-    ++frameCounter_;
 }

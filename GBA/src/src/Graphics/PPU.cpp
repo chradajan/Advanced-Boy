@@ -47,6 +47,7 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     window0EnabledOnScanline_ = false;
     window1EnabledOnScanline_ = false;
     lcdRegisters_.fill(0);
+    frameCounter_ = 0;
 
     Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
 }
@@ -319,7 +320,7 @@ void PPU::VBlank(int extraCycles)
     {
         // First time entering VBlank
         lcdStatus_.flags_.vBlank_ = 1;
-        Scheduler.ScheduleEvent(EventType::RefreshScreen, SCHEDULE_NOW);
+        ++frameCounter_;
         frameBuffer_.ResetFrameIndex();
 
         if (lcdStatus_.flags_.vBlankIrqEnable_)

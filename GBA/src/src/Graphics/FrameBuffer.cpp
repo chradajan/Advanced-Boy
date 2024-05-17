@@ -94,13 +94,20 @@ bool Pixel::operator<(Pixel const& rhs) const
 
 FrameBuffer::FrameBuffer()
 {
-    frameBuffer_.fill(0xFFFF);
-    frameIndex_ = 0;
+    frameBuffers_[0].fill(0xFFFF);
+    frameBuffers_[1].fill(0xFFFF);
+    activeFrameBufferIndex_ = 0;
+    pixelIndex_ = 0;
 
     for (auto& pixels : scanline_)
     {
         pixels.reserve(5);
     }
+}
+
+uint8_t* FrameBuffer::GetRawFrameBuffer()
+{
+    return reinterpret_cast<uint8_t*>(frameBuffers_[activeFrameBufferIndex_ ^ 1].data());
 }
 
 void FrameBuffer::PushPixel(Pixel pixel, int dot)
@@ -114,7 +121,7 @@ void FrameBuffer::RenderScanline(uint16_t backdropColor, bool forceBlank, BLDCNT
     {
         for (int dot = 0; dot < LCD_WIDTH; ++dot)
         {
-            frameBuffer_.at(frameIndex_++) = 0x7FFF;
+            frameBuffers_[activeFrameBufferIndex_].at(pixelIndex_++) = 0x7FFF;
             scanline_[dot].clear();
         }
 
@@ -214,9 +221,15 @@ void FrameBuffer::RenderScanline(uint16_t backdropColor, bool forceBlank, BLDCNT
             }
         }
 
-        frameBuffer_.at(frameIndex_++) = bgr555;
+        frameBuffers_[activeFrameBufferIndex_].at(pixelIndex_++) = bgr555;
         pixels.clear();
     }
+}
+
+void FrameBuffer::ResetFrameIndex()
+{
+    activeFrameBufferIndex_ ^= 1;
+    pixelIndex_ = 0;
 }
 
 void FrameBuffer::ClearSpritePixels()

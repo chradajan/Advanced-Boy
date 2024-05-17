@@ -26,9 +26,6 @@ public:
 
     ~MainWindow();
 
-public slots:
-    void RefreshScreen();
-
 private:
     /// @brief Initialize the window menu bar.
     void InitializeMenuBar();
@@ -53,11 +50,13 @@ private:
     /// @brief Update the window title every second with the latest FPS.
     void UpdateWindowTitle();
 
+    /// @brief Update the LCD label widget.
+    void RefreshScreen();
+
     // Emulator
     EmuThread* gbaThread;
     std::string romTitle_;
-    int frameCounter_;
-    QTimer frameTimer_;
+    QTimer fpsTimer_;
 
     // Menu bar drop downs
     QMenu* fileMenu_;
@@ -66,6 +65,7 @@ private:
 
     // Display
     QLabel lcd_;
+    QTimer refreshScreenTimer_;
     int screenScale_;
 
     // Gamepad

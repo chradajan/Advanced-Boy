@@ -76,9 +76,9 @@ public:
     /// @brief Initialize the frame buffer.
     FrameBuffer();
 
-    /// @brief Access the raw frame buffer data.
+    /// @brief Access the raw frame buffer data of the last fully drawn frame.
     /// @return Raw pointer to frame buffer.
-    uint8_t* GetRawFrameBuffer() { return reinterpret_cast<uint8_t*>(frameBuffer_.data()); }
+    uint8_t* GetRawFrameBuffer();
 
     /// @brief Add a pixel to be considered for drawing to screen.
     /// @param pixel Pixel to potentially draw.
@@ -92,7 +92,7 @@ public:
     void RenderScanline(uint16_t backdropColor, bool forceBlank, BLDCNT const& bldcnt, BLDALPHA const& bldalpha, BLDY const& bldy);
 
     /// @brief Reset the frame index to begin drawing at the top of the screen again.
-    void ResetFrameIndex() { frameIndex_ = 0; }
+    void ResetFrameIndex();
 
     /// @brief Uninitialize all pixels in sprite scanline buffer.
     void ClearSpritePixels();
@@ -119,7 +119,8 @@ private:
     std::array<Pixel, LCD_WIDTH> spriteScanline_;
     std::array<WindowSettings, LCD_WIDTH> windowScanline_;
 
-    std::array<uint16_t, LCD_WIDTH * LCD_HEIGHT> frameBuffer_;
-    size_t frameIndex_;
+    std::array<std::array<uint16_t, LCD_WIDTH * LCD_HEIGHT>, 2> frameBuffers_;
+    size_t activeFrameBufferIndex_;
+    size_t pixelIndex_;
 };
 }

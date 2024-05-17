@@ -25,8 +25,7 @@ class GameBoyAdvance
 public:
     /// @brief Initialize the Game Boy Advance.
     /// @param biosPath Path to GBA BIOS file.
-    /// @param refreshScreenCallback Function callback to use when screen is ready to be refreshed.
-    GameBoyAdvance(fs::path biosPath, std::function<void(int)> refreshScreenCallback);
+    GameBoyAdvance(fs::path biosPath);
 
     GameBoyAdvance() = delete;
     GameBoyAdvance(GameBoyAdvance const&) = delete;
@@ -68,6 +67,10 @@ public:
     /// @brief Access the raw frame buffer data.
     /// @return Raw pointer to frame buffer.
     uint8_t* GetRawFrameBuffer() { return ppu_.GetRawFrameBuffer(); }
+
+    /// @brief Get the number of times the PPU has hit VBlank since the last check.
+    /// @return Number of times PPU has entered VBlank.
+    int GetAndResetFrameCounter() { return ppu_.GetAndResetFrameCounter(); }
 
     /// @brief Get the title of the currently loaded ROM.
     /// @return Title of ROM.

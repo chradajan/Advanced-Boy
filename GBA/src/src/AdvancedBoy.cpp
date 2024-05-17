@@ -17,10 +17,10 @@ bool gamePakLoaded;
 
 // Public header definitions
 
-void Initialize(fs::path biosPath, std::function<void(int)> refreshScreenCallback)
+void Initialize(fs::path biosPath)
 {
     gba.reset();
-    gba = std::make_unique<GameBoyAdvance>(biosPath, refreshScreenCallback);
+    gba = std::make_unique<GameBoyAdvance>(biosPath);
 }
 
 bool InsertCartridge(fs::path romPath)
@@ -72,6 +72,16 @@ uint8_t* GetRawFrameBuffer()
     }
 
     return gba->GetRawFrameBuffer();
+}
+
+int GetAndResetFrameCounter()
+{
+    if (!gba)
+    {
+        return 0;
+    }
+
+    return gba->GetAndResetFrameCounter();
 }
 
 void EnableLogging(bool enable)

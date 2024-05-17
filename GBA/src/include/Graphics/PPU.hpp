@@ -27,6 +27,10 @@ public:
     /// @return Raw pointer to frame buffer.
     uint8_t* GetRawFrameBuffer() { return frameBuffer_.GetRawFrameBuffer(); }
 
+    /// @brief Get the number of times the PPU has hit VBlank since the last check.
+    /// @return Number of times PPU has entered VBlank.
+    int GetAndResetFrameCounter() { int temp = frameCounter_; frameCounter_ = 0; return temp; }
+
     /// @brief Read a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
@@ -218,5 +222,8 @@ private:
     std::array<uint8_t,   1 * KiB> const& paletteRAM_;  // 0500'0000h - 0500'03FFh    BG/OBJ Palette RAM
     std::array<uint8_t,  96 * KiB> const& VRAM_;        // 0600'0000h - 0601'7FFFh    VRAM - Video RAM
     std::array<uint8_t,   1 * KiB> const& OAM_;         // 0700'0000h - 0700'03FFh    OAM - OBJ Attributes
+
+    // FPS counting
+    int frameCounter_;
 };
 }
