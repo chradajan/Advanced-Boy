@@ -5,5 +5,4 @@ target_sources(${PROJECT_NAME} PRIVATE
     GameBoyAdvance.cpp
     InterruptManager.cpp
     Scheduler.cpp
-    Utilities.cpp
 )

@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 #include <System/MemoryMap.hpp>
-#include <System/Utilities.hpp>
+#include <Utilities/Utilities.hpp>
 
 static constexpr int NonSequentialWaitStates[4] = {4, 3, 2, 8};
 static constexpr int SequentialWaitStates[3][2] = { {2, 1}, {4, 1}, {8, 1} };

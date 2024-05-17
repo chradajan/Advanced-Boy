@@ -4,7 +4,7 @@
 #include <utility>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/Utilities.hpp>
+#include <Utilities/Utilities.hpp>
 
 GamepadManager::GamepadManager() :
     gamepadRegisters_(),

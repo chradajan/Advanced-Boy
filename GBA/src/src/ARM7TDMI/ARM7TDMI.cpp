@@ -14,6 +14,7 @@
 #include <System/GameBoyAdvance.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
+#include <Utilities/CircularBuffer.hpp>
 
 namespace CPU
 {
@@ -39,7 +40,7 @@ int ARM7TDMI::Tick()
     uint32_t fetchPC = registers_.GetPC();
     uint32_t fetchInstruction = MAX_U32;
     std::tie(fetchInstruction, cycles) = ReadMemory(fetchPC, alignment);
-    pipeline_.Push(fetchInstruction, fetchPC);
+    pipeline_.Push({fetchInstruction, fetchPC});
 
     // Decode and Execute
     if (pipeline_.Full())
@@ -148,7 +149,7 @@ void ARM7TDMI::IRQ(int)
         }
         else
         {
-            savedPC = pipeline_.Front().second;
+            savedPC = pipeline_.Peak().second;
         }
 
         savedPC += 4;
@@ -166,28 +167,5 @@ void ARM7TDMI::IRQ(int)
         registers_.SetPC(0x0000'0018);
         pipeline_.Clear();
     }
-}
-
-void ARM7TDMI::InstructionPipeline::Clear()
-{
-    front_ = 0;
-    insertionPoint_ = 0;
-    count_ = 0;
-    fetchedInstructions_.fill({0xFFFF'FFFF, 0xFFFF'FFFF});
-}
-
-void ARM7TDMI::InstructionPipeline::Push(uint32_t instruction, uint32_t pc)
-{
-    fetchedInstructions_[insertionPoint_] = {instruction, pc};
-    insertionPoint_ = (insertionPoint_ + 1) % fetchedInstructions_.size();
-    ++count_;
-}
-
-std::pair<uint32_t, uint32_t> ARM7TDMI::InstructionPipeline::Pop()
-{
-    auto instruction = fetchedInstructions_[front_];
-    front_ = (front_ + 1) % fetchedInstructions_.size();
-    --count_;
-    return instruction;
 }
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <System/MemoryMap.hpp>
 #include <cstdint>
+#include <System/MemoryMap.hpp>
 
 /// @brief Forcibly align unaligned address to down to nearest aligned address.
 /// @param addr Address to align.

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <System/Scheduler.hpp>
-#include <System/Utilities.hpp>
+#include <Utilities/Utilities.hpp>
 
 Timer::Timer(int index) :
     timerRegisters_(),

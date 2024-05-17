@@ -8,6 +8,7 @@
 #include <ARM7TDMI/Registers.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
 #include <System/MemoryMap.hpp>
+#include <Utilities/CircularBuffer.hpp>
 
 class GameBoyAdvance;
 
@@ -60,44 +61,7 @@ private:
     void IRQ(int);
 
     // F/D/E cycle state
-    class InstructionPipeline
-    {
-        public:
-            /// @brief Initialize the instruction pipeline by clearing it.
-            InstructionPipeline() { Clear(); }
-
-            /// @brief Fill pipeline with invalid instructions and clear counts.
-            void Clear();
-        
-            /// @brief Add an instruction to the pipeline to be executed.
-            /// @param nextInstruction Instruction code to decode and execute.
-            /// @param pc Address of instruction being added to pipeline.
-            void Push(uint32_t nextInstruction, uint32_t pc);
-
-            /// @brief Get the oldest instruction in the pipeline and remove it.
-            /// @return Raw instruction code and address of instruction.
-            std::pair<uint32_t, uint32_t> Pop();
-
-            /// @brief Peak at the oldest instruction in the pipeline without removing it.
-            /// @return Raw instruction code and address of instruction.
-            std::pair<uint32_t, uint32_t> const& Front() const { return fetchedInstructions_[front_]; }
-
-            /// @brief Check if the pipeline is empty.
-            /// @return True if no instructions are waiting in pipeline to be executed.
-            bool Empty() const { return count_ == 0; }
-
-            /// @brief Check if the pipeline is full and ready to start executing from.
-            /// @return True if 3 instructions are waiting in pipeline to be executed.
-            bool Full() const { return count_ == fetchedInstructions_.size(); }
-
-        private:
-            size_t front_;
-            size_t insertionPoint_;
-            size_t count_;
-            std::array<std::pair<uint32_t, uint32_t>, 3> fetchedInstructions_;
-    };
-
-    InstructionPipeline pipeline_;
+    CircularBuffer<std::pair<uint32_t, uint32_t>, 3> pipeline_;
     bool flushPipeline_;
 
     // GBA
