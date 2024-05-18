@@ -58,6 +58,18 @@ private:
     /// @brief Update the internal src and dest addresses after each word transfer.
     void UpdateInternalAddresses();
 
+    /// @brief Write/Read GamePak EEPROM.
+    /// @param gbaPtr Pointer to GBA needed to read/write memory during transfer.
+    void ExecuteEepromXfer(GameBoyAdvance* gbaPtr);
+
+    /// @brief Determine whether this DMA channel is being used for DMA sound.
+    /// @return True if being used for DMA sound.
+    bool FifoDma();
+
+    /// @brief Write 4 words to the selected FIFO DMA buffer.
+    /// @param gbaPtr Pointer to GBA needed to read/write memory during transfer.
+    void ExecuteFifoDmaXfer(GameBoyAdvance* gbaPtr);
+
     union DMAXCNT
     {
         struct
@@ -93,8 +105,11 @@ private:
     int dmaChannelIndex_;
     int totalTransferCycles_;
     int cyclesPerTransfer_;
+
+    // Special DMA handling
     bool eepromRead_;
     bool eepromWrite_;
+    bool fifoDma_;
 
     // Scheduling
     EventType dmaEvent_;

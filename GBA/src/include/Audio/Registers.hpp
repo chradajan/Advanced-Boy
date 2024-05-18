@@ -4,6 +4,9 @@
 
 namespace Audio
 {
+constexpr uint32_t FIFO_A_ADDR = 0x0400'00A0;
+constexpr uint32_t FIFO_B_ADDR = 0x0400'00A4;
+
 struct SOUNDCNT
 {
     // |--------------|

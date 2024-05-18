@@ -10,8 +10,6 @@
 TimerManager::TimerManager() :
     timers_({0, 1, 2, 3})
 {
-    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1));
 }

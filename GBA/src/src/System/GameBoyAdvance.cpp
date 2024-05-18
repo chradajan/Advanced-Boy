@@ -36,7 +36,8 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     dmaImmediately_.fill(false);
     dmaOnVBlank_.fill(false);
     dmaOnHBlank_.fill(false);
-    dmaSoundFifo_.fill(false);
+    dmaOnReplenishA_.fill(false);
+    dmaOnReplenishB_.fill(false);
     activeDmaChannel_ = {};
 
     // Open bus
@@ -50,6 +51,8 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1));
     Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1));
 
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
@@ -314,6 +317,33 @@ void GameBoyAdvance::VBlank(int extraCycles)
     }
 }
 
+void GameBoyAdvance::TimerOverflow(int timer, int extraCycles)
+{
+    switch (timer)
+    {
+        case 0:
+            timerManager_.Timer0Overflow(extraCycles);
+            break;
+        case 1:
+            timerManager_.Timer1Overflow(extraCycles);
+            break;
+        default:
+            return;
+    }
+
+    auto [replenishA, replenishB] = apu_.UpdateDmaSound(timer);
+
+    if (replenishA)
+    {
+        ScheduleDMA(dmaOnReplenishA_);
+    }
+
+    if (replenishB)
+    {
+        ScheduleDMA(dmaOnReplenishB_);
+    }
+}
+
 void GameBoyAdvance::ExecuteDMA(int dmaChannelIndex)
 {
     dmaChannels_[dmaChannelIndex].Execute(this);
@@ -518,7 +548,7 @@ std::pair<uint32_t, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize al
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        return {timer_.ReadReg(addr, alignment), false};
+        return {timerManager_.ReadReg(addr, alignment), false};
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {
@@ -576,7 +606,7 @@ void GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignm
     }
     else if (addr <= TIMER_IO_ADDR_MAX)
     {
-        timer_.WriteReg(addr, value, alignment);
+        timerManager_.WriteReg(addr, value, alignment);
     }
     else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
     {

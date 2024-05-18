@@ -28,7 +28,6 @@ public:
     /// @param alignment BYTE, HALFWORD, or WORD.
     void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
-private:
     /// @brief Callback function for a timer 0 overflow event.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void Timer0Overflow(int extraCycles);
@@ -37,6 +36,7 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void Timer1Overflow(int extraCycles);
 
+private:
     /// @brief Callback function for a timer 2 overflow event.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void Timer2Overflow(int extraCycles);

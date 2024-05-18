@@ -88,6 +88,7 @@ void EventScheduler::UnscheduleEvent(EventType eventType)
         if (it->eventType_ == eventType)
         {
             queue_.erase(it);
+            std::make_heap(queue_.begin(), queue_.end(), std::greater<>{});
             break;
         }
 

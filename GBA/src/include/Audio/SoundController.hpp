@@ -15,6 +15,8 @@ constexpr int SAMPLING_FREQUENCY_HZ = 44100;
 constexpr float SAMPLING_PERIOD = 1.0 / SAMPLING_FREQUENCY_HZ;
 constexpr int CPU_CYCLES_PER_SAMPLE = (CPU::CPU_FREQUENCY_HZ / SAMPLING_FREQUENCY_HZ);
 
+typedef CircularBuffer<int8_t, 32> DmaSoundFifo;
+
 class SoundController
 {
 public:
@@ -32,6 +34,16 @@ public:
     /// @param value Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
     void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    /// @brief Push 4 samples into one of the DMA-Sound FIFOs.
+    /// @param addr Must be FIFO_A_ADDR or FIFO_B_ADDR.
+    /// @param value Samples to push.
+    void WriteToFifo(uint32_t addr, uint32_t value);
+
+    /// @brief Update the DMA-Sound channels.
+    /// @param timer Which timer overflowed (0 or 1).
+    /// @return Pair of bools indicating whether each FIFO is requesting to be replenished.
+    std::pair<bool, bool> UpdateDmaSound(int timer);
 
     /// @brief Drain the internal buffer's samples into the specified buffer.
     /// @param externalBuffer Buffer to load internal buffer's samples into.
@@ -55,6 +67,13 @@ private:
     SOUNDCNT& soundControl_;
     SOUNDBIAS& soundBias_;
 
+    // DMA-Sound
+    DmaSoundFifo fifoA_;
+    DmaSoundFifo fifoB_;
+    int8_t fifoASample_;
+    int8_t fifoBSample_;
+
+    // Internal sample buffer
     CircularBuffer<std::pair<float, float>, BUFFERED_SAMPLES> internalBuffer_;
 };
 }

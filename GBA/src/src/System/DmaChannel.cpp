@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <utility>
+#include <Audio/Registers.hpp>
 #include <System/GameBoyAdvance.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
@@ -15,7 +16,8 @@ DmaChannel::DmaChannel(int index) :
     dmaControl_(*reinterpret_cast<DMAXCNT*>(&dmaChannelRegisters_[8])),
     dmaChannelIndex_(index),
     eepromRead_(false),
-    eepromWrite_(false)
+    eepromWrite_(false),
+    fifoDma_(false)
 {
     switch (index)
     {
@@ -98,14 +100,16 @@ void DmaChannel::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment, G
         gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
-        gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnReplenishA_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnReplenishB_[dmaChannelIndex_] = false;
     }
     else if (nowEnabled && (previousTiming != currentTiming))
     {
         gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
         gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
-        gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnReplenishA_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnReplenishB_[dmaChannelIndex_] = false;
 
         switch (currentTiming)
         {
@@ -117,9 +121,10 @@ void DmaChannel::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment, G
                 break;
             case 3:  // Special
             {
-                if ((dmaChannelIndex_ == 1) || (dmaChannelIndex_ == 2))
+                if (FifoDma())
                 {
-                    gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = true;
+                    gbaPtr->dmaOnReplenishA_[dmaChannelIndex_] = (internalDestAddr_ == Audio::FIFO_A_ADDR);
+                    gbaPtr->dmaOnReplenishB_[dmaChannelIndex_] = (internalDestAddr_ == Audio::FIFO_B_ADDR);
                 }
 
                 break;
@@ -129,6 +134,226 @@ void DmaChannel::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment, G
 }
 
 void DmaChannel::Execute(GameBoyAdvance* gbaPtr)
+{
+    if (eepromRead_ || eepromWrite_)
+    {
+        ExecuteEepromXfer(gbaPtr);
+    }
+    else if (fifoDma_)
+    {
+        ExecuteFifoDmaXfer(gbaPtr);
+    }
+    else
+    {
+        // Normal DMA transfer
+        while (internalWordCount_ > 0)
+        {
+            auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
+            gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
+            --internalWordCount_;
+            UpdateInternalAddresses();
+        }
+    }
+
+    if (dmaControl_.flags_.repeat_ && (dmaControl_.flags_.startTiming_ != 0) && !fifoDma_)
+    {
+        SetInternalWordCount();
+
+        if ((dmaControl_.flags_.destAddrControl_ == 3))
+        {
+            internalDestAddr_ = DAD_ & (dmaChannelIndex_ == 3 ? 0x0FFF'FFFF : 0x07FF'FFFF);
+        }
+    }
+    else if (!dmaControl_.flags_.repeat_ || (dmaControl_.flags_.startTiming_ == 0))
+    {
+        dmaControl_.flags_.dmaEnable_ = 0;
+        gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
+        gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
+    }
+
+    if (dmaControl_.flags_.irqEnable_)
+    {
+        InterruptMgr.RequestInterrupt(dmaInterrupt_);
+    }
+}
+
+void DmaChannel::PartiallyExecute(GameBoyAdvance* gbaPtr, int cycles)
+{
+    if (eepromRead_ || eepromWrite_ || fifoDma_)
+    {
+        return;
+    }
+
+    int wordsToTransfer = cycles / cyclesPerTransfer_;
+
+    while ((wordsToTransfer > 0) && (internalWordCount_ > 0))
+    {
+        auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
+        gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
+        --wordsToTransfer;
+        --internalWordCount_;
+        UpdateInternalAddresses();
+    }
+}
+
+int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
+{
+    int readCycles = 1;
+    int writeCycles = 1;
+    int processingTime = 2;
+    bool romToRomDma = false;
+
+    uint8_t const readPage = (internalSrcAddr_ & 0x0F00'0000) >> 24;
+    uint8_t const writePage = (internalDestAddr_ & 0x0F00'0000) >> 24;
+
+    eepromRead_ = false;
+    eepromWrite_ = false;
+    fifoDma_ = FifoDma();
+
+    if ((internalSrcAddr_ < 0x0800'0000) || (internalSrcAddr_ > 0x0FFF'FFFF))
+    {
+        // Either internal memory or open bus
+        int cyclesPerRead = 1;
+
+        switch (readPage)
+        {
+            case 0x02:  // 256K WRAM
+                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 6 : 3;
+                break;
+            case 0x05:  // PRAM
+                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
+                break;
+            case 0x06:  // VRAM
+                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
+                break;
+            default:
+                break;
+        }
+
+        readCycles = (fifoDma_ ? 4 : internalWordCount_) * cyclesPerRead;
+    }
+    else
+    {
+        // GamePak
+        romToRomDma = true;
+        readCycles = gbaPtr->gamePak_->AccessTime(internalSrcAddr_, false, xferAlignment_);
+        readCycles += (gbaPtr->gamePak_->AccessTime(internalSrcAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        eepromRead_ = gbaPtr->gamePak_->EepromAccess(internalSrcAddr_);
+    }
+
+    if (fifoDma_)
+    {
+        romToRomDma = false;
+        writeCycles = 4;
+    }
+    else if ((internalDestAddr_ < 0x0800'0000) || (internalDestAddr_ > 0x0FFF'FFFF))
+    {
+        // Either internal memory or open bus
+        int cyclesPerWrite = 1;
+        romToRomDma = false;
+
+        switch (writePage)
+        {
+            case 0x02:  // 256K WRAM
+                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 6 : 3;
+                break;
+            case 0x05:  // PRAM
+                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
+                break;
+            case 0x06:  // VRAM
+                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
+                break;
+            default:
+                break;
+        }
+
+        writeCycles = internalWordCount_ * cyclesPerWrite;
+    }
+    else
+    {
+        // GamePak
+        writeCycles = gbaPtr->gamePak_->AccessTime(internalDestAddr_, false, xferAlignment_);
+        writeCycles += (gbaPtr->gamePak_->AccessTime(internalDestAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        eepromWrite_ = gbaPtr->gamePak_->EepromAccess(internalDestAddr_);
+    }
+
+    if (romToRomDma)
+    {
+        processingTime += 2;
+    }
+
+    totalTransferCycles_ = (readCycles + writeCycles) + processingTime;
+    cyclesPerTransfer_ = totalTransferCycles_ / internalWordCount_;
+    return totalTransferCycles_;
+}
+
+void DmaChannel::ScheduleTransfer(GameBoyAdvance* gbaPtr)
+{
+    switch (dmaControl_.flags_.startTiming_)
+    {
+        case 0:  // Immediately
+            gbaPtr->dmaImmediately_[dmaChannelIndex_] = true;
+            gbaPtr->ScheduleDMA(gbaPtr->dmaImmediately_);
+            break;
+        case 1:  // VBlank
+            gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = true;
+            break;
+        case 2:  // HBlank
+            gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = true;
+            break;
+        case 3:  // Special
+        {
+            if (FifoDma())
+            {
+                gbaPtr->dmaOnReplenishA_[dmaChannelIndex_] = (internalDestAddr_ == Audio::FIFO_A_ADDR);
+                gbaPtr->dmaOnReplenishB_[dmaChannelIndex_] = (internalDestAddr_ == Audio::FIFO_B_ADDR);
+            }
+            break;
+        }
+    }
+}
+
+void DmaChannel::SetInternalWordCount()
+{
+    internalWordCount_ = dmaControl_.flags_.wordCount_ & (dmaChannelIndex_ == 3 ? 0xFFFF : 0x3FFF);
+
+    if (internalWordCount_ == 0)
+    {
+        internalWordCount_ = (dmaChannelIndex_ == 3 ? 0x0001'0000 : 0x4000);
+    }
+}
+
+void DmaChannel::UpdateInternalAddresses()
+{
+    switch (dmaControl_.flags_.destAddrControl_)
+    {
+        case 0:  // Increment
+        case 3:  // Increment/Reload
+            internalDestAddr_ += static_cast<uint8_t>(xferAlignment_);
+            break;
+        case 1:  // Decrement
+            internalDestAddr_ -= static_cast<uint8_t>(xferAlignment_);
+            break;
+        case 2:  // Fixed
+            break;
+    }
+
+    switch (dmaControl_.flags_.srcAddrControl_)
+    {
+        case 0:  // Increment
+            internalSrcAddr_ += static_cast<uint8_t>(xferAlignment_);
+            break;
+        case 1:  // Decrement
+            internalSrcAddr_ -= static_cast<uint8_t>(xferAlignment_);
+            break;
+        case 2:  // Fixed
+        case 3:  // Forbidden
+            break;
+    }
+}
+
+void DmaChannel::ExecuteEepromXfer(GameBoyAdvance* gbaPtr)
 {
     if (eepromRead_ && eepromWrite_)
     {
@@ -244,206 +469,36 @@ void DmaChannel::Execute(GameBoyAdvance* gbaPtr)
             }
         }
     }
-    else
-    {
-        // Normal DMA transfer
-        while (internalWordCount_ > 0)
-        {
-            auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
-            gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
-            --internalWordCount_;
-            UpdateInternalAddresses();
-        }
-    }
-
-    if (dmaControl_.flags_.repeat_ && (dmaControl_.flags_.startTiming_ != 0))
-    {
-        SetInternalWordCount();
-
-        if (dmaControl_.flags_.destAddrControl_ == 3)
-        {
-            internalDestAddr_ = DAD_ & (dmaChannelIndex_ == 3 ? 0x0FFF'FFFF : 0x07FF'FFFF);
-        }
-    }
-    else if (!dmaControl_.flags_.repeat_ || (dmaControl_.flags_.startTiming_ == 0))
-    {
-        dmaControl_.flags_.dmaEnable_ = 0;
-        gbaPtr->dmaImmediately_[dmaChannelIndex_] = false;
-        gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = false;
-        gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = false;
-    }
-
-    if (dmaControl_.flags_.irqEnable_)
-    {
-        InterruptMgr.RequestInterrupt(dmaInterrupt_);
-    }
 }
 
-void DmaChannel::PartiallyExecute(GameBoyAdvance* gbaPtr, int cycles)
+bool DmaChannel::FifoDma()
 {
-    if (eepromRead_ || eepromWrite_)
-    {
-        return;
-    }
-
-    int wordsToTransfer = cycles / cyclesPerTransfer_;
-
-    while ((wordsToTransfer > 0) && (internalWordCount_ > 0))
-    {
-        auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, xferAlignment_);
-        gbaPtr->WriteMemory(internalDestAddr_, value, xferAlignment_);
-        --wordsToTransfer;
-        --internalWordCount_;
-        UpdateInternalAddresses();
-    }
+    return dmaControl_.flags_.repeat_ &&
+           ((internalDestAddr_ == Audio::FIFO_A_ADDR) || (internalDestAddr_ == Audio::FIFO_B_ADDR)) &&
+           ((dmaChannelIndex_ == 1) || (dmaChannelIndex_ == 2));
 }
 
-int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
+void DmaChannel::ExecuteFifoDmaXfer(GameBoyAdvance* gbaPtr)
 {
-    int readCycles = 1;
-    int writeCycles = 1;
-    int processingTime = 2;
-    bool romToRomDma = false;
-
-    uint8_t const readPage = (internalSrcAddr_ & 0x0F00'0000) >> 24;
-    uint8_t const writePage = (internalDestAddr_ & 0x0F00'0000) >> 24;
-
-    eepromRead_ = false;
-    eepromWrite_ = false;
-
-    if ((internalSrcAddr_ < 0x0800'0000) || (internalSrcAddr_ > 0x0FFF'FFFF))
-    {
-        // Either internal memory or open bus
-        int cyclesPerRead = 1;
-
-        switch (readPage)
-        {
-            case 0x02:  // 256K WRAM
-                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 6 : 3;
-                break;
-            case 0x05:  // PRAM
-                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
-                break;
-            case 0x06:  // VRAM
-                cyclesPerRead = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
-                break;
-            default:
-                break;
-        }
-
-        readCycles = internalWordCount_ * cyclesPerRead;
-    }
-    else
-    {
-        // GamePak
-        romToRomDma = true;
-        readCycles = gbaPtr->gamePak_->AccessTime(internalSrcAddr_, false, xferAlignment_);
-        readCycles += (gbaPtr->gamePak_->AccessTime(internalSrcAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
-        eepromRead_ = gbaPtr->gamePak_->EepromAccess(internalSrcAddr_);
-    }
-
-    if ((internalDestAddr_ < 0x0800'0000) || (internalDestAddr_ > 0x0FFF'FFFF))
-    {
-        // Either internal memory or open bus
-        int cyclesPerWrite = 1;
-        romToRomDma = false;
-
-        switch (writePage)
-        {
-            case 0x02:  // 256K WRAM
-                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 6 : 3;
-                break;
-            case 0x05:  // PRAM
-                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
-                break;
-            case 0x06:  // VRAM
-                cyclesPerWrite = (xferAlignment_ == AccessSize::WORD) ? 2 : 1;
-                break;
-            default:
-                break;
-        }
-
-        writeCycles = internalWordCount_ * cyclesPerWrite;
-    }
-    else
-    {
-        // GamePak
-        writeCycles = gbaPtr->gamePak_->AccessTime(internalDestAddr_, false, xferAlignment_);
-        writeCycles += (gbaPtr->gamePak_->AccessTime(internalDestAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
-        eepromWrite_ = gbaPtr->gamePak_->EepromAccess(internalDestAddr_);
-    }
-
-    if (romToRomDma)
-    {
-        processingTime += 2;
-    }
-
-    totalTransferCycles_ = (readCycles + writeCycles) + processingTime;
-    cyclesPerTransfer_ = totalTransferCycles_ / internalWordCount_;
-    return totalTransferCycles_;
-}
-
-void DmaChannel::ScheduleTransfer(GameBoyAdvance* gbaPtr)
-{
-    switch (dmaControl_.flags_.startTiming_)
-    {
-        case 0:  // Immediately
-            gbaPtr->dmaImmediately_[dmaChannelIndex_] = true;
-            gbaPtr->ScheduleDMA(gbaPtr->dmaImmediately_);
-            break;
-        case 1:  // VBlank
-            gbaPtr->dmaOnVBlank_[dmaChannelIndex_] = true;
-            break;
-        case 2:  // HBlank
-            gbaPtr->dmaOnHBlank_[dmaChannelIndex_] = true;
-            break;
-        case 3:  // Special
-        {
-            if ((dmaChannelIndex_ == 1) || (dmaChannelIndex_ == 2))
-            {
-                gbaPtr->dmaSoundFifo_[dmaChannelIndex_] = true;
-            }
-            break;
-        }
-    }
-}
-
-void DmaChannel::SetInternalWordCount()
-{
-    internalWordCount_ = dmaControl_.flags_.wordCount_ & (dmaChannelIndex_ == 3 ? 0xFFFF : 0x3FFF);
-
-    if (internalWordCount_ == 0)
-    {
-        internalWordCount_ = (dmaChannelIndex_ == 3 ? 0x0001'0000 : 0x4000);
-    }
-
-}
-
-void DmaChannel::UpdateInternalAddresses()
-{
-    switch (dmaControl_.flags_.destAddrControl_)
-    {
-        case 0:  // Increment
-        case 3:  // Increment/Reload
-            internalDestAddr_ += static_cast<uint8_t>(xferAlignment_);
-            break;
-        case 1:  // Decrement
-            internalDestAddr_ -= static_cast<uint8_t>(xferAlignment_);
-            break;
-        case 2:  // Fixed
-            break;
-    }
+    int32_t srcDelta = 0;
 
     switch (dmaControl_.flags_.srcAddrControl_)
     {
         case 0:  // Increment
-            internalSrcAddr_ += static_cast<uint8_t>(xferAlignment_);
+            srcDelta = 4;
             break;
         case 1:  // Decrement
-            internalSrcAddr_ -= static_cast<uint8_t>(xferAlignment_);
+            srcDelta = -4;
             break;
         case 2:  // Fixed
         case 3:  // Forbidden
             break;
+    }
+
+    for (int i = 0; i < 4; ++i)
+    {
+        auto [value, readCycles] = gbaPtr->ReadMemory(internalSrcAddr_, AccessSize::WORD);
+        gbaPtr->apu_.WriteToFifo(internalDestAddr_, value);
+        internalSrcAddr_ += srcDelta;
     }
 }

@@ -95,6 +95,19 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VBlank(int extraCycles);
 
+    /// @brief Callback function for a timer 0 overflow event.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void Timer0Overflow(int extraCycles) { TimerOverflow(0, extraCycles); }
+
+    /// @brief Callback function for a timer 1 overflow event.
+    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
+    void Timer1Overflow(int extraCycles) { TimerOverflow(1, extraCycles); }
+
+    /// @brief Handle timer overflow events potentially connected to DMA-Sound playback.
+    /// @param timer Which timer overflowed (0 or 1).
+    /// @param extraCycles Number of cycles that passed since the overflow happened.
+    void TimerOverflow(int timer, int extraCycles);
+
     /// @brief Callback function to execute Dma Channel 0 transfer.
     void DMA0(int) { ExecuteDMA(0); }
 
@@ -152,7 +165,7 @@ private:
     CPU::ARM7TDMI cpu_;
     GamepadManager gamepad_;
     Graphics::PPU ppu_;
-    TimerManager timer_;
+    TimerManager timerManager_;
     std::unique_ptr<Cartridge::GamePak> gamePak_;
 
     // DMA channels
@@ -160,7 +173,8 @@ private:
     std::array<bool, 4> dmaImmediately_;
     std::array<bool, 4> dmaOnVBlank_;
     std::array<bool, 4> dmaOnHBlank_;
-    std::array<bool, 4> dmaSoundFifo_;
+    std::array<bool, 4> dmaOnReplenishA_;
+    std::array<bool, 4> dmaOnReplenishB_;
     std::optional<int> activeDmaChannel_;
 
     // Memory
