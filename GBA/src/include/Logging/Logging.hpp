@@ -1,11 +1,13 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <Config.hpp>
+#include <System/InterruptManager.hpp>
+#include <Utilities/CircularBuffer.hpp>
 
 namespace fs = std::filesystem;
 
@@ -32,8 +34,20 @@ public:
     void LogInstruction(uint32_t pc, std::string mnemonic, std::string registers);
 
     /// @brief Log when an IRQ occurs.
-    /// @param lr Value that link register will be set to.
-    void LogIRQ(uint32_t lr);
+    void LogIRQ();
+
+    /// @brief Log when the CPU gets halted.
+    /// @param ie Which interrupts are enabled at the time the halt occurs.
+    void LogHalt(uint16_t IE);
+
+    /// @brief Log when the CPU is unhalted.
+    /// @param IF Which interrupts are currently requested.
+    /// @param IE Which interrupts are currently enabled.
+    void LogUnhalt(uint16_t IF, uint16_t IE);
+
+    /// @brief Log when an interrupt is requested.
+    /// @param interrupt Which interrupt was requested.
+    void LogInterruptRequest(InterruptType interrupt);
 
     /// @brief Log an exception and dump logs.
     /// @param error Exception to log.
@@ -43,10 +57,11 @@ public:
     void DumpLogs();
 
 private:
-    void DumpBufferToFile(size_t bufferToDump);
+    /// @brief Log a string and the current cycle count.
+    /// @param message Message to log.
+    void LogMessage(std::string message);
 
-    std::array<std::vector<std::string>, 2> buffers_;
-    size_t bufferIndex_;
+    CircularBuffer<std::string, Config::LOG_BUFFER_SIZE> buffer_;
 
     fs::path logPath_;
     bool loggingInitialized_;

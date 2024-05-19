@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <utility>
+#include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 #include <Utilities/Utilities.hpp>
@@ -11,9 +12,9 @@ InterruptManager InterruptMgr;
 
 InterruptManager::InterruptManager() :
     intWtstPwdDownRegisters_(),
-    IE_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(0))),
-    IF_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(2))),
-    IME_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_.at(8))),
+    IE_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_[0])),
+    IF_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_[2])),
+    IME_(*reinterpret_cast<uint16_t*>(&intWtstPwdDownRegisters_[8])),
     POSTFLG_(intWtstPwdDownRegisters_.at(256)),
     HALTCNT_(intWtstPwdDownRegisters_.at(257))
 {
@@ -24,6 +25,12 @@ InterruptManager::InterruptManager() :
 void InterruptManager::RequestInterrupt(InterruptType interrupt)
 {
     IF_ |= static_cast<uint16_t>(interrupt);
+
+    if (Config::LOGGING_ENABLED)
+    {
+        Logging::LogMgr.LogInterruptRequest(interrupt);
+    }
+
     CheckForInterrupt();
 }
 
@@ -34,7 +41,7 @@ std::pair<uint32_t, bool> InterruptManager::ReadReg(uint32_t addr, AccessSize al
 
     if ((addr >= WAITCNT_ADDR) && (addr < IME_ADDR))
     {
-        if ((addr >= 0x0400'0206))
+        if (addr >= 0x0400'0206)
         {
             return openBusCondition;
         }
@@ -134,6 +141,11 @@ void InterruptManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignm
             {
                 halted_ = true;
                 Scheduler.ScheduleEvent(EventType::Halt, SCHEDULE_NOW);
+
+                if (Config::LOGGING_ENABLED)
+                {
+                    Logging::LogMgr.LogHalt(IE_);
+                }
             }
         }
     }
@@ -155,6 +167,11 @@ void InterruptManager::CheckForInterrupt()
         if (halted_)
         {
             Scheduler.ScheduleEvent(EventType::Halt, SCHEDULE_NOW);
+
+            if (Config::LOGGING_ENABLED)
+            {
+                Logging::LogMgr.LogUnhalt(IF_, IE_);
+            }
         }
 
         halted_ = false;

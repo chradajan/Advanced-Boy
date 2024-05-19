@@ -252,6 +252,11 @@ void GameBoyAdvance::UpdateGamepad(Gamepad gamepad)
     gamepad_.UpdateGamepad(gamepad);
 }
 
+void GameBoyAdvance::DumpLogs() const
+{
+    Logging::LogMgr.DumpLogs();
+}
+
 std::string GameBoyAdvance::RomTitle() const
 {
     if (gamePakLoaded_)
@@ -626,8 +631,10 @@ void GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignm
         {
             gamePak_->WriteWAITCNT(addr, value, alignment);
         }
-
-        InterruptMgr.WriteReg(addr, value, alignment);
+        else
+        {
+            InterruptMgr.WriteReg(addr, value, alignment);
+        }
     }
     else
     {

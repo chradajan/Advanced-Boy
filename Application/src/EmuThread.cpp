@@ -34,6 +34,12 @@ EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging)
     audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &audioSpec, nullptr, 0);
 }
 
+EmuThread::~EmuThread()
+{
+    SDL_CloseAudioDevice(audioDevice_);
+    ::DumpLogs();
+}
+
 std::string EmuThread::RomTitle() const
 {
     return ::RomTitle();

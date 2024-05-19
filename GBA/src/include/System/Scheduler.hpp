@@ -111,6 +111,10 @@ public:
     /// @return True if specified event is in queue, false otherwise.
     bool EventScheduled(EventType eventType) const;
 
+    /// @brief Return the total number of cycles that have elapsed while the emulator has been running.
+    /// @return Total number of cycles.
+    uint64_t TotalCycles() const { return totalCycles_; }
+
 private:
     std::vector<Event> queue_;
     std::unordered_map<EventType, std::function<void(int)>> registeredEvents_;

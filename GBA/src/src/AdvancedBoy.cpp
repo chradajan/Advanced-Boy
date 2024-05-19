@@ -94,6 +94,16 @@ void EnableLogging(bool enable)
     }
 }
 
+void DumpLogs()
+{
+    if (!gba)
+    {
+        return;
+    }
+
+    gba->DumpLogs();
+}
+
 std::string RomTitle()
 {
     if (!gba)

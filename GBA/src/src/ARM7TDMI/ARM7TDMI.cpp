@@ -156,7 +156,7 @@ void ARM7TDMI::IRQ(int)
 
         if (Config::LOGGING_ENABLED)
         {
-            Logging::LogMgr.LogIRQ(savedPC);
+            Logging::LogMgr.LogIRQ();
         }
 
         registers_.SetOperatingState(OperatingState::ARM);

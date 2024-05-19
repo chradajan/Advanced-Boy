@@ -44,6 +44,9 @@ int GetAndResetFrameCounter();
 /// @param enable Whether to enable or disable logging.
 void EnableLogging(bool enable);
 
+/// @brief If logging was enabled, dump the log buffer to a file.
+void DumpLogs();
+
 /// @brief Get the title of the currently loaded ROM.
 /// @return Title of ROM.
 /// @pre Initialize must have been previously called.

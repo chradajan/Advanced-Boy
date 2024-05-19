@@ -75,6 +75,9 @@ public:
     /// @return Title of ROM.
     std::string RomTitle() const;
 
+    /// @brief Dump log buffer to file.
+    void DumpLogs() const;
+
 private:
     /// @brief Set all internal memory to 0.
     void ZeroMemory();

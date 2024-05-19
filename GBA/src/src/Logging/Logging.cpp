@@ -4,18 +4,56 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <mutex>
 #include <stdexcept>
 #include <string>
-#include <thread>
+#include <System/InterruptManager.hpp>
+#include <System/Scheduler.hpp>
 
 namespace fs = std::filesystem;
-static std::mutex mtx;
+
+namespace
+{
+std::string InterruptString(InterruptType interrupt)
+{
+    switch (interrupt)
+    {
+        case InterruptType::LCD_VBLANK:
+            return "LCD_VBLANK";
+        case InterruptType::LCD_HBLANK:
+            return "LCD_HBLANK";
+        case InterruptType::LCD_VCOUNTER_MATCH:
+            return "LCD_VCOUNTER_MATCH";
+        case InterruptType::TIMER_0_OVERFLOW:
+            return "TIMER_0_OVERFLOW";
+        case InterruptType::TIMER_1_OVERFLOW:
+            return "TIMER_1_OVERFLOW";
+        case InterruptType::TIMER_2_OVERFLOW:
+            return "TIMER_2_OVERFLOW";
+        case InterruptType::TIMER_3_OVERFLOW:
+            return "TIMER_3_OVERFLOW";
+        case InterruptType::SERIAL_COMMUNICATION:
+            return "SERIAL_COMMUNICATION";
+        case InterruptType::DMA0:
+            return "DMA0";
+        case InterruptType::DMA1:
+            return "DMA1";
+        case InterruptType::DMA2:
+            return "DMA2";
+        case InterruptType::DMA3:
+            return "DMA3";
+        case InterruptType::KEYPAD:
+            return "KEYPAD";
+        case InterruptType::GAME_PAK:
+            return "GAME_PAK";
+    }
+
+    return "";
+}
+}
 
 namespace Logging
 {
 LogManager::LogManager() :
-    bufferIndex_(0),
     loggingInitialized_(false)
 {
 }
@@ -44,68 +82,78 @@ void LogManager::Initialize()
 
 void LogManager::LogInstruction(uint32_t pc, std::string mnemonic, std::string registers)
 {
-    if (loggingInitialized_)
-    {
-        buffers_.at(bufferIndex_).push_back(std::format("{:08X}:  {:<40}  {}\n", pc, mnemonic, registers));
-
-        if (buffers_.at(bufferIndex_).size() == Config::LOG_BUFFER_SIZE)
-        {
-            DumpLogs();
-        }
-    }
+    LogMessage(std::format("{:08X}:  {:<40}  {}", pc, mnemonic, registers));
 }
 
-void LogManager::LogIRQ(uint32_t lr)
+void LogManager::LogIRQ()
 {
-    if (loggingInitialized_)
-    {
-        buffers_.at(bufferIndex_).push_back(std::format("IRQ. LR: {:08X}\n", lr));
+    LogMessage("Servicing IRQ");
+}
 
-        if (buffers_.at(bufferIndex_).size() == Config::LOG_BUFFER_SIZE)
+void LogManager::LogHalt(uint16_t IE)
+{
+    std::string enabledInterrupts = "";
+
+    for (int i = 0; i < 14; ++i)
+    {
+        uint16_t mask = (0x0001 << i);
+
+        if (IE & mask)
         {
-            DumpLogs();
+            if (enabledInterrupts != "")
+            {
+                enabledInterrupts += " | " + InterruptString(static_cast<InterruptType>(mask));
+            }
+            else
+            {
+                enabledInterrupts += InterruptString(static_cast<InterruptType>(mask));
+            }
         }
     }
+
+    LogMessage("Halting - IE: " + enabledInterrupts);
+}
+
+void LogManager::LogUnhalt(uint16_t IF, uint16_t IE)
+{
+    std::string unhaltReason = InterruptString(static_cast<InterruptType>(IF & IE));
+    LogMessage("Unhalting due to " + unhaltReason);
+}
+
+void LogManager::LogInterruptRequest(InterruptType interrupt)
+{
+    LogMessage("Requesting " + InterruptString(interrupt) + " interrupt");
 }
 
 void LogManager::LogException(std::exception const& error)
 {
-    if (loggingInitialized_)
-    {
-        buffers_.at(bufferIndex_).push_back(error.what());
-
-        if (buffers_.at(bufferIndex_).size() == Config::LOG_BUFFER_SIZE)
-        {
-            DumpLogs();
-        }
-    }
+    LogMessage(error.what());
 }
 
 void LogManager::DumpLogs()
 {
     if (loggingInitialized_)
     {
-        size_t bufferToDump = bufferIndex_;
-        bufferIndex_ = (bufferIndex_ == 1) ? 0 : 1;
-        std::thread dumpThread(&LogManager::DumpBufferToFile, this, bufferToDump);
-        dumpThread.detach();
+        std::ofstream logFile;
+        logFile.open(logPath_);
+
+        while (!buffer_.Empty())
+        {
+            logFile << buffer_.Pop();
+        }
     }
 }
 
-void LogManager::DumpBufferToFile(size_t bufferToDump)
+void LogManager::LogMessage(std::string message)
 {
     if (loggingInitialized_)
     {
-        std::lock_guard<std::mutex> lock(mtx);
-        std::ofstream logFile;
-        logFile.open(logPath_, std::ios_base::app);
-
-        for (auto const& instruction : buffers_.at(bufferToDump))
+        if (buffer_.Full())
         {
-            logFile << instruction;
+            buffer_.Pop();
         }
 
-        buffers_.at(bufferToDump).clear();
+        buffer_.Push(std::format("{}  -  ", Scheduler.TotalCycles()) + message + "\n");
     }
 }
 

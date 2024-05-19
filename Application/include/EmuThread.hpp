@@ -19,6 +19,9 @@ public:
     /// @param logging Whether to log CPU instructions.
     EmuThread(fs::path romPath, fs::path biosPath, bool logging);
 
+    /// @brief Stop audio callbacks and dump logs.
+    ~EmuThread();
+
     /// @brief Get the title of the currently loaded ROM.
     /// @return Title of ROM.
     std::string RomTitle() const;
