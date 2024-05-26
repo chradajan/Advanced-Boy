@@ -7,7 +7,7 @@
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
 #include <System/InterruptManager.hpp>
-#include <System/MemoryMap.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace
 {

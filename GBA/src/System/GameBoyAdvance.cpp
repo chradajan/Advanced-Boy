@@ -16,8 +16,8 @@
 #include <System/MemoryMap.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/Scheduler.hpp>
-#include <Utilities/Utilities.hpp>
 #include <Timers/TimerManager.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace fs = std::filesystem;
 

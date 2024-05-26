@@ -5,7 +5,7 @@
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
-#include <Utilities/Utilities.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 // Global Interrupt Manager instance
 InterruptManager InterruptMgr;

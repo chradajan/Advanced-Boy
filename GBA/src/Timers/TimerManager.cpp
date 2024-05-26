@@ -4,7 +4,7 @@
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
-#include <Utilities/Utilities.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 #include <Timers/Timer.hpp>
 
 TimerManager::TimerManager() :

@@ -3,36 +3,6 @@
 #include <cstdint>
 #include <limits>
 
-// Useful constants
-constexpr uint32_t KiB = 1024;
-constexpr uint32_t MiB = KiB * KiB;
-
-enum class AccessSize : uint8_t
-{
-    BYTE = 1,
-    HALFWORD = 2,
-    WORD = 4
-};
-
-enum class ReadStatus
-{
-    VALID,
-    OPEN_BUS,
-    ZERO
-};
-
-// Useful 32-bit constants
-constexpr uint32_t MSB_32 = 0b1000'0000'0000'0000'0000'0000'0000'0000;
-constexpr uint32_t MAX_U32 = std::numeric_limits<uint32_t>::max();
-
-// Useful 16-bit constants
-constexpr uint16_t MSB_16 = 0b1000'0000'0000'0000;
-constexpr uint16_t MAX_U16 = std::numeric_limits<uint16_t>::max();
-
-// Useful 8-bit constants
-constexpr uint8_t MSB_8 = 0b1000'0000;
-constexpr uint8_t MAX_U8 = std::numeric_limits<uint8_t>::max();
-
 // Memory map constants
 constexpr uint32_t BIOS_ADDR_MIN = 0x0000'0000;
 constexpr uint32_t BIOS_ADDR_MAX = 0x0000'3FFF;

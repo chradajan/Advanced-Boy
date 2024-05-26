@@ -1,13 +1,11 @@
 #include <ARM7TDMI/ThumbInstructions.hpp>
-
 #include <bit>
 #include <cstdint>
 #include <utility>
-
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
-#include <System/MemoryMap.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace
 {

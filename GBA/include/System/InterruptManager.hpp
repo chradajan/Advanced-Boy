@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <utility>
-#include <System/MemoryMap.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 constexpr uint32_t IE_ADDR  = 0x0400'0200;
 constexpr uint32_t IF_ADDR  = 0x0400'0202;

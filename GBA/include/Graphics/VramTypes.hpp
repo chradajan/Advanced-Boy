@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <System/MemoryMap.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace Graphics
 {

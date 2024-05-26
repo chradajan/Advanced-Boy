@@ -7,7 +7,7 @@
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
-#include <Utilities/Utilities.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 DmaChannel::DmaChannel(int index) :
     dmaChannelRegisters_(),

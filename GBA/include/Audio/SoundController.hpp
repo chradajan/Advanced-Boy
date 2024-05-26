@@ -5,8 +5,8 @@
 #include <utility>
 #include <Audio/Registers.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
-#include <System/MemoryMap.hpp>
 #include <Utilities/CircularBuffer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace Audio
 {

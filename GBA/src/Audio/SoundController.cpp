@@ -7,8 +7,8 @@
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
-#include <Utilities/Utilities.hpp>
 #include <Utilities/CircularBuffer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 static constexpr bool UnusedSoundRegistersMap[80] = {
     0, 0, 0, 0,    0, 0, 1, 1,  // 0400'0060

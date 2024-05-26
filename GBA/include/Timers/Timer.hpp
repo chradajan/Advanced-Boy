@@ -2,8 +2,8 @@
 
 #include <array>
 #include <cstdint>
-#include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 class Timer
 {

@@ -12,9 +12,9 @@
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <System/GameBoyAdvance.hpp>
-#include <System/MemoryMap.hpp>
 #include <System/Scheduler.hpp>
 #include <Utilities/CircularBuffer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace CPU
 {

@@ -14,8 +14,8 @@
 #include <Gamepad/GamepadManager.hpp>
 #include <Graphics/PPU.hpp>
 #include <System/DmaChannel.hpp>
-#include <System/MemoryMap.hpp>
 #include <Timers/TimerManager.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace fs = std::filesystem;
 

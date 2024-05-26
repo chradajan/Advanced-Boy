@@ -1,10 +1,10 @@
 #pragma once
 
-#include <GamePad.hpp>
-#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <utility>
+#include <GamePad.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 class GamepadManager
 {

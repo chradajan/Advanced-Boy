@@ -1,5 +1,4 @@
-#include <Utilities/Utilities.hpp>
-#include <System/MemoryMap.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 #include <cstdint>
 
 uint32_t AlignAddress(uint32_t addr, AccessSize alignment)

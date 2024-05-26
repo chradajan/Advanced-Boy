@@ -1,12 +1,12 @@
 #pragma once
 
-#include <Graphics/FrameBuffer.hpp>
-#include <Graphics/Registers.hpp>
-#include <System/MemoryMap.hpp>
 #include <array>
 #include <cstdint>
 #include <functional>
 #include <utility>
+#include <Graphics/FrameBuffer.hpp>
+#include <Graphics/Registers.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 namespace Graphics
 {

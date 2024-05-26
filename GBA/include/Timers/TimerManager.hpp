@@ -2,8 +2,8 @@
 
 #include <array>
 #include <cstdint>
-#include <System/MemoryMap.hpp>
 #include <Timers/Timer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 constexpr uint32_t TIMER_0_ADDR_MAX = 0x0400'0103;
 constexpr uint32_t TIMER_1_ADDR_MAX = 0x0400'0107;

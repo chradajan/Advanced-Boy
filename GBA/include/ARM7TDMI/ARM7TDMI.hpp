@@ -7,8 +7,8 @@
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <ARM7TDMI/Registers.hpp>
 #include <ARM7TDMI/ThumbInstructions.hpp>
-#include <System/MemoryMap.hpp>
 #include <Utilities/CircularBuffer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 class GameBoyAdvance;
 
