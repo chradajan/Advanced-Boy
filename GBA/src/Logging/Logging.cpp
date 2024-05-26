@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <System/InterruptManager.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 
 namespace fs = std::filesystem;
 
@@ -78,6 +78,11 @@ void LogManager::Initialize()
 
         loggingInitialized_ = true;
     }
+}
+
+bool LogManager::LoggingEnabled() const
+{
+    return Config::LOGGING_ENABLED;
 }
 
 void LogManager::LogInstruction(uint32_t pc, std::string mnemonic, std::string registers)

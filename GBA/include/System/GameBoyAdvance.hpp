@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ARM7TDMI/ARM7TDMI.hpp>
+#include <CPU/ARM7TDMI.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>

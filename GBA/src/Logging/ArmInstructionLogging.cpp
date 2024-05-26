@@ -1,12 +1,11 @@
-#include <ARM7TDMI/ArmInstructions.hpp>
-#include <ARM7TDMI/ARM7TDMI.hpp>
-#include <ARM7TDMI/Registers.hpp>
-#include <Logging/Logging.hpp>
+#include <CPU/ArmInstructions.hpp>
 #include <bit>
 #include <cstdint>
 #include <format>
 #include <sstream>
 #include <string>
+#include <CPU/Registers.hpp>
+#include <Logging/Logging.hpp>
 
 namespace
 {
@@ -99,26 +98,23 @@ void BlockDataTransferHelper(std::stringstream& regStream, int consecutiveRegist
 
 namespace CPU::ARM
 {
-void BranchAndExchange::SetMnemonic()
+void BranchAndExchange::SetMnemonic(std::string& mnemonic)
 {
-    std::string op = "BX";
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    uint8_t operandRegIndex = instruction_.flags.Rn;
-
-    mnemonic_ = std::format("{:08X} -> {}{} R{}", instruction_.word, op, cond, operandRegIndex);
+    uint8_t operandRegIndex = instruction_.Rn;
+    mnemonic = std::format("{:08X} -> BX{} R{}", instruction_.word, Logging::ConditionMnemonic(instruction_.Cond), operandRegIndex);
 }
 
-void BlockDataTransfer::SetMnemonic()
+void BlockDataTransfer::SetMnemonic(std::string& mnemonic)
 {
     std::string op;
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    uint8_t const addrReg = instruction_.flags.Rn;
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    uint8_t const addrReg = instruction_.Rn;
     bool isStackOp = (addrReg == SP_INDEX);
 
     std::string addr = isStackOp ? "SP" : std::format("R{}", addrReg);
 
     uint8_t addressingModeCase =
-        (instruction_.flags.L ? 0b100 : 0) | (instruction_.flags.P ? 0b010 : 0) | (instruction_.flags.U ? 0b001 : 0);
+        (instruction_.L ? 0b100 : 0) | (instruction_.P ? 0b010 : 0) | (instruction_.U ? 0b001 : 0);
 
     switch (addressingModeCase)
     {
@@ -150,7 +146,7 @@ void BlockDataTransfer::SetMnemonic()
 
     uint8_t regIndex = 0;
     std::stringstream regStream;
-    uint16_t regList = instruction_.flags.RegisterList;
+    uint16_t regList = instruction_.RegisterList;
     int consecutiveRegisters = 0;
 
     regStream << "{";
@@ -183,31 +179,31 @@ void BlockDataTransfer::SetMnemonic()
 
     regStream << "}";
 
-    mnemonic_ = std::format("{:08X} -> {}{} {}{}, {}{}",
-        instruction_.word, op, cond, addr, instruction_.flags.W ? "!" : "", regStream.str(), instruction_.flags.S ? "^" : "");
+    mnemonic = std::format("{:08X} -> {}{} {}{}, {}{}",
+        instruction_.word, op, cond, addr, instruction_.W ? "!" : "", regStream.str(), instruction_.S ? "^" : "");
 }
 
-void Branch::SetMnemonic(uint32_t newPC)
+void Branch::SetMnemonic(std::string& mnemonic, uint32_t newPC)
 {
-    std::string op = instruction_.flags.L ? "BL" : "B";
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    mnemonic_ = std::format("{:08X} -> {}{} 0x{:08X}", instruction_.word, op, cond, newPC);
+    std::string op = instruction_.L ? "BL" : "B";
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    mnemonic = std::format("{:08X} -> {}{} 0x{:08X}", instruction_.word, op, cond, newPC);
 }
 
-void SoftwareInterrupt::SetMnemonic()
+void SoftwareInterrupt::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    uint32_t comment = instruction_.flags.CommentField;
-    mnemonic_ = std::format("{:08X} -> SWI{} #{:06X}", instruction_.word, cond, comment);
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    uint32_t comment = instruction_.CommentField;
+    mnemonic = std::format("{:08X} -> SWI{} #{:06X}", instruction_.word, cond, comment);
 }
 
-void Undefined::SetMnemonic()
+void Undefined::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    mnemonic_ = std::format("{:08X} -> UNDEFINED {}", instruction_.word, cond);
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    mnemonic = std::format("{:08X} -> UNDEFINED {}", instruction_.word, cond);
 }
 
-void SingleDataTransfer::SetMnemonic(uint32_t offset)
+void SingleDataTransfer::SetMnemonic(std::string& mnemonic, uint32_t offset)
 {
     std::string op = instruction_.flags.L ? "LDR" : "STR";
     std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
@@ -296,107 +292,107 @@ void SingleDataTransfer::SetMnemonic(uint32_t offset)
         }
     }
 
-    mnemonic_ = std::format("{:08X} -> {} R{}, {}", instruction_.word, op, srcDestIndex, address);
+    mnemonic = std::format("{:08X} -> {} R{}, {}", instruction_.word, op, srcDestIndex, address);
 }
 
-void SingleDataSwap::SetMnemonic()
+void SingleDataSwap::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    std::string b = instruction_.flags.B ? "B" : "";
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    std::string b = instruction_.B ? "B" : "";
     std::string op = "SWP" + cond + b;
 
-    uint8_t rd = instruction_.flags.Rd;
-    uint8_t rm = instruction_.flags.Rm;
-    uint8_t rn = instruction_.flags.Rn;
+    uint8_t rd = instruction_.Rd;
+    uint8_t rm = instruction_.Rm;
+    uint8_t rn = instruction_.Rn;
     std::string regString = std::format("R{}, R{}, [R{}]", rd, rm, rn);
 
-    mnemonic_ = std::format("{:08X} -> {} {}", instruction_.word, op, regString);
+    mnemonic = std::format("{:08X} -> {} {}", instruction_.word, op, regString);
 }
 
-void Multiply::SetMnemonic()
+void Multiply::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    std::string s = instruction_.flags.S ? "S" : "";
-    uint8_t rd = instruction_.flags.Rd;
-    uint8_t rm = instruction_.flags.Rm;
-    uint8_t rs = instruction_.flags.Rs;
-    uint8_t rn = instruction_.flags.Rn;
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    std::string s = instruction_.S ? "S" : "";
+    uint8_t rd = instruction_.Rd;
+    uint8_t rm = instruction_.Rm;
+    uint8_t rs = instruction_.Rs;
+    uint8_t rn = instruction_.Rn;
 
-    if (instruction_.flags.A)
+    if (instruction_.A)
     {
-        mnemonic_ = std::format("{:08X} -> MLA{}{} R{}, R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs, rn);
+        mnemonic = std::format("{:08X} -> MLA{}{} R{}, R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs, rn);
     }
     else
     {
-        mnemonic_ = std::format("{:08X} -> MUL{}{} R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs);
+        mnemonic = std::format("{:08X} -> MUL{}{} R{}, R{}, R{}", instruction_.word, cond, s, rd, rm, rs);
     }
 }
 
-void MultiplyLong::SetMnemonic()
+void MultiplyLong::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    std::string u = instruction_.flags.U ? "S" : "U";
-    std::string s = instruction_.flags.S ? "S" : "";
-    uint8_t rdHi = instruction_.flags.RdHi;
-    uint8_t rdLo = instruction_.flags.RdLo;
-    uint8_t rs = instruction_.flags.Rs;
-    uint8_t rm = instruction_.flags.Rm;
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    std::string u = instruction_.U ? "S" : "U";
+    std::string s = instruction_.S ? "S" : "";
+    uint8_t rdHi = instruction_.RdHi;
+    uint8_t rdLo = instruction_.RdLo;
+    uint8_t rs = instruction_.Rs;
+    uint8_t rm = instruction_.Rm;
     std::string regString = std::format("R{}, R{}, R{}, R{}", rdLo, rdHi, rm, rs);
 
-    if (instruction_.flags.A)
+    if (instruction_.A)
     {
-        mnemonic_ = std::format("{:08X} -> {}MLAL{}{} {}", instruction_.word, u, cond, s, regString);
+        mnemonic = std::format("{:08X} -> {}MLAL{}{} {}", instruction_.word, u, cond, s, regString);
     }
     else
     {
-        mnemonic_ = std::format("{:08X} -> {}MULL{}{} {}", instruction_.word, u, cond, s, regString);
+        mnemonic = std::format("{:08X} -> {}MULL{}{} {}", instruction_.word, u, cond, s, regString);
     }
 }
 
-void HalfwordDataTransferRegisterOffset::SetMnemonic(uint32_t offset)
+void HalfwordDataTransferRegisterOffset::SetMnemonic(std::string& mnemonic, uint32_t offset)
 {
-    uint8_t offsetRegIndex = instruction_.flags.Rm;
+    uint8_t offsetRegIndex = instruction_.Rm;
     std::string offsetExpression = (offset == 0 ? "" : std::format("R{}", offsetRegIndex));
-    std::string mnemonic = HalfwordDataTransferHelper(instruction_.flags.L,
-                                                      instruction_.flags.Cond,
-                                                      instruction_.flags.Rd,
-                                                      instruction_.flags.Rn,
-                                                      instruction_.flags.S,
-                                                      instruction_.flags.H,
-                                                      instruction_.flags.U,
-                                                      instruction_.flags.P,
-                                                      instruction_.flags.W,
-                                                      offsetExpression);
+    std::string halfwordDataTransferStr = HalfwordDataTransferHelper(instruction_.L,
+                                                                     instruction_.Cond,
+                                                                     instruction_.Rd,
+                                                                     instruction_.Rn,
+                                                                     instruction_.S,
+                                                                     instruction_.H,
+                                                                     instruction_.U,
+                                                                     instruction_.P,
+                                                                     instruction_.W,
+                                                                     offsetExpression);
 
-    mnemonic_ = std::format("{:08X} -> {}", instruction_.word, mnemonic);
+    mnemonic = std::format("{:08X} -> {}", instruction_.word, halfwordDataTransferStr);
 }
 
-void HalfwordDataTransferImmediateOffset::SetMnemonic(uint8_t offset)
+void HalfwordDataTransferImmediateOffset::SetMnemonic(std::string& mnemonic, uint8_t offset)
 {
     std::string offsetExpression = (offset == 0 ? "" : std::format("#{}", offset));
-    std::string mnemonic = HalfwordDataTransferHelper(instruction_.flags.L,
-                                                      instruction_.flags.Cond,
-                                                      instruction_.flags.Rd,
-                                                      instruction_.flags.Rn,
-                                                      instruction_.flags.S,
-                                                      instruction_.flags.H,
-                                                      instruction_.flags.U,
-                                                      instruction_.flags.P,
-                                                      instruction_.flags.W,
-                                                      offsetExpression);
+    std::string halfwordDataTransferStr = HalfwordDataTransferHelper(instruction_.L,
+                                                                     instruction_.Cond,
+                                                                     instruction_.Rd,
+                                                                     instruction_.Rn,
+                                                                     instruction_.S,
+                                                                     instruction_.H,
+                                                                     instruction_.U,
+                                                                     instruction_.P,
+                                                                     instruction_.W,
+                                                                     offsetExpression);
 
-    mnemonic_ = std::format("{:08X} -> {}", instruction_.word, mnemonic);
+    mnemonic = std::format("{:08X} -> {}", instruction_.word, halfwordDataTransferStr);
 }
 
-void PSRTransferMRS::SetMnemonic()
+void PSRTransferMRS::SetMnemonic(std::string& mnemonic)
 {
-    std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
-    std::string psr = instruction_.flags.Ps ? "SPSR" : "CPSR";
-    uint8_t rd = instruction_.flags.Rd;
-    mnemonic_ = std::format("{:08X} -> MRS{} R{}, {}", instruction_.word, cond, rd, psr);
+    std::string cond = Logging::ConditionMnemonic(instruction_.Cond);
+    std::string psr = instruction_.Ps ? "SPSR" : "CPSR";
+    uint8_t rd = instruction_.Rd;
+    mnemonic = std::format("{:08X} -> MRS{} R{}, {}", instruction_.word, cond, rd, psr);
 }
 
-void PSRTransferMSR::SetMnemonic()
+void PSRTransferMSR::SetMnemonic(std::string& mnemonic)
 {
     std::string cond = Logging::ConditionMnemonic(instruction_.commonFlags.Cond);
 
@@ -424,10 +420,10 @@ void PSRTransferMSR::SetMnemonic()
         expression = std::format("{}, R{}", psr, rm);
     }
 
-    mnemonic_ = std::format("{:08X} -> MSR{} {}", instruction_.word, cond, expression);
+    mnemonic = std::format("{:08X} -> MSR{} {}", instruction_.word, cond, expression);
 }
 
-void DataProcessing::SetMnemonic(uint32_t operand2)
+void DataProcessing::SetMnemonic(std::string& mnemonic, uint32_t operand2)
 {
     std::string op;
     std::string cond = Logging::ConditionMnemonic(instruction_.flags.Cond);
@@ -578,6 +574,6 @@ void DataProcessing::SetMnemonic(uint32_t operand2)
             break;
     }
 
-    mnemonic_ = std::format("{:08X} -> {}{}{} {}", instruction_.word, op, cond, s, regInfo);
+    mnemonic = std::format("{:08X} -> {}{}{} {}", instruction_.word, op, cond, s, regInfo);
 }
 }

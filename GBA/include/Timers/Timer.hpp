@@ -2,7 +2,7 @@
 
 #include <array>
 #include <cstdint>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 class Timer

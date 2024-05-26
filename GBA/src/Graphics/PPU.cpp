@@ -8,7 +8,7 @@
 #include <Graphics/VramTypes.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace
@@ -48,7 +48,7 @@ PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
     lcdRegisters_.fill(0);
     frameCounter_ = 0;
 
-    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1), true);
 }
 
 std::pair<uint32_t, bool> PPU::ReadReg(uint32_t addr, AccessSize alignment)

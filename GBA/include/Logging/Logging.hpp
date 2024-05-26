@@ -27,6 +27,10 @@ public:
     /// @brief Initialize LogManager and prepare to log.
     void Initialize();
 
+    /// @brief Check if logging is currently enabled.
+    /// @return Whether logging is enabled.
+    bool LoggingEnabled() const;
+
     /// @brief Save a logged instruction into buffer.
     /// @param pc PC value of logged instruction.
     /// @param mnemonic Human readable mnemonic.

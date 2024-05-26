@@ -1,56 +1,52 @@
 #pragma once
 
 #include <cstdint>
-
-#include <ARM7TDMI/CpuTypes.hpp>
+#include <string>
+#include <CPU/CPUTypes.hpp>
 
 namespace CPU { class ARM7TDMI; }
 
 namespace CPU::ARM
 {
-/// @brief Decode a 32-bit ARM instruction.
-/// @param instruction 32-bit ARM instruction.
-/// @return Pointer to instance of decoded instruction. Returns nullptr if instruction is invalid.
-Instruction* DecodeInstruction(uint32_t instruction, ARM7TDMI& cpu);
+/// @brief Decode a 32 bit value into an ARM instruction.
+/// @param undecodedInstruction 32 bit value to decode.
+/// @param buffer Pointer to buffer to place instruction object.
+/// @return Pointer to newly constructed instruction object.
+CPU::Instruction* DecodeInstruction(uint32_t undecodedInstruction, void* buffer);
 
 class BranchAndExchange : public virtual Instruction
 {
 public:
-    BranchAndExchange() = default;
-
     /// @brief BranchAndExchange instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    BranchAndExchange(uint32_t instruction) : instruction_(instruction) {}
+    BranchAndExchange(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Branch and Exchange instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'1111'1111'1111'0001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1111'1111'1111'1111'1111'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Rn : 4;
             uint32_t : 24;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -59,35 +55,30 @@ private:
 class BlockDataTransfer : public virtual Instruction
 {
 public:
-    BlockDataTransfer() = default;
-
     /// @brief BlockDataTransfer instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    BlockDataTransfer(uint32_t instruction) : instruction_(instruction) {}
+    BlockDataTransfer(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Block Data Transfer instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'1000'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t RegisterList : 16;
@@ -99,7 +90,7 @@ private:
             uint32_t P : 1;  // 0 = post - add offset after transfer, 1 = pre - add offset before transfer
             uint32_t : 3;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -108,43 +99,38 @@ private:
 class Branch : public virtual Instruction
 {
 public:
-    Branch() = default;
-
     /// @brief Branch instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    Branch(uint32_t instruction) : instruction_(instruction) {}
+    Branch(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Branch instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param mnemonic String to assign mnemonic to.
     /// @param newPc PC to branch to.
-    void SetMnemonic(uint32_t newPC);
+    void SetMnemonic(std::string& mnemonic, uint32_t newPC);
 
     static constexpr uint32_t FORMAT =      0b0000'1010'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Offset : 24;
             uint32_t L : 1;
             uint32_t : 3;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -153,41 +139,36 @@ private:
 class SoftwareInterrupt : public virtual Instruction
 {
 public:
-    SoftwareInterrupt() = default;
-
     /// @brief SoftwareInterrupt instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    SoftwareInterrupt(uint32_t instruction) : instruction_(instruction) {}
+    SoftwareInterrupt(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Software Interrupt instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'1111'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'0000'0000'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t CommentField : 24;
             uint32_t : 4;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -196,40 +177,35 @@ private:
 class Undefined : public virtual Instruction
 {
 public:
-    Undefined() = default;
-
     /// @brief Undefined instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    Undefined(uint32_t instruction) : instruction_(instruction) {}
+    Undefined(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Undefined instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0110'0000'0000'0000'0000'0001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0000'0000'0000'0000'0001'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t : 28;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -238,36 +214,31 @@ private:
 class SingleDataTransfer : public virtual Instruction
 {
 public:
-    SingleDataTransfer() = default;
-
     /// @brief SingleDataTransfer instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    SingleDataTransfer(uint32_t instruction) : instruction_(instruction) {}
+    SingleDataTransfer(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Single Data Transfer instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param mnemonic String to assign mnemonic to.
     /// @param offset Offset to add/subtract to base address.
-    void SetMnemonic(uint32_t offset);
+    void SetMnemonic(std::string& mnemonic, uint32_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0100'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Offset : 12;
@@ -299,35 +270,30 @@ private:
 class SingleDataSwap : public virtual Instruction
 {
 public:
-    SingleDataSwap() = default;
-
     /// @brief SingleDataSwap instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    SingleDataSwap(uint32_t instruction) : instruction_(instruction) {}
+    SingleDataSwap(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Single Data Swap instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'1111'1111'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Rm : 4;
@@ -338,7 +304,7 @@ private:
             uint32_t B : 1;
             uint32_t : 5;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -347,35 +313,30 @@ private:
 class Multiply : public virtual Instruction
 {
 public:
-    Multiply() = default;
-
     /// @brief Multiply instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    Multiply(uint32_t instruction) : instruction_(instruction) {}
+    Multiply(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Multiply instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'0000'1111'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Rm : 4;
@@ -387,7 +348,7 @@ private:
             uint32_t A : 1;
             uint32_t : 6;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -396,35 +357,30 @@ private:
 class MultiplyLong : public virtual Instruction
 {
 public:
-    MultiplyLong() = default;
-
     /// @brief MultiplyLong instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    MultiplyLong(uint32_t instruction) : instruction_(instruction) {}
+    MultiplyLong(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Multiply Long instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'1000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1000'0000'0000'0000'1111'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Rm : 4;
@@ -437,7 +393,7 @@ private:
             uint32_t U : 1;
             uint32_t : 5;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -446,36 +402,31 @@ private:
 class HalfwordDataTransferRegisterOffset : public virtual Instruction
 {
 public:
-    HalfwordDataTransferRegisterOffset() = default;
-
     /// @brief HalfwordDataTransferRegisterOffset instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    HalfwordDataTransferRegisterOffset(uint32_t instruction) : instruction_(instruction) {}
+    HalfwordDataTransferRegisterOffset(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Halfword Data Transfer Register Offset instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param mnemonic String to assign mnemonic to.
     /// @param offset Offset to add to transfer address.
-    void SetMnemonic(uint32_t offset);
+    void SetMnemonic(std::string& mnemonic, uint32_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0100'0000'0000'1111'1001'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Rm : 4;
@@ -492,7 +443,7 @@ private:
             uint32_t P : 1;
             uint32_t : 3;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -501,36 +452,31 @@ private:
 class HalfwordDataTransferImmediateOffset : public virtual Instruction
 {
 public:
-    HalfwordDataTransferImmediateOffset() = default;
-
     /// @brief HalfwordDataTransferImmediateOffset instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    HalfwordDataTransferImmediateOffset(uint32_t instruction) : instruction_(instruction) {}
+    HalfwordDataTransferImmediateOffset(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Halfword Data Transfer Immediate Offset instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param mnemonic String to assign mnemonic to.
     /// @param offset Offset to add to transfer address.
-    void SetMnemonic(uint8_t offset);
+    void SetMnemonic(std::string& mnemonic, uint8_t offset);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0100'0000'0000'0000'1001'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1110'0100'0000'0000'0000'1001'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t Offset : 4;
@@ -548,7 +494,7 @@ private:
             uint32_t P : 1;
             uint32_t : 3;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -557,35 +503,30 @@ private:
 class PSRTransferMRS : public virtual Instruction
 {
 public:
-    PSRTransferMRS() = default;
-
     /// @brief PSRTransferMRS instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    PSRTransferMRS(uint32_t instruction) : instruction_(instruction) {}
+    PSRTransferMRS(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a PSR Transfer (MRS) instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0001'0000'1111'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1111'1011'1111'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t : 12;
@@ -594,7 +535,7 @@ private:
             uint32_t Ps : 1;
             uint32_t : 5;
             uint32_t Cond : 4;
-        } flags;
+        };
 
         uint32_t word;
     } instruction_;
@@ -603,35 +544,30 @@ private:
 class PSRTransferMSR : public virtual Instruction
 {
 public:
-    PSRTransferMSR() = default;
-
     /// @brief PSRTransferMSR instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    PSRTransferMSR(uint32_t instruction) : instruction_(instruction) {}
+    PSRTransferMSR(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a PSR Transfer (MSR) instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
-    void SetMnemonic();
+    /// @param mnemonic String to assign mnemonic to.
+    void SetMnemonic(std::string& mnemonic);
 
     static constexpr uint32_t FORMAT =      0b0000'0001'0010'0000'1111'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1101'1011'0000'1111'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
-
         struct
         {
             uint32_t : 16;
@@ -667,35 +603,31 @@ private:
 class DataProcessing : public virtual Instruction
 {
 public:
-    DataProcessing() = default;
-
     /// @brief DataProcessing instruction constructor.
     /// @param instruction 32-bit ARM instruction.
     /// @pre IsInstanceOf must be true.
-    DataProcessing(uint32_t instruction) : instruction_(instruction) {}
+    DataProcessing(uint32_t instruction) { instruction_.word = instruction; }
 
     /// @brief Check if instruction matches layout of this command type.
     /// @param instruction 32-bit ARM instruction.
     /// @return Whether this instruction is a Data Processing instruction.
-    static bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
+    static constexpr bool IsInstanceOf(uint32_t instruction) { return (instruction & FORMAT_MASK) == FORMAT; }
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    int Execute(ARM7TDMI& cpu) override;
+    void Execute(ARM7TDMI& cpu) override;
 
 private:
     /// @brief Generate a mnemonic string for this instruction.
+    /// @param mnemonic String to assign mnemonic to.
     /// @param operand2 Second operand of data processing operation.
-    void SetMnemonic(uint32_t operand2);
+    void SetMnemonic(std::string& mnemonic, uint32_t operand2);
 
     static constexpr uint32_t FORMAT =      0b0000'0000'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t FORMAT_MASK = 0b0000'1100'0000'0000'0000'0000'0000'0000;
 
-    union InstructionFormat
+    union
     {
-        InstructionFormat() = default;
-        InstructionFormat(uint32_t instruction) : word(instruction) {}
         struct
         {
             uint32_t Operand2 : 12;

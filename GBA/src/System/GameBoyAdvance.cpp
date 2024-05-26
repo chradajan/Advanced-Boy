@@ -15,15 +15,16 @@
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/InterruptManager.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Timers/TimerManager.hpp>
+#include <Utilities/Functor.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace fs = std::filesystem;
 
-GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
+GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
     biosLoaded_(LoadBIOS(biosPath)),
-    cpu_(this, biosLoaded_),
+    cpu_(CPU::MemReadCallback(&ReadMemory, *this), CPU::MemWriteCallback(&WriteMemory, *this)),
     ppu_(paletteRAM_, VRAM_, OAM_),
     gamePak_(nullptr),
     dmaChannels_({0, 1, 2, 3})
@@ -44,15 +45,15 @@ GameBoyAdvance::GameBoyAdvance(fs::path const biosPath) :
     lastBiosFetch_ = 0;
     lastReadValue_ = 0;
 
-    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::DMA0, std::bind(&DMA0, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::DMA0, std::bind(&DMA0, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1), true);
 
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
@@ -74,8 +75,8 @@ void GameBoyAdvance::FillAudioBuffer(int samples)
             }
             else
             {
-                int cpuCycles = cpu_.Tick();
-                Scheduler.Tick(cpuCycles);
+                cpu_.Step();
+                Scheduler.CheckEventQueue();
             }
         }
     }

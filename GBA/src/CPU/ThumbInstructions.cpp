@@ -1,11 +1,11 @@
-#include <ARM7TDMI/ThumbInstructions.hpp>
+#include <CPU/ThumbInstructions.hpp>
 #include <bit>
 #include <cstdint>
 #include <utility>
-#include <ARM7TDMI/ARM7TDMI.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
-#include <Config.hpp>
-#include <Utilities/MemoryUtilities.hpp>
+#include <CPU/ARM7TDMI.hpp>
+#include <CPU/CpuTypes.hpp>
+#include <Logging/Logging.hpp>
+#include <System/EventScheduler.hpp>
 
 namespace
 {
@@ -60,131 +60,143 @@ std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool c
     bool v = SubtractionOverflow(op1, op2, result);
     return {c, v};
 }
+
+/// @brief Determine the number of internal cycles needed to perform a multiplication op.
+/// @param val Current value in destination register.
+/// @return Number of internal cycles.
+int InternalMultiplyCycles(uint32_t val)
+{
+    int cycles;
+
+    if (((val & 0xFFFF'FF00) == 0xFFFF'FF00) || ((val & 0xFFFF'FF00) == 0))
+    {
+        cycles = 1;
+    }
+    else if (((val & 0xFFFF'0000) == 0xFFFF'0000) || ((val & 0xFFFF'0000) == 0))
+    {
+        cycles = 2;
+    }
+    else if (((val & 0xFF00'0000) == 0xFF00'0000) || ((val & 0xFF00'0000) == 0))
+    {
+        cycles = 3;
+    }
+    else
+    {
+        cycles = 4;
+    }
+
+    return cycles;
 }
+}
+
 namespace CPU::THUMB
 {
-Instruction* DecodeInstruction(uint16_t const instruction, ARM7TDMI& cpu)
+using namespace Logging;
+
+CPU::Instruction* DecodeInstruction(uint16_t undecodedInstruction, void* buffer)
 {
-    if (SoftwareInterrupt::IsInstanceOf(instruction))
+    CPU::Instruction* instructionPtr = nullptr;
+
+    if (SoftwareInterrupt::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbSoftwareInterrupt = SoftwareInterrupt(instruction);
-        return &cpu.thumbSoftwareInterrupt;
+        instructionPtr = new(buffer) SoftwareInterrupt(undecodedInstruction);
     }
-    else if (UnconditionalBranch::IsInstanceOf(instruction))
+    else if (UnconditionalBranch::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbUnconditionalBranch = UnconditionalBranch(instruction);
-        return &cpu.thumbUnconditionalBranch;
+        instructionPtr = new(buffer) UnconditionalBranch(undecodedInstruction);
     }
-    else if (ConditionalBranch::IsInstanceOf(instruction))
+    else if (ConditionalBranch::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbConditionalBranch = ConditionalBranch(instruction);
-        return &cpu.thumbConditionalBranch;
+        instructionPtr = new(buffer) ConditionalBranch(undecodedInstruction);
     }
-    else if (MultipleLoadStore::IsInstanceOf(instruction))
+    else if (MultipleLoadStore::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbMultipleLoadStore = MultipleLoadStore(instruction);
-        return &cpu.thumbMultipleLoadStore;
+        instructionPtr = new(buffer) MultipleLoadStore(undecodedInstruction);
     }
-    else if (LongBranchWithLink::IsInstanceOf(instruction))
+    else if (LongBranchWithLink::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLongBranchWithLink = LongBranchWithLink(instruction);
-        return &cpu.thumbLongBranchWithLink;
+        instructionPtr = new(buffer) LongBranchWithLink(undecodedInstruction);
     }
-    else if (AddOffsetToStackPointer::IsInstanceOf(instruction))
+    else if (AddOffsetToStackPointer::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbAddOffsetToStackPointer = AddOffsetToStackPointer(instruction);
-        return &cpu.thumbAddOffsetToStackPointer;
+        instructionPtr = new(buffer) AddOffsetToStackPointer(undecodedInstruction);
     }
-    else if (PushPopRegisters::IsInstanceOf(instruction))
+    else if (PushPopRegisters::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbPushPopRegisters = PushPopRegisters(instruction);
-        return &cpu.thumbPushPopRegisters;
+        instructionPtr = new(buffer) PushPopRegisters(undecodedInstruction);
     }
-    else if (LoadStoreHalfword::IsInstanceOf(instruction))
+    else if (LoadStoreHalfword::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLoadStoreHalfword = LoadStoreHalfword(instruction);
-        return &cpu.thumbLoadStoreHalfword;
+        instructionPtr = new(buffer) LoadStoreHalfword(undecodedInstruction);
     }
-    else if (SPRelativeLoadStore::IsInstanceOf(instruction))
+    else if (SPRelativeLoadStore::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbSPRelativeLoadStore = SPRelativeLoadStore(instruction);
-        return &cpu.thumbSPRelativeLoadStore;
+        instructionPtr = new(buffer) SPRelativeLoadStore(undecodedInstruction);
     }
-    else if (LoadAddress::IsInstanceOf(instruction))
+    else if (LoadAddress::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLoadAddress = LoadAddress(instruction);
-        return &cpu.thumbLoadAddress;
+        instructionPtr = new(buffer) LoadAddress(undecodedInstruction);
     }
-    else if (LoadStoreWithImmediateOffset::IsInstanceOf(instruction))
+    else if (LoadStoreWithImmediateOffset::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLoadStoreWithImmediateOffset = LoadStoreWithImmediateOffset(instruction);
-        return &cpu.thumbLoadStoreWithImmediateOffset;
+        instructionPtr = new(buffer) LoadStoreWithImmediateOffset(undecodedInstruction);
     }
-    else if (LoadStoreWithRegisterOffset::IsInstanceOf(instruction))
+    else if (LoadStoreWithRegisterOffset::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLoadStoreWithRegisterOffset = LoadStoreWithRegisterOffset(instruction);
-        return &cpu.thumbLoadStoreWithRegisterOffset;
+        instructionPtr = new(buffer) LoadStoreWithRegisterOffset(undecodedInstruction);
     }
-    else if (LoadStoreSignExtendedByteHalfword::IsInstanceOf(instruction))
+    else if (LoadStoreSignExtendedByteHalfword::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbLoadStoreSignExtendedByteHalfword = LoadStoreSignExtendedByteHalfword(instruction);
-        return &cpu.thumbLoadStoreSignExtendedByteHalfword;
+        instructionPtr = new(buffer) LoadStoreSignExtendedByteHalfword(undecodedInstruction);
     }
-    else if (PCRelativeLoad::IsInstanceOf(instruction))
+    else if (PCRelativeLoad::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbPCRelativeLoad = PCRelativeLoad(instruction);
-        return &cpu.thumbPCRelativeLoad;
+        instructionPtr = new(buffer) PCRelativeLoad(undecodedInstruction);
     }
-    else if (HiRegisterOperationsBranchExchange::IsInstanceOf(instruction))
+    else if (HiRegisterOperationsBranchExchange::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbHiRegisterOperationsBranchExchange = HiRegisterOperationsBranchExchange(instruction);
-        return &cpu.thumbHiRegisterOperationsBranchExchange;
+        instructionPtr = new(buffer) HiRegisterOperationsBranchExchange(undecodedInstruction);
     }
-    else if (ALUOperations::IsInstanceOf(instruction))
+    else if (ALUOperations::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbALUOperations = ALUOperations(instruction);
-        return &cpu.thumbALUOperations;
+        instructionPtr = new(buffer) ALUOperations(undecodedInstruction);
     }
-    else if (MoveCompareAddSubtractImmediate::IsInstanceOf(instruction))
+    else if (MoveCompareAddSubtractImmediate::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbMoveCompareAddSubtractImmediate = MoveCompareAddSubtractImmediate(instruction);
-        return &cpu.thumbMoveCompareAddSubtractImmediate;
+        instructionPtr = new(buffer) MoveCompareAddSubtractImmediate(undecodedInstruction);
     }
-    else if (AddSubtract::IsInstanceOf(instruction))
+    else if (AddSubtract::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbAddSubtract = AddSubtract(instruction);
-        return &cpu.thumbAddSubtract;
+        instructionPtr = new(buffer) AddSubtract(undecodedInstruction);
     }
-    else if (MoveShiftedRegister::IsInstanceOf(instruction))
+    else if (MoveShiftedRegister::IsInstanceOf(undecodedInstruction))
     {
-        cpu.thumbMoveShiftedRegister = MoveShiftedRegister(instruction);
-        return &cpu.thumbMoveShiftedRegister;
+        instructionPtr = new(buffer) MoveShiftedRegister(undecodedInstruction);
     }
 
-    return nullptr;
+    return instructionPtr;
 }
 
-int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
+void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
     uint32_t currentCPSR = cpu.registers_.GetCPSR();
     cpu.registers_.SetOperatingState(OperatingState::ARM);
     cpu.registers_.SetOperatingMode(OperatingMode::Supervisor);
-    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 2);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 2);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
     cpu.registers_.SetPC(0x0000'0008);
     cpu.flushPipeline_ = true;
-    return 1;
 }
 
-int UnconditionalBranch::Execute(ARM7TDMI& cpu)
+void UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int16_t signedOffset = instruction_.flags.Offset11 << 1;
+    int16_t signedOffset = instruction_.Offset11 << 1;
 
     if (signedOffset & 0x0800)
     {
@@ -193,20 +205,18 @@ int UnconditionalBranch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(newPC);
+        SetMnemonic(cpu.mnemonic_, newPC);
     }
 
     cpu.registers_.SetPC(newPC);
     cpu.flushPipeline_ = true;
-
-    return 1;
 }
 
-int ConditionalBranch::Execute(ARM7TDMI& cpu)
+void ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int16_t signedOffset = instruction_.flags.SOffset8 << 1;
+    int16_t signedOffset = instruction_.SOffset8 << 1;
 
     if (signedOffset & 0x0100)
     {
@@ -215,39 +225,35 @@ int ConditionalBranch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(newPC);
+        SetMnemonic(cpu.mnemonic_, newPC);
     }
 
-    if (cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (cpu.ArmConditionSatisfied(instruction_.Cond))
     {
         cpu.registers_.SetPC(newPC);
         cpu.flushPipeline_ = true;
     }
-
-    return 1;
 }
 
-int MultipleLoadStore::Execute(ARM7TDMI& cpu)
+void MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint8_t regList = instruction_.flags.Rlist;
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb);
+    uint8_t regList = instruction_.Rlist;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb);
     uint32_t wbAddr = addr;
     bool emptyRlist = (regList == 0);
-    bool rbInList = (regList & (0x01 << instruction_.flags.Rb));
+    bool rbInList = (regList & (0x01 << instruction_.Rb));
     bool rbFirstInList = true;
 
-    if (rbInList && !instruction_.flags.L)
+    if (rbInList && !instruction_.L)
     {
-        for (uint8_t i = 0x01; i < (0x01 << instruction_.flags.Rb); i <<= 1)
+        for (uint8_t i = 0x01; i < (0x01 << instruction_.Rb); i <<= 1)
         {
             if (i & regList)
             {
@@ -262,10 +268,9 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
         wbAddr += (4 * std::popcount(regList));
     }
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
         // Load
-        ++cycles;
         uint8_t regIndex = 0;
 
         while (regList != 0)
@@ -273,7 +278,7 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
             if (regList & 0x01)
             {
                 auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-                cycles += readCycles;
+                Scheduler.Step(readCycles);
                 cpu.registers_.WriteRegister(regIndex, value);
                 addr += 4;
             }
@@ -285,7 +290,7 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
         if (emptyRlist)
         {
             auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-            cycles += readCycles;
+            Scheduler.Step(readCycles);
             cpu.registers_.WriteRegister(PC_INDEX, value);
             cpu.flushPipeline_ = true;
         }
@@ -300,13 +305,13 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
             {
                 uint32_t value = cpu.registers_.ReadRegister(regIndex);
 
-                if (!rbFirstInList && (regIndex == instruction_.flags.Rb))
+                if (!rbFirstInList && (regIndex == instruction_.Rb))
                 {
                     value = wbAddr;
                 }
 
                 int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-                cycles += writeCycles;
+                Scheduler.Step(writeCycles);
                 addr += 4;
             }
 
@@ -318,28 +323,32 @@ int MultipleLoadStore::Execute(ARM7TDMI& cpu)
         {
             uint32_t value = cpu.registers_.GetPC() + 2;
             int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-            cycles += writeCycles;
+            Scheduler.Step(writeCycles);
         }
     }
 
     if (emptyRlist)
     {
-        wbAddr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + 0x40;
-        cpu.registers_.WriteRegister(instruction_.flags.Rb, wbAddr);
+        wbAddr = cpu.registers_.ReadRegister(instruction_.Rb) + 0x40;
+        cpu.registers_.WriteRegister(instruction_.Rb, wbAddr);
     }
-    else if (!(rbInList && instruction_.flags.L))
+    else if (!(rbInList && instruction_.L))
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rb, addr);
+        cpu.registers_.WriteRegister(instruction_.Rb, addr);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int LongBranchWithLink::Execute(ARM7TDMI& cpu)
+void LongBranchWithLink::Execute(ARM7TDMI& cpu)
 {
-    uint32_t offset = instruction_.flags.Offset;
+    uint32_t offset = instruction_.Offset;
 
-    if (!instruction_.flags.H)
+    if (!instruction_.H)
     {
         // Instruction 1
         offset <<= 12;
@@ -352,9 +361,9 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t lr = cpu.registers_.GetPC() + offset;
         cpu.registers_.WriteRegister(LR_INDEX, lr);
 
-        if (Config::LOGGING_ENABLED)
+        if (LogMgr.LoggingEnabled())
         {
-            SetMnemonic(0);
+            SetMnemonic(cpu.mnemonic_, 0);
         }
     }
     else
@@ -365,53 +374,47 @@ int LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t newPC = cpu.registers_.ReadRegister(LR_INDEX) + offset;
         uint32_t lr = (cpu.registers_.GetPC() - 2) | 0x01;
 
-        if (Config::LOGGING_ENABLED)
+        if (LogMgr.LoggingEnabled())
         {
-            SetMnemonic(newPC);
+            SetMnemonic(cpu.mnemonic_, newPC);
         }
 
         cpu.registers_.WriteRegister(LR_INDEX, lr);
         cpu.registers_.SetPC(newPC);
         cpu.flushPipeline_ = true;
     }
-
-    return 1;
 }
 
-int AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
+void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
-    uint16_t offset = instruction_.flags.SWord7;
+    uint16_t offset = instruction_.SWord7;
     offset <<= 2;
-    int16_t signedOffset = instruction_.flags.S ? -offset : offset;
+    int16_t signedOffset = instruction_.S ? -offset : offset;
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(offset);
+        SetMnemonic(cpu.mnemonic_, offset);
     }
 
     uint32_t sp = cpu.registers_.GetSP();
     cpu.registers_.WriteRegister(SP_INDEX, sp + signedOffset);
-    return 1;
 }
 
-int PushPopRegisters::Execute(ARM7TDMI& cpu)
+void PushPopRegisters::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
     // Full Descending stack - Decrement SP and then push, or pop and then increment SP
-    uint8_t regList = instruction_.flags.Rlist;
-    bool emptyRlist = (regList == 0) && !instruction_.flags.R;
+    uint8_t regList = instruction_.Rlist;
+    bool emptyRlist = (regList == 0) && !instruction_.R;
     uint32_t addr = cpu.registers_.GetSP();
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
         // POP
-        ++cycles;
         uint8_t regIndex = 0;
 
         while (regList != 0)
@@ -419,7 +422,7 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
             if (regList & 0x01)
             {
                 auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-                cycles += readCycles;
+                Scheduler.Step(readCycles);
                 cpu.registers_.WriteRegister(regIndex, value);
                 addr += 4;
             }
@@ -428,10 +431,10 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
             regList >>= 1;
         }
 
-        if (instruction_.flags.R || emptyRlist)
+        if (instruction_.R || emptyRlist)
         {
             auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-            cycles += readCycles;
+            Scheduler.Step(readCycles);
             cpu.registers_.WriteRegister(PC_INDEX, value);
             addr += 4;
             cpu.flushPipeline_ = true;
@@ -440,19 +443,19 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
     else
     {
         // PUSH
-        if (instruction_.flags.R)
+        if (instruction_.R)
         {
             addr -= 4;
             uint32_t value = cpu.registers_.ReadRegister(LR_INDEX);
             int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-            cycles += writeCycles;
+            Scheduler.Step(writeCycles);
         }
         else if (emptyRlist)
         {
             addr -= 4;
             uint32_t value = cpu.registers_.GetPC() + 2;
             int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-            cycles += writeCycles;
+            Scheduler.Step(writeCycles);
         }
 
         uint8_t regIndex = 7;
@@ -464,7 +467,7 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
                 addr -= 4;
                 uint32_t value = cpu.registers_.ReadRegister(regIndex);
                 int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-                cycles += writeCycles;
+                Scheduler.Step(writeCycles);
             }
 
             --regIndex;
@@ -474,7 +477,7 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
 
     if (emptyRlist)
     {
-        uint32_t newSP = cpu.registers_.GetSP() + (instruction_.flags.L ? 0x40 : -0x40);
+        uint32_t newSP = cpu.registers_.GetSP() + (instruction_.L ? 0x40 : -0x40);
         cpu.registers_.WriteRegister(SP_INDEX, newSP);
     }
     else
@@ -482,91 +485,97 @@ int PushPopRegisters::Execute(ARM7TDMI& cpu)
         cpu.registers_.WriteRegister(SP_INDEX, addr);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int LoadStoreHalfword::Execute(ARM7TDMI& cpu)
+void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + (instruction_.flags.Offset5 << 1);
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb) + (instruction_.Offset5 << 1);
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
-        ++cycles;
         bool misaligned = addr & 0x01;
         auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+        Scheduler.Step(readCycles);
 
         if (misaligned)
         {
             value = std::rotr(value, 8);
         }
 
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
-        cycles += readCycles;
+        cpu.registers_.WriteRegister(instruction_.Rd, value);
     }
     else
     {
-        uint16_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd) & MAX_U16;
+        uint16_t value = cpu.registers_.ReadRegister(instruction_.Rd) & MAX_U16;
         int writeCycles = cpu.WriteMemory(addr, value, AccessSize::HALFWORD);
-        cycles += writeCycles;
+        Scheduler.Step(writeCycles);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
+void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t addr = cpu.registers_.GetSP() + (instruction_.flags.Word8 << 2);
+    uint32_t addr = cpu.registers_.GetSP() + (instruction_.Word8 << 2);
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
-        ++cycles;
         auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-        cycles += readCycles;
+        Scheduler.Step(readCycles);
 
         if (addr & 0x03)
         {
             value = std::rotr(value, ((addr & 0x03) * 8));
         }
 
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        cpu.registers_.WriteRegister(instruction_.Rd, value);
     }
     else
     {
-        uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.Rd);
         int writeCycles = cpu.WriteMemory(addr, value, AccessSize::WORD);
-        cycles += writeCycles;
+        Scheduler.Step(writeCycles);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int LoadAddress::Execute(ARM7TDMI& cpu)
+void LoadAddress::Execute(ARM7TDMI& cpu)
 {
-    uint8_t destIndex = instruction_.flags.Rd;
-    uint16_t offset = (instruction_.flags.Word8 << 2);
+    uint8_t destIndex = instruction_.Rd;
+    uint16_t offset = (instruction_.Word8 << 2);
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(destIndex, offset);
+        SetMnemonic(cpu.mnemonic_, destIndex, offset);
     }
 
     uint32_t addr;
 
-    if (instruction_.flags.SP)
+    if (instruction_.SP)
     {
         addr = cpu.registers_.GetSP();
     }
@@ -577,102 +586,101 @@ int LoadAddress::Execute(ARM7TDMI& cpu)
 
     addr += offset;
     cpu.registers_.WriteRegister(destIndex, addr);
-    return 1;
 }
 
-int LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
+void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    AccessSize alignment = (instruction_.flags.B) ? AccessSize::BYTE : AccessSize::WORD;
-    uint8_t offset = (instruction_.flags.B) ? instruction_.flags.Offset5 : (instruction_.flags.Offset5 << 2);
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + offset;
+    AccessSize alignment = (instruction_.B) ? AccessSize::BYTE : AccessSize::WORD;
+    uint8_t offset = (instruction_.B) ? instruction_.Offset5 : (instruction_.Offset5 << 2);
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb) + offset;
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
         // Load
-        ++cycles;
         auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
-        cycles += readCycles;
+        Scheduler.Step(readCycles);
 
         if ((alignment == AccessSize::WORD) && (addr & 0x03))
         {
             value = std::rotr(value, ((addr & 0x03) * 8));
         }
 
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        cpu.registers_.WriteRegister(instruction_.Rd, value);
     }
     else
     {
         // Store
-        uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.Rd);
         int writeCycles = cpu.WriteMemory(addr, value, alignment);
-        cycles += writeCycles;
+        Scheduler.Step(writeCycles);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
+void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + cpu.registers_.ReadRegister(instruction_.flags.Ro);
-    AccessSize alignment = (instruction_.flags.B) ? AccessSize::BYTE : AccessSize::WORD;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb) + cpu.registers_.ReadRegister(instruction_.Ro);
+    AccessSize alignment = (instruction_.B) ? AccessSize::BYTE : AccessSize::WORD;
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
         // Load
-        ++cycles;
         auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
-        cycles += readCycles;
+        Scheduler.Step(readCycles);
 
         if ((alignment == AccessSize::WORD) && (addr & 0x03))
         {
             value = std::rotr(value, ((addr & 0x03) * 8));
         }
 
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        cpu.registers_.WriteRegister(instruction_.Rd, value);
     }
     else
     {
         // Store
-        uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+        uint32_t value = cpu.registers_.ReadRegister(instruction_.Rd);
         int writeCycles = cpu.WriteMemory(addr, value, alignment);
-        cycles += writeCycles;
+        Scheduler.Step(writeCycles);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
+void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rb) + cpu.registers_.ReadRegister(instruction_.flags.Ro);
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb) + cpu.registers_.ReadRegister(instruction_.Ro);
     bool isLoad = false;
 
-    if (instruction_.flags.S)
+    if (instruction_.S)
     {
         uint32_t value;
         int readCycles;
         isLoad = true;
-        bool h = instruction_.flags.H;
+        bool h = instruction_.H;
 
         if (h && (addr & 0x01))
         {
@@ -701,87 +709,81 @@ int LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
             }
         }
 
-        cycles += readCycles;
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+        Scheduler.Step(readCycles);
+        cpu.registers_.WriteRegister(instruction_.Rd, value);
     }
     else
     {
-        if (instruction_.flags.H)
+        if (instruction_.H)
         {
             // LDRH
             isLoad = true;
             auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
-            cycles += readCycles;
+            Scheduler.Step(readCycles);
 
             if (addr & 0x01)
             {
                 value = std::rotr(value, 8);
             }
 
-            cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
+            cpu.registers_.WriteRegister(instruction_.Rd, value);
         }
         else
         {
             // STRH
-            uint32_t value = cpu.registers_.ReadRegister(instruction_.flags.Rd);
+            uint32_t value = cpu.registers_.ReadRegister(instruction_.Rd);
             int writeCycles = cpu.WriteMemory(addr, value, AccessSize::HALFWORD);
-            cycles += writeCycles;
+            Scheduler.Step(writeCycles);
         }
     }
 
     if (isLoad)
     {
-        ++cycles;
-        cpu.flushPipeline_ = (instruction_.flags.Rd == PC_INDEX);
+        Scheduler.Step(1);
+        cpu.flushPipeline_ = (instruction_.Rd == PC_INDEX);
     }
-
-
-    return cycles;
 }
 
-int PCRelativeLoad::Execute(ARM7TDMI& cpu)
+void PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t addr = (cpu.registers_.GetPC() & 0xFFFF'FFFC) + (instruction_.flags.Word8 << 2);
+    uint32_t addr = (cpu.registers_.GetPC() & 0xFFFF'FFFC) + (instruction_.Word8 << 2);
     auto [value, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
+    Scheduler.Step(readCycles);
 
     if (addr & 0x03)
     {
         value = std::rotr(value, ((addr & 0x03) * 8));
     }
 
-    cycles += readCycles;
-    cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
-    return cycles;
+    cpu.registers_.WriteRegister(instruction_.Rd, value);
 }
 
-int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
+void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 {
-    uint8_t destIndex = instruction_.flags.RdHd;
-    uint8_t srcIndex = instruction_.flags.RsHs;
+    uint8_t destIndex = instruction_.RdHd;
+    uint8_t srcIndex = instruction_.RsHs;
 
-    if (instruction_.flags.H1)
+    if (instruction_.H1)
     {
         destIndex += 8;
     }
 
-    if (instruction_.flags.H2)
+    if (instruction_.H2)
     {
         srcIndex += 8;
     }
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(destIndex, srcIndex);
+        SetMnemonic(cpu.mnemonic_, destIndex, srcIndex);
     }
 
-    switch (instruction_.flags.Op)
+    switch (instruction_.Op)
     {
         case 0b00:  // ADD
         {
@@ -829,17 +831,13 @@ int HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
             break;
         }
     }
-
-    return 1;
 }
 
-int ALUOperations::Execute(ARM7TDMI& cpu)
+void ALUOperations::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
     bool storeResult = true;
@@ -849,10 +847,10 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
     bool overflowOut = cpu.registers_.IsOverflow();
 
     uint32_t result;
-    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rd);
-    uint32_t op2 = cpu.registers_.ReadRegister(instruction_.flags.Rs);
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.Rd);
+    uint32_t op2 = cpu.registers_.ReadRegister(instruction_.Rs);
 
-    switch (instruction_.flags.Op)
+    switch (instruction_.Op)
     {
         case 0b0000:  // AND
             result = op1 & op2;
@@ -868,7 +866,6 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         {
             op2 &= 0xFF;
             result = op1;
-            ++cycles;
             updateOverflow = false;
 
             if (op2 > 32)
@@ -887,13 +884,13 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 result <<= op2;
             }
 
+            Scheduler.Step(1);
             break;
         }
         case 0b0011:  // LSR
         {
             op2 &= 0xFF;
             result = op1;
-            ++cycles;
             updateOverflow = false;
 
             if (op2 > 32)
@@ -912,13 +909,13 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 result >>= op2;
             }
 
+            Scheduler.Step(1);
             break;
         }
         case 0b0100:  // ASR
         {
             op2 &= 0xFF;
             result = op1;
-            ++cycles;
             updateOverflow = false;
 
             bool msbSet = op1 & 0x8000'0000;
@@ -940,6 +937,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 }
             }
 
+            Scheduler.Step(1);
             break;
         }
         case 0b0101:  // ADC
@@ -954,7 +952,6 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         {
             op2 &= 0xFF;
             result = op1;
-            ++cycles;
             updateOverflow = false;
 
             if (op2 > 32)
@@ -968,6 +965,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
                 result = std::rotr(result, op2);
             }
 
+            Scheduler.Step(1);
             break;
         }
         case 0b1000:  // TST
@@ -997,6 +995,7 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
         case 0b1101:  // MUL
             result = op1 * op2;
             updateOverflow = false;
+            Scheduler.Step(InternalMultiplyCycles(op1));
             break;
         case 0b1110:  // BIC
             result = op1 & ~op2;
@@ -1025,28 +1024,26 @@ int ALUOperations::Execute(ARM7TDMI& cpu)
 
     if (storeResult)
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
+        cpu.registers_.WriteRegister(instruction_.Rd, result);
     }
-
-    return cycles;
 }
 
-int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
+void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
     bool carryOut = cpu.registers_.IsCarry();
     bool overflowOut = cpu.registers_.IsOverflow();
     bool saveResult = true;
     bool updateAllFlags = true;
-    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rd);
-    uint32_t op2 = instruction_.flags.Offset8;
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.Rd);
+    uint32_t op2 = instruction_.Offset8;
     uint32_t result;
 
-    switch (instruction_.flags.Op)
+    switch (instruction_.Op)
     {
         case 0b00:  // MOV
             result = op2;
@@ -1075,26 +1072,24 @@ int MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 
     if (saveResult)
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
+        cpu.registers_.WriteRegister(instruction_.Rd, result);
     }
-
-    return 1;
 }
 
-int AddSubtract::Execute(ARM7TDMI& cpu)
+void AddSubtract::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rs);
-    uint32_t op2 = instruction_.flags.I ? instruction_.flags.RnOffset3 : cpu.registers_.ReadRegister(instruction_.flags.RnOffset3);
+    uint32_t op1 = cpu.registers_.ReadRegister(instruction_.Rs);
+    uint32_t op2 = instruction_.I ? instruction_.RnOffset3 : cpu.registers_.ReadRegister(instruction_.RnOffset3);
     bool carryOut;
     bool overflowOut;
     uint32_t result;
 
-    if (instruction_.flags.Op)
+    if (instruction_.Op)
     {
         std::tie(carryOut, overflowOut) = Sub32(op1, op2, result);
     }
@@ -1107,25 +1102,23 @@ int AddSubtract::Execute(ARM7TDMI& cpu)
     cpu.registers_.SetZero(result == 0);
     cpu.registers_.SetCarry(carryOut);
     cpu.registers_.SetOverflow(overflowOut);
-    cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
-
-    return 1;
+    cpu.registers_.WriteRegister(instruction_.Rd, result);
 }
 
-int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
+void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
     bool carryOut = cpu.registers_.IsCarry();
 
     uint32_t result = 0;
-    uint32_t operand = cpu.registers_.ReadRegister(instruction_.flags.Rs);
-    uint8_t shiftAmount = instruction_.flags.Offset5;
+    uint32_t operand = cpu.registers_.ReadRegister(instruction_.Rs);
+    uint8_t shiftAmount = instruction_.Offset5;
 
-    switch (instruction_.flags.Op)
+    switch (instruction_.Op)
     {
         case 0b00:  // LSL
         {
@@ -1184,8 +1177,6 @@ int MoveShiftedRegister::Execute(ARM7TDMI& cpu)
     cpu.registers_.SetNegative(result & 0x8000'0000);
     cpu.registers_.SetZero(result == 0);
     cpu.registers_.SetCarry(carryOut);
-    cpu.registers_.WriteRegister(instruction_.flags.Rd, result);
-
-    return 1;
+    cpu.registers_.WriteRegister(instruction_.Rd, result);
 }
 }

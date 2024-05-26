@@ -4,9 +4,9 @@
 #include <functional>
 #include <utility>
 #include <Audio/Registers.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
+#include <CPU/CpuTypes.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/CircularBuffer.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
@@ -62,7 +62,7 @@ SoundController::SoundController() :
     soundBias_(*reinterpret_cast<SOUNDBIAS*>(&soundRegisters_[40]))
 {
     soundRegisters_.fill(0);
-    Scheduler.RegisterEvent(EventType::SampleAPU, std::bind(&CollectSample, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::SampleAPU, std::bind(&CollectSample, this, std::placeholders::_1), true);
     Scheduler.ScheduleEvent(EventType::SampleAPU, CPU_CYCLES_PER_SAMPLE);
 
     fifoASample_ = 0;

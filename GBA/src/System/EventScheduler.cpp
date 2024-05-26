@@ -1,4 +1,4 @@
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <algorithm>
 #include <cstdint>
 #include <format>
@@ -36,46 +36,64 @@ EventScheduler::EventScheduler()
     totalCycles_ = 0;
 }
 
-void EventScheduler::Tick(int cycles)
+void EventScheduler::Step(uint64_t cycles)
 {
-    totalCycles_ += static_cast<uint64_t>(cycles);
+    totalCycles_ += cycles;
+    Event nextEvent = queue_.front();
 
-    while (totalCycles_ >= queue_[0].cycleToExecute_)
+    while (totalCycles_ >= nextEvent.cycleToExecute_)
     {
+        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
+
+        if (registrationData.second)
+        {
+            std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
+            queue_.pop_back();
+            registrationData.first(totalCycles_ - nextEvent.cycleToExecute_);
+            nextEvent = queue_.front();
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void EventScheduler::CheckEventQueue()
+{
+    while (totalCycles_ >= queue_.front().cycleToExecute_)
+    {
+        Event nextEvent = queue_.front();
         std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
-        currentEvent_ = std::move(queue_.back());
         queue_.pop_back();
-        currentEvent_.Callback(totalCycles_ - currentEvent_.cycleToExecute_);
+        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
+        registrationData.first(totalCycles_ - nextEvent.cycleToExecute_);
     }
 }
 
 void EventScheduler::SkipToNextEvent()
 {
-    totalCycles_ = queue_[0].cycleToExecute_;
+    totalCycles_ = queue_.front().cycleToExecute_;
 
-    while (totalCycles_ == queue_[0].cycleToExecute_)
+    while (totalCycles_ == queue_.front().cycleToExecute_)
     {
+        Event nextEvent = queue_.front();
         std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
-        currentEvent_ = std::move(queue_.back());
         queue_.pop_back();
-        currentEvent_.Callback(0);
+        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
+        registrationData.first(0);
     }
 }
 
-void EventScheduler::RegisterEvent(EventType eventType, std::function<void(int)> callback)
+void EventScheduler::RegisterEvent(EventType eventType, std::function<void(int)> callback, bool fireMidInstruction)
 {
-    if (registeredEvents_.contains(eventType))
-    {
-        throw std::runtime_error(std::format("Registered duplicate event: {}", static_cast<int>(eventType)));
-    }
-
-    registeredEvents_.insert({eventType, callback});
+    registeredEvents_.insert({eventType, {callback, fireMidInstruction}});
 }
 
-void EventScheduler::ScheduleEvent(EventType eventType, int cycles)
+void EventScheduler::ScheduleEvent(EventType eventType, uint64_t cycles)
 {
-    uint64_t cycleToExecute = static_cast<uint64_t>(cycles) + totalCycles_;
-    queue_.push_back({registeredEvents_[eventType], eventType, totalCycles_, cycleToExecute});
+    uint64_t cycleToExecute = cycles + totalCycles_;
+    queue_.push_back({eventType, totalCycles_, cycleToExecute});
     std::make_heap(queue_.begin(), queue_.end(), std::greater<>{});
 }
 

@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <utility>
 #include <System/InterruptManager.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 class GameBoyAdvance;

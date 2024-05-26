@@ -2,7 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 Timer::Timer(int index) :

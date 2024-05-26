@@ -1,79 +1,82 @@
-#include <ARM7TDMI/ARM7TDMI.hpp>
-#include <array>
+#include <CPU/ARM7TDMI.hpp>
 #include <cstdint>
-#include <format>
-#include <functional>
 #include <stdexcept>
-#include <string>
 #include <utility>
-#include <ARM7TDMI/ArmInstructions.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
-#include <ARM7TDMI/ThumbInstructions.hpp>
-#include <Config.hpp>
+#include <CPU/ArmInstructions.hpp>
+#include <CPU/CPUTypes.hpp>
+#include <CPU/ThumbInstructions.hpp>
 #include <Logging/Logging.hpp>
-#include <System/GameBoyAdvance.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/CircularBuffer.hpp>
+#include <Utilities/Functor.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace CPU
 {
-ARM7TDMI::ARM7TDMI(GameBoyAdvance* gbaPtr, bool biosLoaded) :
-    flushPipeline_(false),
-    gbaPtr_(gbaPtr)
-{
-    Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1));
+using namespace Logging;
 
-    if (!biosLoaded)
-    {
-        registers_.SkipBIOS();
-    }
+ARM7TDMI::ARM7TDMI(MemReadCallback readCallback, MemWriteCallback writeCallback) :
+    ReadMemory(readCallback),
+    WriteMemory(writeCallback),
+    flushPipeline_(false)
+{
+    Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1), false);
 }
 
-int ARM7TDMI::Tick()
+void ARM7TDMI::Reset()
 {
-    bool isArmState = registers_.GetOperatingState() == OperatingState::ARM;
-    AccessSize alignment = isArmState ? AccessSize::WORD : AccessSize::HALFWORD;
-    int cycles = 1;
+    pipeline_.Clear();
+    flushPipeline_ = false;
+    registers_ = CPU::Registers();
+}
+
+void ARM7TDMI::Step()
+{
+    bool armMode = registers_.GetOperatingState() == OperatingState::ARM;
+    AccessSize alignment = armMode ? AccessSize::WORD : AccessSize::HALFWORD;
 
     // Fetch
-    uint32_t fetchPC = registers_.GetPC();
-    uint32_t fetchInstruction = MAX_U32;
-    std::tie(fetchInstruction, cycles) = ReadMemory(fetchPC, alignment);
-    pipeline_.Push({fetchInstruction, fetchPC});
+    uint32_t fetchedPC = registers_.GetPC();
+    auto [fetchedInstruction, cycles] = ReadMemory(fetchedPC, alignment);
+    pipeline_.Push({fetchedInstruction, fetchedPC});
+    Scheduler.Step(cycles);
 
-    // Decode and Execute
+    // Decode and execute
     if (pipeline_.Full())
     {
-        auto [rawInstruction, executedPC] = pipeline_.Pop();
-        std::string regString = Config::LOGGING_ENABLED ? registers_.GetRegistersString() : "";
-        Instruction* instruction  = nullptr;
+        auto [undecodedInstruction, executedPC] = pipeline_.Pop();
 
-        if (isArmState)
+        if (LogMgr.LoggingEnabled())
         {
-            instruction = ARM::DecodeInstruction(rawInstruction, *this);
+            registers_.SetRegistersString(regString_);
+        }
+
+        Instruction* instruction = nullptr;
+
+        if (armMode)
+        {
+            instruction = ARM::DecodeInstruction(undecodedInstruction, instructionBuffer_);
         }
         else
         {
-            instruction = THUMB::DecodeInstruction(rawInstruction, *this);
+            instruction = THUMB::DecodeInstruction(undecodedInstruction, instructionBuffer_);
         }
 
         if (instruction != nullptr)
         {
-            cycles = instruction->Execute(*this);
+            instruction->Execute(*this);
         }
         else
         {
-            throw std::runtime_error(std::format("Unable to decode instruction {:08X} @ PC {:08X}", rawInstruction, executedPC));
+            throw std::runtime_error("Unable to decode instruction");
         }
 
-        if (Config::LOGGING_ENABLED)
+        if (LogMgr.LoggingEnabled())
         {
-            Logging::LogMgr.LogInstruction(executedPC, instruction->GetMnemonic(), regString);
+            LogMgr.LogInstruction(executedPC, mnemonic_, regString_);
         }
     }
 
-    // Advance or flush
     if (flushPipeline_)
     {
         pipeline_.Clear();
@@ -83,11 +86,9 @@ int ARM7TDMI::Tick()
     {
         registers_.AdvancePC();
     }
-
-    return cycles;
 }
 
-bool ARM7TDMI::ArmConditionMet(uint8_t condition)
+bool ARM7TDMI::ArmConditionSatisfied(uint8_t condition)
 {
     switch (condition)
     {
@@ -121,19 +122,11 @@ bool ARM7TDMI::ArmConditionMet(uint8_t condition)
             return registers_.IsZero() || (registers_.IsNegative() != registers_.IsOverflow());
         case 14: // AL
             return true;
+        default:
+            break;
     }
 
     throw std::runtime_error("Illegal ARM condition");
-}
-
-std::pair<uint32_t, int> ARM7TDMI::ReadMemory(uint32_t addr, AccessSize alignment)
-{
-    return gbaPtr_->ReadMemory(addr, alignment);
-}
-
-int ARM7TDMI::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    return gbaPtr_->WriteMemory(addr, value, alignment);
 }
 
 void ARM7TDMI::IRQ(int)
@@ -154,9 +147,9 @@ void ARM7TDMI::IRQ(int)
 
         savedPC += 4;
 
-        if (Config::LOGGING_ENABLED)
+        if (LogMgr.LoggingEnabled())
         {
-            Logging::LogMgr.LogIRQ();
+            LogMgr.LogIRQ();
         }
 
         registers_.SetOperatingState(OperatingState::ARM);

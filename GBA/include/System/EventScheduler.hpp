@@ -45,9 +45,6 @@ enum class EventType
 /// @brief Data needed to execute a scheduled event.
 struct Event
 {
-    /// @brief Callback function for when event fires.
-    std::function<void(int)> Callback;
-
     /// @brief What type of event this is.
     EventType eventType_;
 
@@ -66,13 +63,18 @@ struct Event
 /// @brief Manager for scheduling and executing events.
 class EventScheduler
 {
+    using RegisteredEvent = std::pair<std::function<void(int)>, bool>;
+
 public:
     /// @brief Initialize EventScheduler.
     EventScheduler();
 
-    /// @brief Advance the Scheduler by some number of cycles.
-    /// @param cycles Number of cycles to advance the Scheduler by.
-    void Tick(int cycles);
+    /// @brief Advance the scheduler during a CPU instruction.
+    /// @param cycles Number of cycles to advance.
+    void Step(uint64_t cycles);
+
+    /// @brief Check for any events to fire after a CPU instruction completes.
+    void CheckEventQueue();
 
     /// @brief If the CPU is stopped due to a halt or DMA transfer, skip straight to next event.
     void SkipToNextEvent();
@@ -80,12 +82,13 @@ public:
     /// @brief Register a callback function with a specified event type.
     /// @param eventType Event to register.
     /// @param callback Callback function to use for eventType.
-    void RegisterEvent(EventType eventType, std::function<void(int)> callback);
+    /// @param fireMidInstruction Whether this event can be dispatched mid CPU instruction.
+    void RegisterEvent(EventType eventType, std::function<void(int)> callback, bool fireMidInstruction);
 
     /// @brief Schedule an event to be executed in some number of cycles from now.
     /// @param event Type of event that should be scheduled.
     /// @param cycles Number of cycles from now that this event should fire.
-    void ScheduleEvent(EventType eventType, int cycles);
+    void ScheduleEvent(EventType eventType, uint64_t cycles);
 
     /// @brief Remove a schedule event from the event queue.
     /// @param eventType Type of event to unschedule.
@@ -117,9 +120,8 @@ public:
 
 private:
     std::vector<Event> queue_;
-    std::unordered_map<EventType, std::function<void(int)>> registeredEvents_;
+    std::unordered_map<EventType, RegisteredEvent> registeredEvents_;
     uint64_t totalCycles_;
-    Event currentEvent_;
 };
 
 extern EventScheduler Scheduler;

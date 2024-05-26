@@ -1,14 +1,20 @@
 #pragma once
 
 #include <cstdint>
-#include <limits>
 #include <string>
+#include <utility>
+#include <Utilities/Functor.hpp>
+#include <Utilities/MemoryUtilities.hpp>
+
+namespace CPU { class ARM7TDMI; }
+class GameBoyAdvance;
 
 namespace CPU
 {
-constexpr int CPU_FREQUENCY_HZ = 16'777'216;
+typedef MemberFunctor<std::pair<uint32_t, int> (GameBoyAdvance::*)(uint32_t, AccessSize)> MemReadCallback;
+typedef MemberFunctor<int (GameBoyAdvance::*)(uint32_t, uint32_t, AccessSize)> MemWriteCallback;
 
-class ARM7TDMI;
+constexpr int CPU_FREQUENCY_HZ = 16'777'216;
 
 /// @brief Operating state of CPU (either ARM or THUMB instructions).
 enum class OperatingState : uint32_t
@@ -33,19 +39,10 @@ enum class OperatingMode : uint32_t
 class Instruction
 {
 public:
-    virtual ~Instruction() {}
+    virtual ~Instruction() = default;
 
     /// @brief Execute the instruction.
     /// @param cpu Reference to the ARM CPU.
-    /// @return Number of cycles this instruction took to execute.
-    virtual int Execute(ARM7TDMI& cpu) = 0;
-
-    /// @brief Get the ARM/THUMB mnemonic of this instruction.
-    /// @return ARM/THUMB mnemonic as a string.
-    std::string GetMnemonic() const { return mnemonic_; }
-
-protected:
-    /// @brief Human readable form of this instruction.
-    std::string mnemonic_;
+    virtual void Execute(ARM7TDMI& cpu) = 0;
 };
-}  // namespace CPU
+}

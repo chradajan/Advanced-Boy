@@ -6,7 +6,7 @@
 #include <System/GameBoyAdvance.hpp>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 DmaChannel::DmaChannel(int index) :

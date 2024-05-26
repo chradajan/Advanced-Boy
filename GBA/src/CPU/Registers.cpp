@@ -1,18 +1,16 @@
-#include <ARM7TDMI/Registers.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
-#include <Config.hpp>
-#include <System/InterruptManager.hpp>
-#include <cassert>
+#include <CPU/Registers.hpp>
 #include <cstdint>
 #include <format>
 #include <sstream>
 #include <string>
+#include <CPU/CpuTypes.hpp>
+#include <System/InterruptManager.hpp>
 
 namespace CPU
 {
 Registers::Registers()
 {
-    cpsr_.word_ = 0;
+    cpsr_.Register = 0;
     SetOperatingMode(OperatingMode::Supervisor);
     SetOperatingState(OperatingState::ARM);
     SetIrqDisabled(true);
@@ -24,6 +22,8 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
+
+    SkipBIOS();
 }
 
 void Registers::SkipBIOS()
@@ -152,19 +152,19 @@ void Registers::SetSPSR(uint32_t spsr)
     switch (mode)
     {
         case OperatingMode::FIQ:
-            fiqRegisters_.spsr_.word_ = spsr;
+            fiqRegisters_.spsr_.Register = spsr;
             break;
         case OperatingMode::Supervisor:
-            supervisorRegisters_.spsr_.word_ = spsr;
+            supervisorRegisters_.spsr_.Register = spsr;
             break;
         case OperatingMode::Abort:
-            abortRegisters_.spsr_.word_ = spsr;
+            abortRegisters_.spsr_.Register = spsr;
             break;
         case OperatingMode::IRQ:
-            irqRegisters_.spsr_.word_ = spsr;
+            irqRegisters_.spsr_.Register = spsr;
             break;
         case OperatingMode::Undefined:
-            undefinedRegisters_.spsr_.word_ = spsr;
+            undefinedRegisters_.spsr_.Register = spsr;
             break;
         default:
             break;
@@ -173,7 +173,7 @@ void Registers::SetSPSR(uint32_t spsr)
 
 void Registers::SetCPSR(uint32_t cpsr)
 {
-    cpsr_.word_ = cpsr;
+    cpsr_.Register = cpsr;
 
     if (!IsIrqDisabled())
     {
@@ -188,17 +188,17 @@ uint32_t Registers::GetSPSR() const
     switch (mode)
     {
         case OperatingMode::FIQ:
-            return fiqRegisters_.spsr_.word_;
+            return fiqRegisters_.spsr_.Register;
         case OperatingMode::Supervisor:
-            return supervisorRegisters_.spsr_.word_;
+            return supervisorRegisters_.spsr_.Register;
         case OperatingMode::Abort:
-            return abortRegisters_.spsr_.word_;
+            return abortRegisters_.spsr_.Register;
         case OperatingMode::IRQ:
-            return irqRegisters_.spsr_.word_;
+            return irqRegisters_.spsr_.Register;
         case OperatingMode::Undefined:
-            return undefinedRegisters_.spsr_.word_;
+            return undefinedRegisters_.spsr_.Register;
         default:
-            return cpsr_.word_;
+            return cpsr_.Register;
     }
 }
 
@@ -233,7 +233,7 @@ void Registers::LoadSPSR()
     }
 }
 
-std::string Registers::GetRegistersString() const
+void Registers::SetRegistersString(std::string& regString) const
 {
     std::stringstream regStream;
     bool const isThumbState = GetOperatingState() == OperatingState::THUMB;
@@ -272,6 +272,6 @@ std::string Registers::GetRegistersString() const
             break;
     }
 
-    return regStream.str();
+    regString = regStream.str();
 }
 }  // namespace CPU

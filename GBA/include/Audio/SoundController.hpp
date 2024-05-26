@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <utility>
 #include <Audio/Registers.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
+#include <CPU/CpuTypes.hpp>
 #include <Utilities/CircularBuffer.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 

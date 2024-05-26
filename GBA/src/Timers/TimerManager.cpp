@@ -3,15 +3,15 @@
 #include <cstdint>
 #include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/Scheduler.hpp>
+#include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 #include <Timers/Timer.hpp>
 
 TimerManager::TimerManager() :
     timers_({0, 1, 2, 3})
 {
-    Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1));
-    Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1), true);
 }
 
 uint32_t TimerManager::ReadReg(uint32_t addr, AccessSize alignment)

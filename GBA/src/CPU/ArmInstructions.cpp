@@ -1,13 +1,13 @@
-#include <ARM7TDMI/ArmInstructions.hpp>
+#include <CPU/ArmInstructions.hpp>
 #include <bit>
 #include <cmath>
 #include <cstdint>
 #include <utility>
-#include <ARM7TDMI/ARM7TDMI.hpp>
-#include <ARM7TDMI/CpuTypes.hpp>
-#include <Config.hpp>
+#include <CPU/ARM7TDMI.hpp>
+#include <CPU/CpuTypes.hpp>
+#include <Logging/Logging.hpp>
 #include <System/InterruptManager.hpp>
-#include <Utilities/MemoryUtilities.hpp>
+#include <System/EventScheduler.hpp>
 
 namespace
 {
@@ -77,97 +77,85 @@ std::pair<bool, bool> Sub32(uint32_t op1, uint32_t op2, uint32_t& result, bool s
 
 namespace CPU::ARM
 {
-Instruction* DecodeInstruction(uint32_t const instruction, ARM7TDMI& cpu)
+using namespace Logging;
+
+CPU::Instruction* DecodeInstruction(uint32_t undecodedInstruction, void* buffer)
 {
-    if (BranchAndExchange::IsInstanceOf(instruction))
+    CPU::Instruction* instructionPtr = nullptr;
+
+    if (BranchAndExchange::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armBranchAndExchange = BranchAndExchange(instruction);
-        return &cpu.armBranchAndExchange;
+        instructionPtr = new(buffer) BranchAndExchange(undecodedInstruction);
     }
-    else if (BlockDataTransfer::IsInstanceOf(instruction))
+    else if (BlockDataTransfer::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armBlockDataTransfer = BlockDataTransfer(instruction);
-        return &cpu.armBlockDataTransfer;
+        instructionPtr = new(buffer) BlockDataTransfer(undecodedInstruction);
     }
-    else if (Branch::IsInstanceOf(instruction))
+    else if (Branch::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armBranch = Branch(instruction);
-        return &cpu.armBranch;
+        instructionPtr = new(buffer) Branch(undecodedInstruction);
     }
-    else if (SoftwareInterrupt::IsInstanceOf(instruction))
+    else if (SoftwareInterrupt::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armSoftwareInterrupt = SoftwareInterrupt(instruction);
-        return &cpu.armSoftwareInterrupt;
+        instructionPtr = new(buffer) SoftwareInterrupt(undecodedInstruction);
     }
-    else if (Undefined::IsInstanceOf(instruction))
+    else if (Undefined::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armUndefined = Undefined(instruction);
-        return &cpu.armUndefined;
+        instructionPtr = new(buffer) Undefined(undecodedInstruction);
     }
-    else if (SingleDataTransfer::IsInstanceOf(instruction))
+    else if (SingleDataTransfer::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armSingleDataTransfer = SingleDataTransfer(instruction);
-        return &cpu.armSingleDataTransfer;
+        instructionPtr = new(buffer) SingleDataTransfer(undecodedInstruction);
     }
-    else if (SingleDataSwap::IsInstanceOf(instruction))
+    else if (SingleDataSwap::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armSingleDataSwap = SingleDataSwap(instruction);
-        return &cpu.armSingleDataSwap;
+        instructionPtr = new(buffer) SingleDataSwap(undecodedInstruction);
     }
-    else if (Multiply::IsInstanceOf(instruction))
+    else if (Multiply::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armMultiply = Multiply(instruction);
-        return &cpu.armMultiply;
+        instructionPtr = new(buffer) Multiply(undecodedInstruction);
     }
-    else if (MultiplyLong::IsInstanceOf(instruction))
+    else if (MultiplyLong::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armMultiplyLong = MultiplyLong(instruction);
-        return &cpu.armMultiplyLong;
+        instructionPtr = new(buffer) MultiplyLong(undecodedInstruction);
     }
-    else if (HalfwordDataTransferRegisterOffset::IsInstanceOf(instruction))
+    else if (HalfwordDataTransferRegisterOffset::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armHalfwordDataTransferRegisterOffset = HalfwordDataTransferRegisterOffset(instruction);
-        return &cpu.armHalfwordDataTransferRegisterOffset;
+        instructionPtr = new(buffer) HalfwordDataTransferRegisterOffset(undecodedInstruction);
     }
-    else if (HalfwordDataTransferImmediateOffset::IsInstanceOf(instruction))
+    else if (HalfwordDataTransferImmediateOffset::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armHalfwordDataTransferImmediateOffset = HalfwordDataTransferImmediateOffset(instruction);
-        return &cpu.armHalfwordDataTransferImmediateOffset;
+        instructionPtr = new(buffer) HalfwordDataTransferImmediateOffset(undecodedInstruction);
     }
-    else if (PSRTransferMRS::IsInstanceOf(instruction))
+    else if (PSRTransferMRS::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armPSRTransferMRS = PSRTransferMRS(instruction);
-        return &cpu.armPSRTransferMRS;
+        instructionPtr = new(buffer) PSRTransferMRS(undecodedInstruction);
     }
-    else if (PSRTransferMSR::IsInstanceOf(instruction))
+    else if (PSRTransferMSR::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armPSRTransferMSR = PSRTransferMSR(instruction);
-        return &cpu.armPSRTransferMSR;
+        instructionPtr = new(buffer) PSRTransferMSR(undecodedInstruction);
     }
-    else if (DataProcessing::IsInstanceOf(instruction))
+    else if (DataProcessing::IsInstanceOf(undecodedInstruction))
     {
-        cpu.armDataProcessing = DataProcessing(instruction);
-        return &cpu.armDataProcessing;
+        instructionPtr = new(buffer) DataProcessing(undecodedInstruction);
     }
 
-    return nullptr;
+    return instructionPtr;
 }
 
-int BranchAndExchange::Execute(ARM7TDMI& cpu)
+void BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    uint32_t newPC = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint32_t newPC = cpu.registers_.ReadRegister(instruction_.Rn);
 
     if (newPC & 0x01)
     {
@@ -182,32 +170,28 @@ int BranchAndExchange::Execute(ARM7TDMI& cpu)
 
     cpu.registers_.SetPC(newPC);
     cpu.flushPipeline_ = true;
-
-    return cycles;
 }
 
-int BlockDataTransfer::Execute(ARM7TDMI& cpu)
+void BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    int cycles = instruction_.flags.L ? 2 : 1;
-
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    uint16_t regList = instruction_.flags.RegisterList;
+    uint16_t regList = instruction_.RegisterList;
     bool emptyRlist = (regList == 0);
-    bool wbIndexInList = ((instruction_.flags.W) && (regList & (0x01 << instruction_.flags.Rn)));
+    bool wbIndexInList = ((instruction_.W) && (regList & (0x01 << instruction_.Rn)));
     bool wbIndexFirstInList = true;
 
-    if (wbIndexInList && !instruction_.flags.L)
+    if (wbIndexInList && !instruction_.L)
     {
-        for (uint16_t i = 0x01; i < (0x01 << instruction_.flags.Rn); i <<= 1)
+        for (uint16_t i = 0x01; i < (0x01 << instruction_.Rn); i <<= 1)
         {
             if (i & regList)
             {
@@ -224,13 +208,13 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     }
 
     OperatingMode mode = cpu.registers_.GetOperatingMode();
-    bool r15InList = instruction_.flags.RegisterList & 0x8000;
+    bool r15InList = instruction_.RegisterList & 0x8000;
 
-    if (instruction_.flags.S)
+    if (instruction_.S)
     {
         if (r15InList)
         {
-            if (!instruction_.flags.L)
+            if (!instruction_.L)
             {
                 mode = OperatingMode::User;
             }
@@ -242,12 +226,12 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     }
 
     int regListSize = std::popcount(regList);
-    uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.Rn);
     uint32_t minAddr;
     uint32_t wbAddr;
-    bool preIndexOffset = instruction_.flags.P;
+    bool preIndexOffset = instruction_.P;
 
-    if (instruction_.flags.U)
+    if (instruction_.U)
     {
         minAddr = preIndexOffset ? (baseAddr + 4) : baseAddr;
 
@@ -292,16 +276,16 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
     {
         if (regList & 0x01)
         {
-            if (instruction_.flags.L)
+            if (instruction_.L)
             {
                 auto [readValue, readCycles] = cpu.ReadMemory(addr, AccessSize::WORD);
-                cycles += readCycles;
+                Scheduler.Step(readCycles);
 
                 if (regIndex == PC_INDEX)
                 {
                     cpu.flushPipeline_ = true;
 
-                    if (instruction_.flags.S)
+                    if (instruction_.S)
                     {
                         cpu.registers_.LoadSPSR();
                         InterruptMgr.CheckForInterrupt();
@@ -318,13 +302,13 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
                 {
                     regValue += 4;
                 }
-                else if ((regIndex == instruction_.flags.Rn) && !wbIndexFirstInList)
+                else if ((regIndex == instruction_.Rn) && !wbIndexFirstInList)
                 {
                     regValue = wbAddr;
                 }
 
                 int writeCycles = cpu.WriteMemory(addr, regValue, AccessSize::WORD);
-                cycles += writeCycles;
+                Scheduler.Step(writeCycles);
             }
 
             addr += 4;
@@ -334,17 +318,21 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
         regList >>= 1;
     }
 
-    if (instruction_.flags.W && !(wbIndexInList && instruction_.flags.L))
+    if (instruction_.W && !(wbIndexInList && instruction_.L))
     {
-        cpu.registers_.WriteRegister(instruction_.flags.Rn, wbAddr);
+        cpu.registers_.WriteRegister(instruction_.Rn, wbAddr);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int Branch::Execute(ARM7TDMI& cpu)
+void Branch::Execute(ARM7TDMI& cpu)
 {
-    int32_t signedOffset = instruction_.flags.Offset << 2;
+    int32_t signedOffset = instruction_.Offset << 2;
 
     if (signedOffset & 0x0200'0000)
     {
@@ -353,76 +341,69 @@ int Branch::Execute(ARM7TDMI& cpu)
 
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(newPC);
+        SetMnemonic(cpu.mnemonic_, newPC);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    if (instruction_.flags.L)
+    if (instruction_.L)
     {
         cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
     }
 
     cpu.registers_.SetPC(newPC);
     cpu.flushPipeline_ = true;
-
-    return 1;
 }
 
-int SoftwareInterrupt::Execute(ARM7TDMI& cpu)
+void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
     uint32_t currentCPSR = cpu.registers_.GetCPSR();
     cpu.registers_.SetOperatingMode(OperatingMode::Supervisor);
-    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 4);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
     cpu.registers_.SetPC(0x0000'0008);
     cpu.flushPipeline_ = true;
-
-    return 1;
 }
 
-int Undefined::Execute(ARM7TDMI& cpu)
+void Undefined::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
     uint32_t currentCPSR = cpu.registers_.GetCPSR();
     cpu.registers_.SetOperatingMode(OperatingMode::Undefined);
-    cpu.registers_.WriteRegister(LR_INDEX, cpu.GetPC() - 4);
+    cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 4);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
     cpu.registers_.SetPC(0x0000'0004);
     cpu.flushPipeline_ = true;
-    return 1;
 }
 
-int SingleDataTransfer::Execute(ARM7TDMI& cpu)
+void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     uint8_t baseIndex = instruction_.flags.Rn;
     uint8_t srcDestIndex = instruction_.flags.Rd;
     uint32_t offset;
@@ -479,14 +460,14 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(offset);
+        SetMnemonic(cpu.mnemonic_, offset);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.flags.Cond))
     {
-        return 1;
+        return;
     }
 
     int32_t signedOffset = (instruction_.flags.U ? offset : -offset);
@@ -505,7 +486,7 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         // Load
         AccessSize alignment = instruction_.flags.B ? AccessSize::BYTE : AccessSize::WORD;
         auto [value, readCycles] = cpu.ReadMemory(addr, alignment);
-        cycles += readCycles;
+        Scheduler.Step(readCycles);
 
         if ((alignment == AccessSize::WORD) && (addr & 0x03))
         {
@@ -534,7 +515,8 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
             alignment = AccessSize::BYTE;
         }
 
-        cycles += cpu.WriteMemory(addr, value, alignment);
+        int writeCycles = cpu.WriteMemory(addr, value, alignment);
+        Scheduler.Step(writeCycles);
     }
 
     if (postIndex)
@@ -547,27 +529,30 @@ int SingleDataTransfer::Execute(ARM7TDMI& cpu)
         cpu.registers_.WriteRegister(baseIndex, addr);
     }
 
-    return cycles;
+    if (instruction_.flags.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int SingleDataSwap::Execute(ARM7TDMI& cpu)
+void SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    int cycles = 1;
-    uint32_t addr = cpu.registers_.ReadRegister(instruction_.flags.Rn);
-    AccessSize alignment = instruction_.flags.B ? AccessSize::BYTE : AccessSize::WORD;
+    uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rn);
+    AccessSize alignment = instruction_.B ? AccessSize::BYTE : AccessSize::WORD;
 
     auto [memValue, readCycles] = cpu.ReadMemory(addr, alignment);
-    uint32_t regValue = cpu.registers_.ReadRegister(instruction_.flags.Rm);
+    uint32_t regValue = cpu.registers_.ReadRegister(instruction_.Rm);
 
     if ((alignment == AccessSize::WORD) && (addr & 0x03))
     {
@@ -575,28 +560,27 @@ int SingleDataSwap::Execute(ARM7TDMI& cpu)
     }
 
     int writeCycles = cpu.WriteMemory(addr, regValue, alignment);
-    cpu.registers_.WriteRegister(instruction_.flags.Rd, memValue);
+    cpu.registers_.WriteRegister(instruction_.Rd, memValue);
 
-    cycles += readCycles + writeCycles;
-    return cycles;
+    Scheduler.Step(readCycles + writeCycles);
 }
 
-int Multiply::Execute(ARM7TDMI& cpu)
+void Multiply::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    uint8_t destIndex = instruction_.flags.Rd;
-    uint32_t rm = cpu.registers_.ReadRegister(instruction_.flags.Rm);
-    uint32_t rs = cpu.registers_.ReadRegister(instruction_.flags.Rs);
-    uint32_t rn = cpu.registers_.ReadRegister(instruction_.flags.Rn);
+    uint8_t destIndex = instruction_.Rd;
+    uint32_t rm = cpu.registers_.ReadRegister(instruction_.Rm);
+    uint32_t rs = cpu.registers_.ReadRegister(instruction_.Rs);
+    uint32_t rn = cpu.registers_.ReadRegister(instruction_.Rn);
     int64_t result;
 
     int cycles;
@@ -618,7 +602,7 @@ int Multiply::Execute(ARM7TDMI& cpu)
         cycles = 4;
     }
 
-    if (instruction_.flags.A)
+    if (instruction_.A)
     {
         // MLA
         result = (rm * rs) + rn;
@@ -630,38 +614,38 @@ int Multiply::Execute(ARM7TDMI& cpu)
         result = rm * rs;
     }
 
-    if (instruction_.flags.S)
+    if (instruction_.S)
     {
         cpu.registers_.SetNegative(result & 0x8000'0000);
         cpu.registers_.SetZero(result == 0);
     }
 
     cpu.registers_.WriteRegister(destIndex, result & MAX_U32);
-    return cycles;
+    Scheduler.Step(cycles);
 }
 
-int MultiplyLong::Execute(ARM7TDMI& cpu)
+void MultiplyLong::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    uint32_t rm = cpu.registers_.ReadRegister(instruction_.flags.Rm);
-    uint32_t rs = cpu.registers_.ReadRegister(instruction_.flags.Rs);
-    uint32_t rdHi = cpu.registers_.ReadRegister(instruction_.flags.RdHi);
-    uint32_t rdLo = cpu.registers_.ReadRegister(instruction_.flags.RdLo);
+    uint32_t rm = cpu.registers_.ReadRegister(instruction_.Rm);
+    uint32_t rs = cpu.registers_.ReadRegister(instruction_.Rs);
+    uint32_t rdHi = cpu.registers_.ReadRegister(instruction_.RdHi);
+    uint32_t rdLo = cpu.registers_.ReadRegister(instruction_.RdLo);
     uint64_t rdHiLo = (static_cast<uint64_t>(rdHi) << 32) | rdLo;
 
     uint64_t result;
-    int cycles = instruction_.flags.A ? 2 : 1;
+    int cycles = instruction_.A ? 2 : 1;
 
-    if (instruction_.flags.U)
+    if (instruction_.U)
     {
         // Signed
         if (((rs & 0xFFFF'FF00) == 0xFFFF'FF00) || ((rs & 0xFFFF'FF00) == 0))
@@ -695,7 +679,7 @@ int MultiplyLong::Execute(ARM7TDMI& cpu)
             op2 |= 0xFFFF'FFFF'0000'0000;
         }
 
-        int64_t signedResult = instruction_.flags.A ? ((op1 * op2) + op3) : (op1 * op2);
+        int64_t signedResult = instruction_.A ? ((op1 * op2) + op3) : (op1 * op2);
         result = static_cast<uint64_t>(signedResult);
     }
     else
@@ -721,42 +705,39 @@ int MultiplyLong::Execute(ARM7TDMI& cpu)
         uint64_t op1 = rm;
         uint64_t op2 = rs;
         uint64_t op3 = rdHiLo;
-        result = instruction_.flags.A ? ((op1 * op2) + op3) : (op1 * op2);
+        result = instruction_.A ? ((op1 * op2) + op3) : (op1 * op2);
     }
 
-    if (instruction_.flags.S)
+    if (instruction_.S)
     {
         cpu.registers_.SetNegative(result & 0x8000'0000'0000'0000);
         cpu.registers_.SetZero(result == 0);
     }
 
-    cpu.registers_.WriteRegister(instruction_.flags.RdHi, result >> 32);
-    cpu.registers_.WriteRegister(instruction_.flags.RdLo, result & MAX_U32);
-
-    return cycles;
+    cpu.registers_.WriteRegister(instruction_.RdHi, result >> 32);
+    cpu.registers_.WriteRegister(instruction_.RdLo, result & MAX_U32);
+    Scheduler.Step(cycles);
 }
 
-int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
+void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    uint32_t unsignedOffset = cpu.registers_.ReadRegister(instruction_.flags.Rm);
-    int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
-    bool preIndex = instruction_.flags.P;
+    uint32_t unsignedOffset = cpu.registers_.ReadRegister(instruction_.Rm);
+    int16_t signedOffset = instruction_.U ? unsignedOffset : -unsignedOffset;
+    bool preIndex = instruction_.P;
     bool postIndex = !preIndex;
     bool ignoreWriteback = false;
-    uint8_t baseIndex = instruction_.flags.Rn;
-    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint8_t baseIndex = instruction_.Rn;
+    uint8_t srcDestIndex = instruction_.Rd;
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(unsignedOffset);
+        SetMnemonic(cpu.mnemonic_, unsignedOffset);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
     if (preIndex)
@@ -764,10 +745,10 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.L)  // Load
+    if (instruction_.L)  // Load
     {
-        bool s = instruction_.flags.S;
-        bool h = instruction_.flags.H;
+        bool s = instruction_.S;
+        bool h = instruction_.H;
         bool misaligned = addr & 0x01;
         cpu.flushPipeline_ = (srcDestIndex == PC_INDEX);
         ignoreWriteback = (srcDestIndex == baseIndex);
@@ -789,6 +770,7 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
             {
                 // S = 1, H = 1
                 auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+                Scheduler.Step(readCycles);
                 signExtendedWord = halfWord;
 
                 if (halfWord & 0x8000)
@@ -797,12 +779,12 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 }
 
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
-                cycles += readCycles;
             }
             else
             {
                 // S = 1, H = 0
                 auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
+                Scheduler.Step(readCycles);
 
                 signExtendedWord = byte;
 
@@ -812,13 +794,13 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 }
 
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
-                cycles += readCycles;
             }
         }
         else
         {
             // S = 0, H = 1
             auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+            Scheduler.Step(readCycles);
 
             if (misaligned)
             {
@@ -826,7 +808,6 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
             }
 
             cpu.registers_.WriteRegister(srcDestIndex, halfWord);
-            cycles += readCycles;
         }
     }
     else  // Store
@@ -839,7 +820,8 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
             halfWord += 4;
         }
 
-        cycles += cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
+        int writeCycles = cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
+        Scheduler.Step(writeCycles);
     }
 
     if (postIndex)
@@ -847,35 +829,37 @@ int HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (!ignoreWriteback && (instruction_.flags.W || postIndex))
+    if (!ignoreWriteback && (instruction_.W || postIndex))
     {
         cpu.registers_.WriteRegister(baseIndex, addr);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
+void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
-    uint8_t unsignedOffset = (instruction_.flags.Offset1 << 4) | instruction_.flags.Offset;
-    int16_t signedOffset = instruction_.flags.U ? unsignedOffset : -unsignedOffset;
-    bool preIndex = instruction_.flags.P;
+    uint8_t unsignedOffset = (instruction_.Offset1 << 4) | instruction_.Offset;
+    int16_t signedOffset = instruction_.U ? unsignedOffset : -unsignedOffset;
+    bool preIndex = instruction_.P;
     bool postIndex = !preIndex;
     bool ignoreWriteback = false;
-    uint8_t baseIndex = instruction_.flags.Rn;
-    uint8_t srcDestIndex = instruction_.flags.Rd;
+    uint8_t baseIndex = instruction_.Rn;
+    uint8_t srcDestIndex = instruction_.Rd;
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(unsignedOffset);
+        SetMnemonic(cpu.mnemonic_, unsignedOffset);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
     if (preIndex)
@@ -883,10 +867,10 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (instruction_.flags.L)  // Load
+    if (instruction_.L)  // Load
     {
-        bool s = instruction_.flags.S;
-        bool h = instruction_.flags.H;
+        bool s = instruction_.S;
+        bool h = instruction_.H;
         bool misaligned = addr & 0x01;
         cpu.flushPipeline_ = (srcDestIndex == PC_INDEX);
         ignoreWriteback = (srcDestIndex == baseIndex);
@@ -908,6 +892,7 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             {
                 // S = 1, H = 1
                 auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+                Scheduler.Step(readCycles);
                 signExtendedWord = halfWord;
 
                 if (halfWord & 0x8000)
@@ -916,12 +901,12 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                 }
 
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
-                cycles += readCycles;
             }
             else
             {
                 // S = 1, H = 0
                 auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
+                Scheduler.Step(readCycles);
                 signExtendedWord = byte;
 
                 if (byte & 0x80)
@@ -930,13 +915,13 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                 }
 
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
-                cycles += readCycles;
             }
         }
         else
         {
             // S = 0, H = 1
             auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
+            Scheduler.Step(readCycles);
 
             if (misaligned)
             {
@@ -944,7 +929,6 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             }
 
             cpu.registers_.WriteRegister(srcDestIndex, halfWord);
-            cycles += readCycles;
         }
     }
     else  // Store
@@ -957,7 +941,8 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
             halfWord += 4;
         }
 
-        cycles += cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
+        int writeCycles = cpu.WriteMemory(addr, halfWord, AccessSize::HALFWORD);
+        Scheduler.Step(writeCycles);
     }
 
     if (postIndex)
@@ -965,42 +950,44 @@ int HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
         addr += signedOffset;
     }
 
-    if (!ignoreWriteback && (instruction_.flags.W || postIndex))
+    if (!ignoreWriteback && (instruction_.W || postIndex))
     {
         cpu.registers_.WriteRegister(baseIndex, addr);
     }
 
-    return cycles;
+    if (instruction_.L)
+    {
+        // Run 1 extra internal cycle for final write back of load operation.
+        Scheduler.Step(1);
+    }
 }
 
-int PSRTransferMRS::Execute(ARM7TDMI& cpu)
+void PSRTransferMRS::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.Cond))
     {
-        return 1;
+        return;
     }
 
-    uint32_t value = instruction_.flags.Ps ? cpu.registers_.GetSPSR() : cpu.registers_.GetCPSR();
-    cpu.registers_.WriteRegister(instruction_.flags.Rd, value);
-
-    return 1;
+    uint32_t value = instruction_.Ps ? cpu.registers_.GetSPSR() : cpu.registers_.GetCPSR();
+    cpu.registers_.WriteRegister(instruction_.Rd, value);
 }
 
-int PSRTransferMSR::Execute(ARM7TDMI& cpu)
+void PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic();
+        SetMnemonic(cpu.mnemonic_);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.commonFlags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.commonFlags.Cond))
     {
-        return 1;
+        return;
     }
 
     uint32_t value;
@@ -1027,7 +1014,7 @@ int PSRTransferMSR::Execute(ARM7TDMI& cpu)
 
     if (mask == 0)
     {
-        return 1;
+        return;
     }
 
     value &= mask;
@@ -1049,14 +1036,10 @@ int PSRTransferMSR::Execute(ARM7TDMI& cpu)
         cpu.registers_.SetCPSR(cpsr);
         InterruptMgr.CheckForInterrupt();
     }
-
-    return 1;
 }
 
-int DataProcessing::Execute(ARM7TDMI& cpu)
+void DataProcessing::Execute(ARM7TDMI& cpu)
 {
-    int cycles = 1;
-
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
     uint32_t op2;
     uint8_t destIndex = instruction_.flags.Rd;
@@ -1076,10 +1059,8 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
     {
         // Operand 2 is a register
         op2 = cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rm);
-
-        ++cycles;
-
         bool shiftByReg = (instruction_.flags.Operand2 & 0x10);
+
         uint8_t shiftAmount =
             shiftByReg ? (cpu.registers_.ReadRegister(instruction_.shiftRegByReg.Rs) & 0xFF) :
             instruction_.shiftRegByImm.ShiftAmount;
@@ -1096,6 +1077,9 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
             {
                 op2 += 4;
             }
+
+            // One extra internal cycles when shifting by register.
+            Scheduler.Step(1);
         }
 
         switch (instruction_.shiftRegByReg.ShiftType)
@@ -1201,14 +1185,14 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if (Config::LOGGING_ENABLED)
+    if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(op2);
+        SetMnemonic(cpu.mnemonic_, op2);
     }
 
-    if (!cpu.ArmConditionMet(instruction_.flags.Cond))
+    if (!cpu.ArmConditionSatisfied(instruction_.flags.Cond))
     {
-        return 1;
+        return;
     }
 
     uint32_t result = 0;
@@ -1309,7 +1293,5 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
 
         cpu.registers_.WriteRegister(destIndex, result);
     }
-
-    return cycles;
 }
 }
