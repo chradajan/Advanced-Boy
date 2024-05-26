@@ -196,6 +196,8 @@ private:
     /// @param windowSettingsPtr Pointer to OBJ window settings, or nullptr if rendering a visible sprite.
     void Render2d8bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr);
 
+    void AddSpritePixelToLineBuffer(int dot, uint16_t bgr555, int priority, bool transparent, bool semiTransparent, WindowSettings* windowSettingsPtr);
+
     /// @brief Increment BG2 and BG3 reference points after a scanline is rendered.
     void IncrementAffineBackgroundReferencePoints();
 

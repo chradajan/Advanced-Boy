@@ -982,21 +982,7 @@ void PPU::Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntr
             int paletteIndex = palette | (leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_);
             bool transparent = (paletteIndex & 0x0F) == 0;
             uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (windowSettingsPtr == nullptr)
-            {
-                // Visible Sprite
-                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                    (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-                {
-                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-                }
-            }
-            else if (!transparent)
-            {
-                // Opaque OBJ window sprite pixel
-                frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-            }
+            AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
 
             --pixelsToDraw;
             ++dot;
@@ -1059,23 +1045,8 @@ void PPU::Render1d8bppRegularSprite(int x, int y, int width, int height, OamEntr
 
         size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
         bool transparent = (paletteIndex == 0);
-
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else
-        {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-        }
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
     }
 }
 
@@ -1138,21 +1109,7 @@ void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntr
             int paletteIndex = palette | (leftHalf ? paletteData.leftNibble_ : paletteData.rightNibble_);
             bool transparent = (paletteIndex & 0x0F) == 0;
             uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (windowSettingsPtr == nullptr)
-            {
-                // Visible Sprite
-                if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                    (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-                {
-                    frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-                }
-            }
-            else if (!transparent)
-            {
-                // Opaque OBJ window sprite pixel
-                frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-            }
+            AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
 
             --pixelsToDraw;
             ++dot;
@@ -1226,23 +1183,8 @@ void PPU::Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntr
 
         size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
         bool transparent = (paletteIndex == 0);
-
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else if (!transparent)
-        {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-        }
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
     }
 }
 
@@ -1310,23 +1252,8 @@ void PPU::Render1d4bppAffineSprite(int x, int y, int width, int height, OamEntry
         auto tileNibbles = tileDataPtr->paletteIndex_[tileY][tileX / 2];
         size_t paletteIndex = palette | (left ? tileNibbles.leftNibble_ : tileNibbles.rightNibble_);
         bool transparent = (paletteIndex & 0x0F) == 0;
-
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else if (!transparent)
-        {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-        }
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
     }
 }
 
@@ -1400,22 +1327,8 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
             paletteIndex = 0;
         }
 
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else if (!transparent)
-        {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-        }
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
     }
 }
 
@@ -1486,23 +1399,8 @@ void PPU::Render1d8bppAffineSprite(int x, int y, int width, int height, OamEntry
         size_t tileY = textureY % 8;
         size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
         bool transparent = (paletteIndex == 0);
-
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
-
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else
-        {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
-        }
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
     }
 }
 
@@ -1569,23 +1467,28 @@ void PPU::Render2d8bppAffineSprite(int x, int y, int width, int height, OamEntry
         TileData8bpp const* tileDataPtr = &tileMapPtr->tileData_[mapY][mapX];
         size_t paletteIndex = tileDataPtr->paletteIndex_[tileY][tileX];
         bool transparent = (paletteIndex == 0);
+        uint16_t bgr555 = palettePtr[paletteIndex];
+        AddSpritePixelToLineBuffer(dot, bgr555, priority, transparent, semiTransparent, windowSettingsPtr);
+    }
+}
 
-        if (windowSettingsPtr == nullptr)
-        {
-            // Visible sprite
-            uint16_t bgr555 = palettePtr[paletteIndex];
+void PPU::AddSpritePixelToLineBuffer(int dot, uint16_t bgr555, int priority, bool transparent, bool semiTransparent, WindowSettings* windowSettingsPtr)
+{
+    if (windowSettingsPtr == nullptr)
+    {
+        // Visible Sprite
+        Pixel& currentPixel = frameBuffer_.GetSpritePixel(dot);
 
-            if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
-                (!frameBuffer_.GetSpritePixel(dot).initialized_ || (priority < frameBuffer_.GetSpritePixel(dot).priority_)))
-            {
-                frameBuffer_.GetSpritePixel(dot) = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
-            }
-        }
-        else if (!transparent)
+        if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
+            (!currentPixel.initialized_ || (priority < currentPixel.priority_) || currentPixel.transparent_))
         {
-            // Opaque OBJ window sprite pixel
-            frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
+            currentPixel = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);
         }
+    }
+    else if (!transparent)
+    {
+        // Opaque OBJ window sprite pixel
+        frameBuffer_.GetWindowSettings(dot) = *windowSettingsPtr;
     }
 }
 
