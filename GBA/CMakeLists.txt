@@ -2,7 +2,7 @@ project(GbaLib)
 
 add_library(${PROJECT_NAME} STATIC)
 
-add_subdirectory(src/src)
+add_subdirectory(src)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 20
@@ -14,6 +14,6 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 target_include_directories(${PROJECT_NAME}
-    PRIVATE ${PROJECT_SOURCE_DIR}/src/include
-    PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PRIVATE ${PROJECT_SOURCE_DIR}/include
+    PUBLIC ${PROJECT_SOURCE_DIR}
 )
