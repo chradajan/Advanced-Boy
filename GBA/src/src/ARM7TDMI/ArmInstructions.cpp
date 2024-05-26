@@ -1,13 +1,12 @@
 #include <ARM7TDMI/ArmInstructions.hpp>
-
 #include <bit>
 #include <cmath>
 #include <cstdint>
 #include <utility>
-
 #include <ARM7TDMI/ARM7TDMI.hpp>
 #include <ARM7TDMI/CpuTypes.hpp>
 #include <Config.hpp>
+#include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 
 namespace
@@ -305,6 +304,7 @@ int BlockDataTransfer::Execute(ARM7TDMI& cpu)
                     if (instruction_.flags.S)
                     {
                         cpu.registers_.LoadSPSR();
+                        InterruptMgr.CheckForInterrupt();
                     }
                 }
 
@@ -1047,6 +1047,7 @@ int PSRTransferMSR::Execute(ARM7TDMI& cpu)
         cpsr &= ~mask;
         cpsr |= value;
         cpu.registers_.SetCPSR(cpsr);
+        InterruptMgr.CheckForInterrupt();
     }
 
     return 1;
@@ -1283,6 +1284,7 @@ int DataProcessing::Execute(ARM7TDMI& cpu)
         if (destIndex == PC_INDEX)
         {
             cpu.registers_.LoadSPSR();
+            InterruptMgr.CheckForInterrupt();
             cpu.flushPipeline_ = writeResult;
         }
         else
