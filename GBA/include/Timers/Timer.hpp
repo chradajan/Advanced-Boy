@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 class Timer
@@ -10,31 +11,31 @@ class Timer
 public:
     /// @brief Initialize a timer.
     /// @param index Which timer (0-3) this is.
-    Timer(int index);
+    /// @param overflowEvent Which event should fire when this timer overflows.
+    /// @param interruptType What interrupt to request if IRQs are enabled for this timer.
+    Timer(int index, EventType overflowEvent, InterruptType interruptType);
 
     /// @brief Reset a timer to its power-up state.
     void Reset();
 
     /// @brief Read a memory mapped timer register.
     /// @param addr Address of memory mapped register.
-    /// @param alignment BYTE, HALFWORD, or WORD.
+    /// @param alignment Number of bytes to read.
     /// @return Value of specified register.
-    uint32_t ReadIoReg(uint32_t addr, AccessSize alignment);
+    uint32_t ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Read a memory mapped timer register.
     /// @param addr Address of memory mapped register.
     /// @param value Value to write to register.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    void WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
+    /// @param alignment Number of bytes to write.
+    void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief Reload the internal counter and schedule a timer overflow event.
-    /// @param extraCycles How many cycles have passed since this timer should have started.
-    /// @return How many times this timer overflowed in the duration elapsed since it should have started.
+    /// @brief Reload the internal counter and schedule a timer overflow event for a timer that was just enabled.
     void StartTimer();
 
-    /// @brief Restart the timer after it overflows.
-    /// @param extraCycles How many cycles have passed since this timer should have restarted.
-    /// @return How many times this timer overflowed in the duration elapsed since it should have restarted.
+    /// @brief Update a non-cascade mode timer that overflowed.
+    /// @param extraCycles How many cycles have passed since this timer overflowed.
+    /// @return Total number of overflow events that occurred.
     int Overflow(int extraCycles);
 
     /// @brief If this timer is in cascade mode, handle the previous timer overflowing.
@@ -43,48 +44,53 @@ public:
 
     /// @brief Check if this timer is currently enabled.
     /// @return True if this timer is running.
-    bool Running() const { return timerControl_.flags_.start_; }
+    bool Running() const { return timerControl_.start; }
 
     /// @brief Check if this timer is in cascade mode.
     /// @return True if timer in is cascade mode, false if it's in normal mode.
-    bool CascadeMode() const { return (timerIndex_ != 0) && timerControl_.flags_.countUpTiming_; }
+    bool CascadeMode() const { return (timerIndex_ != 0) && timerControl_.countUpTiming; }
 
     /// @brief Whether an IRQ should be generated when this timer overflows.
     /// @return True if an IRQ should be generated.
-    bool GenerateIRQ() const { return timerControl_.flags_.irqEnable_; }
+    bool GenerateIRQ() const { return timerControl_.irqEnable; }
+
+    /// @brief Get the interrupt type that this timer should request when it overflows and IRQs are enabled.
+    /// @return This timer's associated interrupt.
+    InterruptType GetInterruptType() const { return interruptType_; }
 
 private:
-    /// @brief Update the internal counter and cancel the scheduled overflow event.
-    void StopTimer();
-
     /// @brief Update the internal counter based on how many cycles have passed since this timer started.
-    /// @param divider Clock divider.
-    /// @param forceUpdate Optionally force an internal counter update regardless of counting mode.
-    void UpdateInternalCounter(uint16_t divider, bool forceUpdate = false);
+    /// @param divider Clock divider to use for calculating internal counter value.
+    void UpdateInternalCounter(uint16_t divider);
 
-    /// @brief Get divider to use for calculating how often this timer increments.
-    /// @return Clock divider.
-    uint16_t GetDivider() const;
+    /// @brief Get divider to use for calculating this timer's update frequency.
+    /// @param prescalerSelection Frequency divider from control register.
+    /// @return CPU clock divider.
+    uint16_t GetDivider(uint16_t prescalerSelection) const;
 
     union TIMXCNT
     {
         struct
         {
-            uint32_t reload_ : 16;
-            uint32_t prescalerSelection_ : 2;
-            uint32_t countUpTiming_ : 1;
-            uint32_t : 3;
-            uint32_t irqEnable_ : 1;
-            uint32_t start_ : 1;
-            uint32_t : 8;
-        } flags_;
+            uint16_t prescalerSelection : 2;
+            uint16_t countUpTiming : 1;
+            uint16_t : 3;
+            uint16_t irqEnable : 1;
+            uint16_t start : 1;
+            uint16_t : 8;
+        };
 
-        uint32_t word_;
+        uint16_t value;
     };
 
+    // Registers
     std::array<uint8_t, 4> timerRegisters_;
-    TIMXCNT& timerControl_;
+    uint16_t& timerReload_;
     uint16_t internalTimer_;
-    int timerIndex_;
-    EventType overflowEvent_;
+    TIMXCNT& timerControl_;
+
+    // Timer info
+    int const timerIndex_;
+    EventType const overflowEvent_;
+    InterruptType const interruptType_;
 };

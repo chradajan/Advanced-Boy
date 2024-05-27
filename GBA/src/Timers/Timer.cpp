@@ -3,28 +3,17 @@
 #include <cstdint>
 #include <optional>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
-Timer::Timer(int index) :
+Timer::Timer(int index, EventType overflowEvent, InterruptType interruptType) :
     timerRegisters_(),
-    timerControl_(*reinterpret_cast<TIMXCNT*>(timerRegisters_.data())),
-    timerIndex_(index)
+    timerReload_(*reinterpret_cast<uint16_t*>(&timerRegisters_[0])),
+    timerControl_(*reinterpret_cast<TIMXCNT*>(&timerRegisters_[2])),
+    timerIndex_(index),
+    overflowEvent_(overflowEvent),
+    interruptType_(interruptType)
 {
-    switch (index)
-    {
-        case 0:
-            overflowEvent_ = EventType::Timer0Overflow;
-            break;
-        case 1:
-            overflowEvent_ = EventType::Timer1Overflow;
-            break;
-        case 2:
-            overflowEvent_ = EventType::Timer2Overflow;
-            break;
-        case 3:
-            overflowEvent_ = EventType::Timer3Overflow;
-            break;
-    }
 }
 
 void Timer::Reset()
@@ -33,171 +22,136 @@ void Timer::Reset()
     internalTimer_ = 0;
 }
 
-uint32_t Timer::ReadIoReg(uint32_t addr, AccessSize alignment)
+uint32_t Timer::ReadReg(uint32_t addr, AccessSize alignment)
 {
-    size_t index = addr & 0x03;
     uint32_t value = 0;
+    size_t index = addr & 0x03;
 
-    if (timerControl_.flags_.start_ && (index < 2))
+    if (index < 2)  // Reading internal counter and possibly control.
     {
-        UpdateInternalCounter(GetDivider());
+        if (!CascadeMode() && timerControl_.start)
+        {
+            UpdateInternalCounter(GetDivider(timerControl_.prescalerSelection));
+        }
+
+        switch (alignment)
+        {
+            case AccessSize::BYTE:
+                value = ((index == 0) ? (internalTimer_ & MAX_U8) : ((internalTimer_ >> 8) & MAX_U8));
+                break;
+            case AccessSize::HALFWORD:
+                value = internalTimer_;
+                break;
+            case AccessSize::WORD:
+                value = (timerControl_.value << 16) | internalTimer_;
+                break;
+        }
     }
-
-    switch (index)
+    else  // Reading control (must be byte or halfword aligned)
     {
-        case 0:
-        {
-            switch (alignment)
-            {
-                case AccessSize::BYTE:
-                    value = internalTimer_ & MAX_U8;
-                    break;
-                case AccessSize::HALFWORD:
-                    value = internalTimer_;
-                    break;
-                case AccessSize::WORD:
-                    value = (timerControl_.word_ & 0xFFFF'0000) | internalTimer_;
-                    break;
-            }
-
-            break;
-        }
-        case 1:
-            value = (internalTimer_ >> 8) & MAX_U8;
-            break;
-        case 2:
-        {
-            switch (alignment)
-            {
-                case AccessSize::BYTE:
-                    value = (timerControl_.word_ >> 16) & MAX_U8;
-                    break;
-                case AccessSize::HALFWORD:
-                    value = (timerControl_.word_ >> 16) & MAX_U16;
-                    break;
-                default:
-                    break;
-            }
-
-            break;
-        }
-        case 3:
-            value = (timerControl_.word_ >> 24) & MAX_U8;
-            break;
+        uint8_t* bytePtr = &timerRegisters_.at(index);
+        value = ReadPointer(bytePtr, alignment);
     }
 
     return value;
 }
 
-void Timer::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
+void Timer::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    bool wasTimerRunning = timerControl_.flags_.start_;
-    bool wasTimerCountUpMode = CascadeMode();
-    uint16_t oldDivider = GetDivider();
+    if (!CascadeMode() && timerControl_.start)
+    {
+        UpdateInternalCounter(GetDivider(timerControl_.prescalerSelection));
+    }
+
+    TIMXCNT prevControl = timerControl_;
 
     size_t index = addr & 0x03;
-    uint8_t* bytePtr = &timerRegisters_[index];
+    uint8_t* bytePtr = &timerRegisters_.at(index);
     WritePointer(bytePtr, value, alignment);
 
-    if (wasTimerRunning && !wasTimerCountUpMode && CascadeMode())
+    if (!prevControl.start && timerControl_.start)  // Starting the timer
     {
-        // Timer switched from normal to cascade mode.
-        UpdateInternalCounter(oldDivider, true);
-        Scheduler.UnscheduleEvent(overflowEvent_);
-    }
-    else if (wasTimerRunning && timerControl_.flags_.start_ && wasTimerCountUpMode && !CascadeMode())
-    {
-        // Timer was and still is running, and it switched from cascade to normal mode.
-        uint64_t cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * GetDivider());
-        Scheduler.ScheduleEvent(overflowEvent_, cyclesUntilOverflow);
-    }
-    else if (!wasTimerRunning && timerControl_.flags_.start_)
-    {
-        // Timer was not running and now is.
         StartTimer();
     }
-    else if (wasTimerRunning && !timerControl_.flags_.start_)
+    else if (prevControl.start && !timerControl_.start)  // Stopping the timer
     {
-        // Timer was running and is not anymore.
-        StopTimer();
+        Scheduler.UnscheduleEvent(overflowEvent_);
+    }
+    else if (prevControl.start && timerControl_.start)  // Timer was and still is running
+    {
+        if (prevControl.countUpTiming && !timerControl_.countUpTiming) // Switched from cascade to normal
+        {
+            StartTimer();
+        }
+        else if (!prevControl.countUpTiming && timerControl_.countUpTiming)  // Switch from normal to cascade
+        {
+            Scheduler.UnscheduleEvent(overflowEvent_);
+        }
     }
 }
 
 void Timer::StartTimer()
 {
-    internalTimer_ = timerControl_.flags_.reload_;
+    internalTimer_ = timerReload_;
 
     if (!CascadeMode())
     {
-        uint64_t cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * GetDivider()) + 2;
+        uint64_t cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * GetDivider(timerControl_.prescalerSelection)) + 2;
         Scheduler.ScheduleEvent(overflowEvent_, cyclesUntilOverflow);
     }
 }
 
 int Timer::Overflow(int extraCycles)
 {
-    internalTimer_ = timerControl_.flags_.reload_;
-    int numberOfOverflows = 1;
+    int overflowCount = 1;
+    internalTimer_ = timerReload_;
 
     if (!CascadeMode())
     {
-        uint64_t timerDurationInCycles = ((0x0001'0000 - internalTimer_) * GetDivider());
+        uint16_t divider = GetDivider(timerControl_.prescalerSelection);
+        uint64_t timerDuration = (0x0001'0000 - timerReload_) * divider;
 
-        if (static_cast<uint64_t>(extraCycles) > timerDurationInCycles)
+        if (timerDuration <= static_cast<uint64_t>(extraCycles))
         {
-            numberOfOverflows += extraCycles / timerDurationInCycles;
-            extraCycles = extraCycles % timerDurationInCycles;
+            overflowCount += extraCycles / timerDuration;
+            extraCycles %= timerDuration;
         }
 
-        uint64_t cyclesUntilOverflow = timerDurationInCycles - extraCycles;
+        internalTimer_ += (extraCycles / divider);
+        extraCycles %= divider;
+
+        uint64_t cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * divider) - extraCycles;
         Scheduler.ScheduleEvent(overflowEvent_, cyclesUntilOverflow);
     }
 
-    return numberOfOverflows;
+    return overflowCount;
 }
 
 void Timer::CascadeModeIncrement(int incrementCount)
 {
-    // TODO: Improve this so that multiple cascaded increments will propagate forward if the next timer is also in cascade mode.
-    if ((internalTimer_ + incrementCount) < internalTimer_)
+    if ((internalTimer_ + incrementCount) > 0xFFFF)
     {
         Scheduler.ScheduleEvent(overflowEvent_, SCHEDULE_NOW);
     }
-
-    while (incrementCount > 0)
+    else
     {
-        ++internalTimer_;
-        --incrementCount;
-
-        if (internalTimer_ == 0)
-        {
-            internalTimer_ = timerControl_.flags_.reload_;
-        }
+        internalTimer_ += incrementCount;
     }
 }
 
-void Timer::StopTimer()
+void Timer::UpdateInternalCounter(uint16_t divider)
 {
-    UpdateInternalCounter(GetDivider());
-    Scheduler.UnscheduleEvent(overflowEvent_);
-}
+    auto elapsedCycles = Scheduler.ElapsedCycles(overflowEvent_);
 
-void Timer::UpdateInternalCounter(uint16_t divider, bool forceUpdate)
-{
-    if (!CascadeMode() || forceUpdate)
+    if (elapsedCycles.has_value())
     {
-        auto elapsedCycles = Scheduler.ElapsedCycles(overflowEvent_);
-
-        if (elapsedCycles.has_value())
-        {
-            internalTimer_ += (elapsedCycles.value() / divider);
-        }
+        internalTimer_ += (elapsedCycles.value() / divider);
     }
 }
 
-uint16_t Timer::GetDivider() const
+uint16_t Timer::GetDivider(uint16_t prescalerSelection) const
 {
-    switch (timerControl_.flags_.prescalerSelection_)
+    switch (prescalerSelection)
     {
         case 0:
             return 1;
@@ -208,4 +162,6 @@ uint16_t Timer::GetDivider() const
         case 3:
             return 1024;
     }
+
+    return 1;
 }

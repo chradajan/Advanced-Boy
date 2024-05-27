@@ -50,10 +50,10 @@ constexpr uint32_t SOUND_IO_ADDR_MIN = 0x0400'0060;
 constexpr uint32_t SOUND_IO_ADDR_MAX = 0x0400'00AB;
 
 constexpr uint32_t DMA_TRANSFER_CHANNELS_IO_ADDR_MIN = 0x0400'00B0;
-constexpr uint32_t DMA_TRANSFER_CHANNELS_IO_ADDR_MAX = 0x0400'00E3;
+constexpr uint32_t DMA_TRANSFER_CHANNELS_IO_ADDR_MAX = 0x0400'00DF;
 
 constexpr uint32_t TIMER_IO_ADDR_MIN = 0x0400'0100;
-constexpr uint32_t TIMER_IO_ADDR_MAX = 0x0400'0113;
+constexpr uint32_t TIMER_IO_ADDR_MAX = 0x0400'010F;
 
 constexpr uint32_t SERIAL_COMMUNICATION_1_IO_ADDR_MIN = 0x0400'0120;
 constexpr uint32_t SERIAL_COMMUNICATION_1_IO_ADDR_MAX = 0x0400'012F;
@@ -66,8 +66,6 @@ constexpr uint32_t SERIAL_COMMUNICATION_2_IO_ADDR_MAX = 0x0400'015B;
 
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MIN = 0x0400'0200;
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0803;
-
-constexpr uint32_t WAITCNT_ADDR = 0x0400'0204;
 
 // Interrupt, Waitstate, and Power-Down Control
 

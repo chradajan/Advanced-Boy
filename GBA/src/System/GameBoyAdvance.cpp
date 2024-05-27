@@ -11,7 +11,6 @@
 #include <string>
 #include <utility>
 #include <Audio/SoundController.hpp>
-#include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/EventScheduler.hpp>

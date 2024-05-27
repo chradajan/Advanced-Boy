@@ -2,14 +2,16 @@
 #include <array>
 #include <cstdint>
 #include <utility>
-#include <System/MemoryMap.hpp>
-#include <System/SystemControl.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 #include <Timers/Timer.hpp>
 
 TimerManager::TimerManager() :
-    timers_({0, 1, 2, 3})
+    timers_({Timer(0, EventType::Timer0Overflow, InterruptType::TIMER_0_OVERFLOW),
+             Timer(1, EventType::Timer1Overflow, InterruptType::TIMER_1_OVERFLOW),
+             Timer(2, EventType::Timer2Overflow, InterruptType::TIMER_2_OVERFLOW),
+             Timer(3, EventType::Timer3Overflow, InterruptType::TIMER_3_OVERFLOW)})
 {
     Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1), true);
     Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1), true);
@@ -27,21 +29,21 @@ std::pair<uint32_t, bool> TimerManager::ReadReg(uint32_t addr, AccessSize alignm
 {
     uint32_t value = 0;
 
-    if (addr <= TIMER_0_ADDR_MAX)
+    if (addr < 0x0400'0104)
     {
-        value = timers_[0].ReadIoReg(addr, alignment);
+        value = timers_[0].ReadReg(addr, alignment);
     }
-    else if (addr <= TIMER_1_ADDR_MAX)
+    else if (addr < 0x0400'0108)
     {
-        value = timers_[1].ReadIoReg(addr, alignment);
+        value = timers_[1].ReadReg(addr, alignment);
     }
-    else if (addr <= TIMER_2_ADDR_MAX)
+    else if (addr < 0x0400'010C)
     {
-        value = timers_[2].ReadIoReg(addr, alignment);
+        value = timers_[2].ReadReg(addr, alignment);
     }
-    else if (addr <= TIMER_3_ADDR_MAX)
+    else if (addr < 0x0400'0110)
     {
-        value = timers_[3].ReadIoReg(addr, alignment);
+        value = timers_[3].ReadReg(addr, alignment);
     }
 
     return {value, false};
@@ -49,75 +51,43 @@ std::pair<uint32_t, bool> TimerManager::ReadReg(uint32_t addr, AccessSize alignm
 
 void TimerManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    if (addr <= TIMER_0_ADDR_MAX)
+    if (addr < 0x0400'0104)
     {
-        timers_[0].WriteIoReg(addr, value, alignment);
+        timers_[0].WriteReg(addr, value, alignment);
     }
-    else if (addr <= TIMER_1_ADDR_MAX)
+    else if (addr < 0x0400'0108)
     {
-        timers_[1].WriteIoReg(addr, value, alignment);
+        timers_[1].WriteReg(addr, value, alignment);
     }
-    else if (addr <= TIMER_2_ADDR_MAX)
+    else if (addr < 0x0400'010C)
     {
-        timers_[2].WriteIoReg(addr, value, alignment);
+        timers_[2].WriteReg(addr, value, alignment);
     }
-    else if (addr <= TIMER_3_ADDR_MAX)
+    else if (addr < 0x0400'0110)
     {
-        timers_[3].WriteIoReg(addr, value, alignment);
-    }
-}
-
-void TimerManager::Timer0Overflow(int extraCycles)
-{
-    if (timers_[0].GenerateIRQ())
-    {
-        SystemController.RequestInterrupt(InterruptType::TIMER_0_OVERFLOW);
-    }
-
-    int numberOfOverflows = timers_[0].Overflow(extraCycles);
-
-    if (timers_[1].CascadeMode())
-    {
-        timers_[1].CascadeModeIncrement(numberOfOverflows);
+        timers_[3].WriteReg(addr, value, alignment);
     }
 }
 
-void TimerManager::Timer1Overflow(int extraCycles)
+void TimerManager::TimerOverflow(int timerIndex, int extraCycles)
 {
-    if (timers_[1].GenerateIRQ())
+    Timer& overflowTimer = timers_[timerIndex];
+    Timer* nextTimer = nullptr;
+
+    if (timerIndex < 3)
     {
-        SystemController.RequestInterrupt(InterruptType::TIMER_1_OVERFLOW);
+        nextTimer = &timers_[timerIndex + 1];
     }
 
-    int numberOfOverflows = timers_[1].Overflow(extraCycles);
-
-    if (timers_[2].CascadeMode())
+    if (overflowTimer.GenerateIRQ())
     {
-        timers_[2].CascadeModeIncrement(numberOfOverflows);
-    }
-}
-
-void TimerManager::Timer2Overflow(int extraCycles)
-{
-    if (timers_[2].GenerateIRQ())
-    {
-        SystemController.RequestInterrupt(InterruptType::TIMER_2_OVERFLOW);
+        SystemController.RequestInterrupt(overflowTimer.GetInterruptType());
     }
 
-    int numberOfOverflows = timers_[2].Overflow(extraCycles);
+    int overflowCount = overflowTimer.Overflow(extraCycles);
 
-    if (timers_[3].CascadeMode())
+    if ((nextTimer != nullptr) && (nextTimer->CascadeMode()))
     {
-        timers_[3].CascadeModeIncrement(numberOfOverflows);
+        nextTimer->CascadeModeIncrement(overflowCount);
     }
-}
-
-void TimerManager::Timer3Overflow(int extraCycles)
-{
-    if (timers_[3].GenerateIRQ())
-    {
-        SystemController.RequestInterrupt(InterruptType::TIMER_3_OVERFLOW);
-    }
-
-    timers_[3].Overflow(extraCycles);
 }
