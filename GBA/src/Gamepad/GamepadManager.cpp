@@ -2,14 +2,18 @@
 #include <array>
 #include <cstdint>
 #include <utility>
-#include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 GamepadManager::GamepadManager() :
     gamepadRegisters_(),
     KEYINPUT_(*reinterpret_cast<Gamepad*>(&gamepadRegisters_.at(0))),
     KEYCNT_(*reinterpret_cast<Gamepad*>(&gamepadRegisters_.at(2)))
+{
+}
+
+void GamepadManager::Reset()
 {
     KEYINPUT_ = Gamepad();
     KEYCNT_.halfword_ = 0;
@@ -77,6 +81,6 @@ void GamepadManager::CheckForGamepadIRQ()
 
     if (gamepadIRQ)
     {
-        InterruptMgr.RequestInterrupt(InterruptType::KEYPAD);
+        SystemController.RequestInterrupt(InterruptType::KEYPAD);
     }
 }

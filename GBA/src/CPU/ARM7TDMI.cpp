@@ -27,7 +27,7 @@ void ARM7TDMI::Reset()
 {
     pipeline_.Clear();
     flushPipeline_ = false;
-    registers_ = CPU::Registers();
+    registers_.Reset();
 }
 
 void ARM7TDMI::Step()

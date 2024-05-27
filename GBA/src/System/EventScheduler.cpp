@@ -33,7 +33,12 @@ bool Event::operator>(Event const& rhs) const
 EventScheduler::EventScheduler()
 {
     queue_.reserve(static_cast<size_t>(EventType::COUNT) + 1);
+}
+
+void EventScheduler::Reset()
+{
     totalCycles_ = 0;
+    queue_.clear();
 }
 
 void EventScheduler::Step(uint64_t cycles)

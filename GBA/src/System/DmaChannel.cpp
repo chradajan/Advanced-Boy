@@ -4,8 +4,8 @@
 #include <utility>
 #include <Audio/Registers.hpp>
 #include <System/GameBoyAdvance.hpp>
-#include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
+#include <System/SystemControl.hpp>
 #include <System/EventScheduler.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
@@ -14,10 +14,7 @@ DmaChannel::DmaChannel(int index) :
     SAD_(*reinterpret_cast<uint32_t*>(&dmaChannelRegisters_[0])),
     DAD_(*reinterpret_cast<uint32_t*>(&dmaChannelRegisters_[4])),
     dmaControl_(*reinterpret_cast<DMAXCNT*>(&dmaChannelRegisters_[8])),
-    dmaChannelIndex_(index),
-    eepromRead_(false),
-    eepromWrite_(false),
-    fifoDma_(false)
+    dmaChannelIndex_(index)
 {
     switch (index)
     {
@@ -38,6 +35,21 @@ DmaChannel::DmaChannel(int index) :
             dmaInterrupt_ = InterruptType::DMA3;
             break;
     }
+}
+
+void DmaChannel::Reset()
+{
+    dmaChannelRegisters_.fill(0);
+
+    internalSrcAddr_ = 0;
+    internalDestAddr_ = 0;
+    internalWordCount_ = 0;
+
+    totalTransferCycles_ = 0;
+    cyclesPerTransfer_ = 0;
+    eepromRead_ = false;
+    eepromWrite_ = false;
+    fifoDma_ = false;
 }
 
 std::pair<uint32_t, bool> DmaChannel::ReadReg(uint32_t addr, AccessSize alignment)
@@ -174,7 +186,7 @@ void DmaChannel::Execute(GameBoyAdvance* gbaPtr)
 
     if (dmaControl_.flags_.irqEnable_)
     {
-        InterruptMgr.RequestInterrupt(dmaInterrupt_);
+        SystemController.RequestInterrupt(dmaInterrupt_);
     }
 }
 
@@ -237,8 +249,7 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     {
         // GamePak
         romToRomDma = true;
-        readCycles = gbaPtr->gamePak_->AccessTime(internalSrcAddr_, false, xferAlignment_);
-        readCycles += (gbaPtr->gamePak_->AccessTime(internalSrcAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        readCycles = internalWordCount_;
         eepromRead_ = gbaPtr->gamePak_->EepromAccess(internalSrcAddr_);
     }
 
@@ -273,8 +284,7 @@ int DmaChannel::TransferCycleCount(GameBoyAdvance* gbaPtr)
     else
     {
         // GamePak
-        writeCycles = gbaPtr->gamePak_->AccessTime(internalDestAddr_, false, xferAlignment_);
-        writeCycles += (gbaPtr->gamePak_->AccessTime(internalDestAddr_, true, xferAlignment_) * (internalWordCount_ - 1));
+        writeCycles = internalWordCount_;
         eepromWrite_ = gbaPtr->gamePak_->EepromAccess(internalDestAddr_);
     }
 

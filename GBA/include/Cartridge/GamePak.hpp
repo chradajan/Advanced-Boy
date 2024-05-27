@@ -81,6 +81,9 @@ public:
     GamePak& operator=(GamePak const&) = delete;
     GamePak& operator=(GamePak&&) = delete;
 
+    /// @brief Reset the GamePak to its power-up state.
+    void Reset();
+
     /// @brief Check if a valid ROM file is loaded.
     /// @return True if ROM is loaded and ready to be accessed, false otherwise.
     bool RomLoaded() const { return romLoaded_; };
@@ -101,21 +104,6 @@ public:
     /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Number of cycles taken to write.
     int WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    /// @brief Get value of WAITCNT register.
-    /// @return Value of WAITCNT.
-    uint32_t ReadWAITCNT(uint32_t addr, AccessSize alignment);
-
-    /// @brief Set value of WAITCNT register.
-    /// @param value Value to set WAITCNT to.
-    void WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    /// @brief Check how many cycles it will take to access an address on the cartridge.
-    /// @param addr Address being accessed.
-    /// @param sequential Whether the address is sequential to the last accessed address.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles (1 + wait states) to access the specified address.
-    int AccessTime(uint32_t addr, bool sequential, AccessSize alignment) const;
 
     /// @brief Check if this cartridge contains EEPROM and the address being accessed maps to it.
     /// @param addr Address being accessed.
@@ -195,29 +183,5 @@ private:
 
     // Prefetch buffer and access timing info
     uint32_t lastAddrRead_;
-
-    // Registers
-    union WAITCNT
-    {
-        WAITCNT(uint32_t word) : word_(word) {}
-
-        struct
-        {
-            uint32_t sramWaitCtrl : 2;
-            uint32_t waitState0FirstAccess : 2;
-            uint32_t waitState0SecondAccess : 1;
-            uint32_t waitState1FirstAccess : 2;
-            uint32_t waitState1SecondAccess : 1;
-            uint32_t waitState2FirstAccess : 2;
-            uint32_t waitState2SecondAccess : 1;
-            uint32_t phiTerminalOutput : 2;
-            uint32_t : 1;
-            uint32_t prefetchBuffer : 1;
-            uint32_t gamePakType : 1;
-            uint32_t : 16;
-        } flags_;
-
-        uint32_t word_;
-    } waitStateControl_;
 };
 }

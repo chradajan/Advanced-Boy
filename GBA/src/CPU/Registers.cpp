@@ -4,11 +4,15 @@
 #include <sstream>
 #include <string>
 #include <CPU/CpuTypes.hpp>
-#include <System/InterruptManager.hpp>
+#include <System/SystemControl.hpp>
 
 namespace CPU
 {
 Registers::Registers()
+{
+}
+
+void Registers::Reset()
 {
     cpsr_.Register = 0;
     SetOperatingMode(OperatingMode::Supervisor);
@@ -22,8 +26,6 @@ Registers::Registers()
     abortRegisters_ = {};
     irqRegisters_ = {};
     undefinedRegisters_ = {};
-
-    SkipBIOS();
 }
 
 void Registers::SkipBIOS()
@@ -177,7 +179,7 @@ void Registers::SetCPSR(uint32_t cpsr)
 
     if (!IsIrqDisabled())
     {
-        InterruptMgr.CheckForInterrupt();
+        SystemController.CheckForInterrupt();
     }
 }
 
@@ -229,7 +231,7 @@ void Registers::LoadSPSR()
 
     if (!IsIrqDisabled())
     {
-        InterruptMgr.CheckForInterrupt();
+        SystemController.CheckForInterrupt();
     }
 }
 

@@ -8,7 +8,6 @@
 Timer::Timer(int index) :
     timerRegisters_(),
     timerControl_(*reinterpret_cast<TIMXCNT*>(timerRegisters_.data())),
-    internalTimer_(0),
     timerIndex_(index)
 {
     switch (index)
@@ -26,6 +25,12 @@ Timer::Timer(int index) :
             overflowEvent_ = EventType::Timer3Overflow;
             break;
     }
+}
+
+void Timer::Reset()
+{
+    timerRegisters_.fill(0);
+    internalTimer_ = 0;
 }
 
 uint32_t Timer::ReadIoReg(uint32_t addr, AccessSize alignment)

@@ -29,7 +29,7 @@ public:
     ARM7TDMI& operator=(ARM7TDMI const&) = delete;
     ARM7TDMI& operator=(ARM7TDMI&&) = delete;
 
-    /// @brief Reset the CPU to its startup state.
+    /// @brief Reset the CPU to its power-up state.
     void Reset();
 
     /// @brief Advance the CPU by one instruction. GLobal scheduler will be advanced as well.

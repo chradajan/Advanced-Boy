@@ -6,8 +6,8 @@
 #include <CPU/ARM7TDMI.hpp>
 #include <CPU/CpuTypes.hpp>
 #include <Logging/Logging.hpp>
-#include <System/InterruptManager.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 
 namespace
 {
@@ -288,7 +288,7 @@ void BlockDataTransfer::Execute(ARM7TDMI& cpu)
                     if (instruction_.S)
                     {
                         cpu.registers_.LoadSPSR();
-                        InterruptMgr.CheckForInterrupt();
+                        SystemController.CheckForInterrupt();
                     }
                 }
 
@@ -1034,7 +1034,7 @@ void PSRTransferMSR::Execute(ARM7TDMI& cpu)
         cpsr &= ~mask;
         cpsr |= value;
         cpu.registers_.SetCPSR(cpsr);
-        InterruptMgr.CheckForInterrupt();
+        SystemController.CheckForInterrupt();
     }
 }
 
@@ -1268,7 +1268,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
         if (destIndex == PC_INDEX)
         {
             cpu.registers_.LoadSPSR();
-            InterruptMgr.CheckForInterrupt();
+            SystemController.CheckForInterrupt();
             cpu.flushPipeline_ = writeResult;
         }
         else

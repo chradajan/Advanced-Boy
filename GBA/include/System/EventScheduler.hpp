@@ -15,9 +15,6 @@ enum class EventType
     // Audio
     SampleAPU,
 
-    // Low power mode
-    Halt,
-
     // Interrupts
     IRQ,
 
@@ -68,6 +65,8 @@ class EventScheduler
 public:
     /// @brief Initialize EventScheduler.
     EventScheduler();
+
+    void Reset();
 
     /// @brief Advance the scheduler during a CPU instruction.
     /// @param cycles Number of cycles to advance.

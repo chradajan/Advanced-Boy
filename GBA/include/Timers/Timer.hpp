@@ -12,6 +12,9 @@ public:
     /// @param index Which timer (0-3) this is.
     Timer(int index);
 
+    /// @brief Reset a timer to its power-up state.
+    void Reset();
+
     /// @brief Read a memory mapped timer register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.

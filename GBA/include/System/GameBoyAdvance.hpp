@@ -33,6 +33,9 @@ public:
     GameBoyAdvance& operator=(GameBoyAdvance&&) = delete;
     ~GameBoyAdvance() = default;
 
+    /// @brief Reset the GBA and all its components to its power-up state.
+    void Reset();
+
     /// @brief Run the emulator until a specified number of audio samples are generated.
     /// @param samples Number of samples to generate.
     void FillAudioBuffer(int samples);
@@ -40,19 +43,6 @@ public:
     /// @brief Empty the internal audio buffer into another buffer.
     /// @param buffer Buffer to load samples into.
     void DrainAudioBuffer(float* buffer);
-
-    /// @brief Read from memory.
-    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value from specified address and number of cycles taken to read.
-    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
-
-    /// @brief Write to memory.
-    /// @param addr Address to read. Address is forcibly aligned to word/halfword boundary.
-    /// @param value Value to write to specified address.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Number of cycles taken to write.
-    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Load a Game Pak into memory.
     /// @param romPath Path to ROM file.
@@ -79,16 +69,23 @@ public:
     void DumpLogs() const;
 
 private:
-    /// @brief Set all internal memory to 0.
-    void ZeroMemory();
+    /// @brief Top level function to read an address. Determine which memory region to route the read to. Force aligns address.
+    /// @param addr Address to read from.
+    /// @param alignment Number of bytes to read.
+    /// @return Value at specified address and number of cycles taken to read.
+    std::pair<uint32_t, int> ReadMemory(uint32_t addr, AccessSize alignment);
+
+    /// @brief Top level function to write to an address. Determine which memory region to route the write to. Force aligns address.
+    /// @param addr Address to write to.
+    /// @param value Value to write to specified address.
+    /// @param alignment Number of bytes to write.
+    /// @return Number of cycles taken to write.
+    int WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Load GBA BIOS into memory.
     /// @param biosPath Path to GBA BIOS.
     /// @return Whether valid BIOS was loaded.
     bool LoadBIOS(fs::path biosPath);
-
-    /// @brief Callback to handle a CPU halt.
-    void Halt(int) { halted_ = !halted_; }
 
     /// @brief Callback function upon entering HBlank. Updates PPU and checks for HBlank DMAs.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
@@ -133,25 +130,25 @@ private:
     void ScheduleDMA(std::array<bool, 4>& enabledDmaChannels);
 
     // Area specific R/W handling
+
+    //                Bus   Read      Write     Cycles
+    //  BIOS ROM      32    8/16/32   -         1/1/1
     std::pair<uint32_t, int> ReadBIOS(uint32_t addr, AccessSize alignment);
 
+    //  Region        Bus   Read      Write     Cycles
+    //  Work RAM 256K 16    8/16/32   8/16/32   3/3/6 **
     std::pair<uint32_t, int> ReadOnBoardWRAM(uint32_t addr, AccessSize alignment);
     int WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
+    //                Bus   Read      Write     Cycles
+    //  Work RAM 32K  32    8/16/32   8/16/32   1/1/1
     std::pair<uint32_t, int> ReadOnChipWRAM(uint32_t addr, AccessSize alignment);
     int WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    std::pair<uint32_t, bool> ReadIoReg(uint32_t addr, AccessSize alignment);
-    void WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    std::pair<uint32_t, int> ReadPaletteRAM(uint32_t addr, AccessSize alignment);
-    int WritePaletteRAM(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    std::pair<uint32_t, int> ReadVRAM(uint32_t addr, AccessSize alignment);
-    int WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
-    int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
+    //               Bus   Read      Write     Cycles
+    // I/O           32    8/16/32   8/16/32   1/1/1
+    std::pair<uint32_t, int> ReadIoReg(uint32_t addr, AccessSize alignment);
+    int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
     std::pair<uint32_t, bool> ReadDmaReg(uint32_t addr, AccessSize alignment);
     void WriteDmaReg(uint32_t addr, uint32_t value, AccessSize alignment);
@@ -159,9 +156,8 @@ private:
     std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 
     // State
-    bool biosLoaded_;
+    bool const biosLoaded_;
     bool gamePakLoaded_;
-    bool halted_;
 
     // Components
     Audio::SoundController apu_;
@@ -184,9 +180,6 @@ private:
     std::array<uint8_t,  16 * KiB> BIOS_;           // 00000000-00003FFF    BIOS - System ROM
     std::array<uint8_t, 256 * KiB> onBoardWRAM_;    // 02000000-0203FFFF    WRAM - On-board Work RAM
     std::array<uint8_t,  32 * KiB> onChipWRAM_;     // 03000000-03007FFF    WRAM - On-chip Work RAM
-    std::array<uint8_t,   1 * KiB> paletteRAM_;     // 05000000-050003FF    BG/OBJ Palette RAM
-    std::array<uint8_t,  96 * KiB> VRAM_;           // 06000000-06017FFF    VRAM - Video RAM
-    std::array<uint8_t,   1 * KiB> OAM_;            // 07000000-070003FF    OAM - OBJ Attributes
 
     std::array<uint8_t, 0x804> placeholderIoRegisters_;
 

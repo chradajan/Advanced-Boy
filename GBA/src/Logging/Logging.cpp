@@ -6,8 +6,8 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
-#include <System/InterruptManager.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 
 namespace fs = std::filesystem;
 

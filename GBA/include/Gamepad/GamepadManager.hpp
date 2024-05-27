@@ -12,6 +12,9 @@ public:
     /// @brief Initialize the Gamepad registers (no buttons pressed and no interrupts enabled).
     GamepadManager();
 
+    /// @brief Reset the gamepad registers to their power-up state.
+    void Reset();
+
     /// @brief Update the KEYINPUT register based on currently pressed buttons and check for Gamepad IRQ.
     /// @param gamepad 
     void UpdateGamepad(Gamepad gamepad);

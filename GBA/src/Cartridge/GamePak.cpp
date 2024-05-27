@@ -15,9 +15,6 @@
 #include <System/MemoryMap.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
-static constexpr int NonSequentialWaitStates[4] = {4, 3, 2, 8};
-static constexpr int SequentialWaitStates[3][2] = { {2, 1}, {4, 1}, {8, 1} };
-
 namespace
 {
 uint32_t Read8BitBus(uint8_t byte, AccessSize alignment)
@@ -53,8 +50,7 @@ GamePak::GamePak(fs::path const romPath) :
     flashState_(FlashState::READY),
     chipIdMode_(false),
     eraseMode_(false),
-    flashBank_(0),
-    waitStateControl_(0)
+    flashBank_(0)
 {
     if (romPath.empty())
     {
@@ -141,6 +137,11 @@ GamePak::GamePak(fs::path const romPath) :
     romLoaded_ = true;
 }
 
+void GamePak::Reset()
+{
+    lastAddrRead_ = 0;
+}
+
 GamePak::~GamePak()
 {
     if (!romPath_.empty() && !backupMedia_.empty())
@@ -158,20 +159,17 @@ GamePak::~GamePak()
 
 std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
-    int accessTime = AccessTime(addr, false, alignment);
-
     if (EepromAccess(addr))
     {
-        return {1, accessTime, false};
+        return {1, 1, false};
     }
     else if (SramAccess(addr))
     {
-        return {ReadSRAM(addr, alignment), accessTime, false};
+        return {ReadSRAM(addr, alignment), 1, false};
     }
     else if (FlashAccess(addr))
     {
-        return {ReadFlash(addr, alignment), accessTime, false};
+        return {ReadFlash(addr, alignment), 1, false};
     }
 
     size_t index = addr % MAX_ROM_SIZE;
@@ -188,43 +186,16 @@ std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize a
 
 int GamePak::WriteGamePak(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    addr = AlignAddress(addr, alignment);
-    int accessTime = AccessTime(addr, false, alignment);
-
     if (SramAccess(addr))
     {
         WriteSRAM(addr, value, alignment);
-        return accessTime;
     }
     else if (FlashAccess(addr))
     {
         WriteFlash(addr, value, alignment);
-        return accessTime;
     }
 
     return 1;
-}
-
-uint32_t GamePak::ReadWAITCNT(uint32_t addr, AccessSize alignment)
-{
-    uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
-    uint8_t offset = addr & 0x03;
-    uint32_t value = 0;
-
-    switch (alignment)
-    {
-        case AccessSize::BYTE:
-            value = bytePtr[offset];
-            break;
-        case AccessSize::HALFWORD:
-            value = *reinterpret_cast<uint16_t*>(&bytePtr[offset]);
-            break;
-        case AccessSize::WORD:
-            value = *reinterpret_cast<uint32_t*>(&bytePtr[offset]);
-            break;
-    }
-
-    return value;
 }
 
 bool GamePak::EepromAccess(uint32_t addr) const
@@ -310,81 +281,6 @@ void GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
     {
         uint64_t* eepromPtr = reinterpret_cast<uint64_t*>(backupMedia_.data());
         eepromPtr[index] = doubleWord;
-    }
-}
-
-int GamePak::AccessTime(uint32_t addr, bool sequential, AccessSize alignment) const
-{
-    uint8_t page = (addr & 0x0F00'0000) >> 24;
-    int firstAccess = 0;
-    int secondAccess = 0;
-
-    switch (page)
-    {
-        case 0x08 ... 0x09:
-        {
-            firstAccess = 1 + (sequential ? SequentialWaitStates[0][waitStateControl_.flags_.waitState0SecondAccess] :
-                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState0FirstAccess]);
-
-            if (alignment == AccessSize::WORD)
-            {
-                secondAccess = 1 + SequentialWaitStates[0][waitStateControl_.flags_.waitState0SecondAccess];
-            }
-
-            break;
-        }
-        case 0x0A ... 0x0B:
-        {
-            firstAccess = 1 + (sequential ? SequentialWaitStates[1][waitStateControl_.flags_.waitState1SecondAccess] :
-                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState1FirstAccess]);
-
-            if (alignment == AccessSize::WORD)
-            {
-                secondAccess = 1 + SequentialWaitStates[1][waitStateControl_.flags_.waitState1SecondAccess];
-            }
-
-            break;
-        }
-        case 0x0C ... 0x0D:
-        {
-            firstAccess = 1 + (sequential ? SequentialWaitStates[2][waitStateControl_.flags_.waitState2SecondAccess] :
-                                            NonSequentialWaitStates[waitStateControl_.flags_.waitState2FirstAccess]);
-
-            if (alignment == AccessSize::WORD)
-            {
-                secondAccess = 1 + SequentialWaitStates[2][waitStateControl_.flags_.waitState2SecondAccess];
-            }
-
-            break;
-        }
-        case 0x0E:
-            firstAccess = 1 + NonSequentialWaitStates[waitStateControl_.flags_.sramWaitCtrl];
-            break;
-        default:
-            firstAccess = 1;
-            secondAccess = (alignment == AccessSize::WORD) ? 1 : 0;
-            break;
-    }
-
-    return firstAccess + secondAccess;
-}
-
-void GamePak::WriteWAITCNT(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    uint8_t* bytePtr = reinterpret_cast<uint8_t*>(&waitStateControl_.word_);
-    uint8_t offset = addr & 0x03;
-
-    switch (alignment)
-    {
-        case AccessSize::BYTE:
-            bytePtr[offset] = value;
-            break;
-        case AccessSize::HALFWORD:
-            *reinterpret_cast<uint16_t*>(&bytePtr[offset]) = value;
-            break;
-        case AccessSize::WORD:
-            *reinterpret_cast<uint32_t*>(&bytePtr[offset]) = value;
-            break;
     }
 }
 

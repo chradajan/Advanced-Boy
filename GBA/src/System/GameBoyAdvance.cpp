@@ -14,8 +14,8 @@
 #include <Config.hpp>
 #include <Logging/Logging.hpp>
 #include <System/MemoryMap.hpp>
-#include <System/InterruptManager.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Timers/TimerManager.hpp>
 #include <Utilities/Functor.hpp>
 #include <Utilities/MemoryUtilities.hpp>
@@ -25,13 +25,39 @@ namespace fs = std::filesystem;
 GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
     biosLoaded_(LoadBIOS(biosPath)),
     cpu_(CPU::MemReadCallback(&ReadMemory, *this), CPU::MemWriteCallback(&WriteMemory, *this)),
-    ppu_(paletteRAM_, VRAM_, OAM_),
     gamePak_(nullptr),
     dmaChannels_({0, 1, 2, 3})
 {
     // State
     gamePakLoaded_ = false;
-    halted_ = false;
+
+    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::DMA0, std::bind(&DMA0, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1), false);
+    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1), true);
+}
+
+void GameBoyAdvance::Reset()
+{
+    // Scheduler
+    Scheduler.Reset();
+
+    // Components
+    apu_.Reset();
+    cpu_.Reset();
+    gamepad_.Reset();
+    ppu_.Reset();
+    timerManager_.Reset();
+    SystemController.Reset();
+
+    if (gamePakLoaded_)
+    {
+        gamePak_->Reset();
+    }
 
     // DMA
     dmaImmediately_.fill(false);
@@ -41,20 +67,21 @@ GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
     dmaOnReplenishB_.fill(false);
     activeDmaChannel_ = {};
 
+    for (auto& channel : dmaChannels_)
+    {
+        channel.Reset();
+    }
+
+    // Memory
+    onBoardWRAM_.fill(0);
+    onChipWRAM_.fill(0);
+    placeholderIoRegisters_.fill(0);
+
     // Open bus
     lastBiosFetch_ = 0;
     lastReadValue_ = 0;
 
-    Scheduler.RegisterEvent(EventType::Halt, std::bind(&Halt, this, std::placeholders::_1), false);
-    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::DMA0, std::bind(&DMA0, this, std::placeholders::_1), false);
-    Scheduler.RegisterEvent(EventType::DMA1, std::bind(&DMA1, this, std::placeholders::_1), false);
-    Scheduler.RegisterEvent(EventType::DMA2, std::bind(&DMA2, this, std::placeholders::_1), false);
-    Scheduler.RegisterEvent(EventType::DMA3, std::bind(&DMA3, this, std::placeholders::_1), false);
-    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1), true);
-
+    // Scheduler
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
@@ -69,7 +96,7 @@ void GameBoyAdvance::FillAudioBuffer(int samples)
     {
         while (apu_.SampleCount() < samples)
         {
-            if (halted_ || activeDmaChannel_.has_value())
+            if (SystemController.Halted() || activeDmaChannel_.has_value())
             {
                 Scheduler.SkipToNextEvent();
             }
@@ -95,75 +122,47 @@ void GameBoyAdvance::DrainAudioBuffer(float* buffer)
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
 {
-    uint8_t page = (addr & 0x0F00'0000) >> 24;
+    addr = AlignAddress(addr, alignment);
     uint32_t value = 0;
     int cycles = 1;
     bool openBus = false;
+    auto page = MemoryPage::INVALID;
 
-    if (addr & 0xF000'0000)
+    if (addr < 0x1000'0000)
     {
-        // Addresses above 0x0FFF'FFFF are unused and trigger open bus. Set to unused page to skip switch case.
-        page = 0x01;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wnarrowing"
+        page = MemoryPage{(addr & 0x0F00'0000) >> 24};
+        #pragma GCC diagnostic pop
     }
 
     switch (page)
     {
-        case 0x00:  // BIOS
-        {
-            if (addr <= BIOS_ADDR_MAX)
-            {
-                std::tie(value, cycles) = ReadBIOS(addr, alignment);
-            }
-            else
-            {
-                openBus = true;
-            }
-
+        case MemoryPage::BIOS:
+            std::tie(value, cycles) = ReadBIOS(addr, alignment);
             break;
-        }
-        case 0x02:  // WRAM - On-board
+        case MemoryPage::WRAM_SLOW:
             std::tie(value, cycles) = ReadOnBoardWRAM(addr, alignment);
             break;
-        case 0x03:  // WRAM - On-chip
+        case MemoryPage::WRAM_FAST:
             std::tie(value, cycles) = ReadOnChipWRAM(addr, alignment);
             break;
-        case 0x04:  // I/O Registers
-        {
-            cycles = 1;
-
-            if ((addr <= IO_REG_ADDR_MAX) || (((addr % 0x0001'0000) - 0x0800) < 4))
-            {
-                std::tie(value, openBus) = ReadIoReg(addr, alignment);
-            }
-            else
-            {
-                openBus = true;
-            }
-
+        case MemoryPage::IO_REG:
+            std::tie(value, cycles) = ReadIoReg(addr, alignment);
             break;
-        }
-        case 0x05:  // Palette RAM
-            std::tie(value, cycles) = ReadPaletteRAM(addr, alignment);
+        case MemoryPage::PRAM:
+            std::tie(value, cycles) = ppu_.ReadPRAM(addr, alignment);
             break;
-        case 0x06:  // VRAM
-            std::tie(value, cycles) = ReadVRAM(addr, alignment);
+        case MemoryPage::VRAM:
+            std::tie(value, cycles) = ppu_.ReadVRAM(addr, alignment);
             break;
-        case 0x07:  // OAM
-            std::tie(value, cycles) = ReadOAM(addr, alignment);
+        case MemoryPage::OAM:
+            std::tie(value, cycles) = ppu_.ReadOAM(addr, alignment);
             break;
-        case 0x08 ... 0x0F:  // GamePak
-        {
-            if (addr <= GAME_PAK_ADDR_MAX)
-            {
-                std::tie(value, cycles, openBus) = gamePak_->ReadGamePak(addr, alignment);
-            }
-            else
-            {
-                openBus = true;
-            }
-
+        case MemoryPage::GAMEPAK_MIN ... MemoryPage::GAMEPAK_MAX:
+            std::tie(value, cycles, openBus) = gamePak_->ReadGamePak(addr, alignment);
             break;
-        }
+        case MemoryPage::INVALID:
         default:
             openBus = true;
             break;
@@ -173,66 +172,52 @@ std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize al
     {
         std::tie(value, cycles) = ReadOpenBus(addr, alignment);
     }
-    else
-    {
-        lastReadValue_ = value;
-    }
 
+    lastReadValue_ = value;
     return {value, cycles};
 }
 
 int GameBoyAdvance::WriteMemory(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    uint8_t page = (addr & 0x0F00'0000) >> 24;
+    addr = AlignAddress(addr, alignment);
     int cycles = 1;
+    auto page = MemoryPage::INVALID;
 
-    if (addr & 0xF000'0000)
+    if (addr < 0x1000'0000)
     {
-        // Addresses above 0x0FFF'FFFF are unused and trigger open bus. Set to unused page to skip switch case.
-        page = 0x01;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wnarrowing"
+        page = MemoryPage{(addr & 0x0F00'0000) >> 24};
+        #pragma GCC diagnostic pop
     }
 
     switch (page)
     {
-        case 0x00:  // BIOS ROM
+        case MemoryPage::BIOS:
             break;
-        case 0x02:  // WRAM - On-board
+        case MemoryPage::WRAM_SLOW:
             cycles = WriteOnBoardWRAM(addr, value, alignment);
             break;
-        case 0x03:  // WRAM - On-chip
+        case MemoryPage::WRAM_FAST:
             cycles = WriteOnChipWRAM(addr, value, alignment);
             break;
-        case 0x04:  // I/O Registers
-        {
-            cycles = 1;
-
-            if ((addr <= IO_REG_ADDR_MAX) || (((addr % 0x0001'0000) - 0x0800) < 4))
-            {
-                WriteIoReg(addr, value, alignment);
-            }
-
+        case MemoryPage::IO_REG:
+            cycles = WriteIoReg(addr, value, alignment);
             break;
-        }
-        case 0x05:  // Palette RAM
-            cycles = WritePaletteRAM(addr, value, alignment);
+        case MemoryPage::PRAM:
+            cycles = ppu_.WritePRAM(addr, value, alignment);
             break;
-        case 0x06:  // VRAM
-            cycles = WriteVRAM(addr, value, alignment);
+        case MemoryPage::VRAM:
+            cycles = ppu_.WriteVRAM(addr, value, alignment);
             break;
-        case 0x07:  // OAM
-            cycles = WriteOAM(addr, value, alignment);
+        case MemoryPage::OAM:
+            cycles = ppu_.WriteOAM(addr, value, alignment);
             break;
-        case 0x08 ... 0x0F:  // GamePak
-        {
-            if (addr <= GAME_PAK_ADDR_MAX)
-            {
-                cycles = gamePak_->WriteGamePak(addr, value, alignment);
-            }
-
+        case MemoryPage::GAMEPAK_MIN ... MemoryPage::GAMEPAK_MAX:
+            cycles = gamePak_->WriteGamePak(addr, value, alignment);
             break;
-        }
+        case MemoryPage::INVALID:
         default:
-            cycles = 1;
             break;
     }
 
@@ -243,8 +228,13 @@ bool GameBoyAdvance::LoadGamePak(fs::path romPath)
 {
     gamePak_.reset();
     gamePak_ = std::make_unique<Cartridge::GamePak>(romPath);
-    ZeroMemory();
     gamePakLoaded_ = gamePak_->RomLoaded();
+
+    if (gamePakLoaded_)
+    {
+        Reset();
+    }
+
     return gamePakLoaded_;
 }
 
@@ -266,16 +256,6 @@ std::string GameBoyAdvance::RomTitle() const
     }
 
     return "";
-}
-
-void GameBoyAdvance::ZeroMemory()
-{
-    onBoardWRAM_.fill(0);
-    onChipWRAM_.fill(0);
-    paletteRAM_.fill(0);
-    VRAM_.fill(0);
-    OAM_.fill(0);
-    placeholderIoRegisters_.fill(0);
 }
 
 bool GameBoyAdvance::LoadBIOS(fs::path biosPath)
@@ -442,70 +422,69 @@ void GameBoyAdvance::ScheduleDMA(std::array<bool, 4>& enabledChannels)
     }
 }
 
-//                Bus   Read      Write     Cycles
-//  BIOS ROM      32    8/16/32   -         1/1/1
-
 std::pair<uint32_t, int> GameBoyAdvance::ReadBIOS(uint32_t addr, AccessSize alignment)
 {
-    if (cpu_.GetPC() <= BIOS_ADDR_MAX)
+    uint32_t value = 0;
+    int cycles = 1;
+
+    if (addr <= BIOS_ADDR_MAX)
     {
-        addr = AlignAddress(addr, alignment);
-        size_t index = addr - BIOS_ADDR_MIN;
-        uint8_t* bytePtr = &(BIOS_.at(index));
-        uint32_t value = ReadPointer(bytePtr, alignment);
-        lastBiosFetch_ = value;
-        return {value, 1};
+        if (cpu_.GetPC() <= BIOS_ADDR_MAX)
+        {
+            size_t index = addr - BIOS_ADDR_MIN;
+            uint8_t* bytePtr = &BIOS_.at(index);
+            value = ReadPointer(bytePtr, alignment);
+            lastBiosFetch_ = value;
+        }
+        else
+        {
+            value = lastBiosFetch_;
+        }
     }
     else
     {
-        return {lastBiosFetch_, 1};
+        std::tie(value, cycles) = ReadOpenBus(addr, alignment);
     }
-}
 
-//  Region        Bus   Read      Write     Cycles
-//  Work RAM 256K 16    8/16/32   8/16/32   3/3/6 **
+    return {value, cycles};
+}
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadOnBoardWRAM(uint32_t addr, AccessSize alignment)
 {
     if (addr > WRAM_ON_BOARD_ADDR_MAX)
     {
-        addr = WRAM_ON_BOARD_ADDR_MIN + (addr % (256 * KiB));
+        addr = WRAM_ON_BOARD_ADDR_MIN + (addr % onBoardWRAM_.size());
     }
 
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - WRAM_ON_BOARD_ADDR_MIN;
-    uint8_t* bytePtr = &(onBoardWRAM_.at(index));
+    uint8_t* bytePtr = &onBoardWRAM_.at(index);
     uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, alignment == AccessSize::WORD ? 6 : 3};
+    int cycles = (alignment == AccessSize::WORD) ? 6 : 3;
+    return {value, cycles};
 }
 
 int GameBoyAdvance::WriteOnBoardWRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr > WRAM_ON_BOARD_ADDR_MAX)
     {
-        addr = WRAM_ON_BOARD_ADDR_MIN + (addr % (256 * KiB));
+        addr = WRAM_ON_BOARD_ADDR_MIN + (addr % onBoardWRAM_.size());
     }
 
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - WRAM_ON_BOARD_ADDR_MIN;
-    uint8_t* bytePtr = &(onBoardWRAM_.at(index));
+    uint8_t* bytePtr = &onBoardWRAM_.at(index);
     WritePointer(bytePtr, value, alignment);
-    return (alignment == AccessSize::WORD ? 6 : 3);
+    return (alignment == AccessSize::WORD) ? 6 : 3;
 }
-
-//                Bus   Read      Write     Cycles
-//  Work RAM 32K  32    8/16/32   8/16/32   1/1/1
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadOnChipWRAM(uint32_t addr, AccessSize alignment)
 {
     if (addr > WRAM_ON_CHIP_ADDR_MAX)
     {
-        addr = WRAM_ON_CHIP_ADDR_MIN + (addr % (32 * KiB));
+        addr = WRAM_ON_CHIP_ADDR_MIN + (addr % onChipWRAM_.size());
     }
 
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - WRAM_ON_CHIP_ADDR_MIN;
-    uint8_t* bytePtr = &(onChipWRAM_.at(index));
+    uint8_t* bytePtr = &onChipWRAM_.at(index);
     uint32_t value = ReadPointer(bytePtr, alignment);
     return {value, 1};
 }
@@ -514,270 +493,118 @@ int GameBoyAdvance::WriteOnChipWRAM(uint32_t addr, uint32_t value, AccessSize al
 {
     if (addr > WRAM_ON_CHIP_ADDR_MAX)
     {
-        addr = WRAM_ON_CHIP_ADDR_MIN + (addr % (32 * KiB));
+        addr = WRAM_ON_CHIP_ADDR_MIN + (addr % onChipWRAM_.size());
     }
 
-    addr = AlignAddress(addr, alignment);
     size_t index = addr - WRAM_ON_CHIP_ADDR_MIN;
-    uint8_t* bytePtr = &(onChipWRAM_.at(index));
+    uint8_t* bytePtr = &onChipWRAM_.at(index);
     WritePointer(bytePtr, value, alignment);
     return 1;
 }
 
-//               Bus   Read      Write     Cycles
-// I/O           32    8/16/32   8/16/32   1/1/1
-
-std::pair<uint32_t, bool> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize alignment)
+std::pair<uint32_t, int> GameBoyAdvance::ReadIoReg(uint32_t addr, AccessSize alignment)
 {
-    if (addr > IO_REG_ADDR_MAX)
+    if ((addr > INT_WTST_PWRDWN_IO_ADDR_MAX) && ((addr % (64 * KiB) < 4)))
     {
-        addr = 0x0400'0800 + (addr % 4);
+        addr = 0x0400'0800 + (addr % (64 * KiB));
     }
 
-    addr = AlignAddress(addr, alignment);
+    uint32_t value = 0;
+    int cycles = 1;
+    bool openBus = false;
+    bool unhandledRegion = false;
 
-    // TODO: Placeholder until all I/O registers are properly handled
-    size_t index = addr - IO_REG_ADDR_MIN;
-    uint8_t* bytePtr = &(placeholderIoRegisters_.at(index));
-
-    if (addr <= LCD_IO_ADDR_MAX)
+    switch (addr)
     {
-        return ppu_.ReadReg(addr, alignment);
-    }
-    else if (addr <= SOUND_IO_ADDR_MAX)
-    {
-        return apu_.ReadReg(addr, alignment);
-    }
-    else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
-    {
-        return ReadDmaReg(addr, alignment);
-    }
-    else if (addr <= TIMER_IO_ADDR_MAX)
-    {
-        return {timerManager_.ReadReg(addr, alignment), false};
-    }
-    else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
-    {
-        return {ReadPointer(bytePtr, alignment), false};
-    }
-    else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
-    {
-        return gamepad_.ReadReg(addr, alignment);
-    }
-    else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
-    {
-        return {ReadPointer(bytePtr, alignment), false};
-    }
-    else if (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX)
-    {
-        if ((addr >= WAITCNT_ADDR) && (addr <= (WAITCNT_ADDR + 4)))
-        {
-            uint32_t value = gamePak_->ReadWAITCNT(addr, alignment);
-            return {value, false};
-        }
-
-        return InterruptMgr.ReadReg(addr, alignment);
-    }
-    else
-    {
-        addr = INT_WTST_PWRDWN_IO_ADDR_MIN + ((addr % 0x0001'0000) - 0x0800);
-        return InterruptMgr.ReadReg(addr, alignment);
-    }
-}
-
-void GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    if (addr > IO_REG_ADDR_MAX)
-    {
-        addr = 0x0400'0800 + (addr % 4);
+        case LCD_IO_ADDR_MIN ... LCD_IO_ADDR_MAX:
+            std::tie(value, openBus) = ppu_.ReadReg(addr, alignment);
+            break;
+        case SOUND_IO_ADDR_MIN ... SOUND_IO_ADDR_MAX:
+            std::tie(value, openBus) = apu_.ReadReg(addr, alignment);
+            break;
+        case DMA_TRANSFER_CHANNELS_IO_ADDR_MIN ... DMA_TRANSFER_CHANNELS_IO_ADDR_MAX:
+            std::tie(value, openBus) = ReadDmaReg(addr, alignment);
+            break;
+        case TIMER_IO_ADDR_MIN ... TIMER_IO_ADDR_MAX:
+            std::tie(value, openBus) = timerManager_.ReadReg(addr, alignment);
+            break;
+        case SERIAL_COMMUNICATION_1_IO_ADDR_MIN ... SERIAL_COMMUNICATION_1_IO_ADDR_MAX:
+            unhandledRegion = true;
+            break;
+        case KEYPAD_INPUT_IO_ADDR_MIN ... KEYPAD_INPUT_IO_ADDR_MAX:
+            std::tie(value, openBus) = gamepad_.ReadReg(addr, alignment);
+            break;
+        case SERIAL_COMMUNICATION_2_IO_ADDR_MIN ... SERIAL_COMMUNICATION_2_IO_ADDR_MAX:
+            unhandledRegion = true;
+            break;
+        case INT_WTST_PWRDWN_IO_ADDR_MIN ... INT_WTST_PWRDWN_IO_ADDR_MAX:
+            std::tie(value, openBus) = SystemController.ReadReg(addr, alignment);
+            break;
+        default:
+            openBus = true;
+            break;
     }
 
-    addr = AlignAddress(addr, alignment);
-
-    // TODO: Placeholder until all I/O registers are properly handled
-    size_t index = addr - IO_REG_ADDR_MIN;
-    uint8_t* bytePtr = &(placeholderIoRegisters_.at(index));
-
-    if (addr <= LCD_IO_ADDR_MAX)
+    if (unhandledRegion)
     {
-        ppu_.WriteReg(addr, value, alignment);
+        size_t index = addr - IO_REG_ADDR_MIN;
+        uint8_t* bytePtr = &placeholderIoRegisters_.at(index);
+        value = ReadPointer(bytePtr, alignment);
     }
-    else if (addr <= SOUND_IO_ADDR_MAX)
+    else if (openBus)
     {
-        apu_.WriteReg(addr, value, alignment);
-    }
-    else if (addr <= DMA_TRANSFER_CHANNELS_IO_ADDR_MAX)
-    {
-        WriteDmaReg(addr, value, alignment);
-    }
-    else if (addr <= TIMER_IO_ADDR_MAX)
-    {
-        timerManager_.WriteReg(addr, value, alignment);
-    }
-    else if (addr <= SERIAL_COMMUNICATION_1_IO_ADDR_MAX)
-    {
-        WritePointer(bytePtr, value, alignment);
-    }
-    else if (addr <= KEYPAD_INPUT_IO_ADDR_MAX)
-    {
-        gamepad_.WriteReg(addr, value, alignment);
-    }
-    else if (addr <= SERIAL_COMMUNICATION_2_IO_ADDR_MAX)
-    {
-        WritePointer(bytePtr, value, alignment);
-    }
-    else if (addr <= INT_WTST_PWRDWN_IO_ADDR_MAX)
-    {
-        if ((addr <= WAITCNT_ADDR) && (WAITCNT_ADDR <= (addr + static_cast<uint8_t>(alignment) - 1)))
-        {
-            gamePak_->WriteWAITCNT(addr, value, alignment);
-        }
-        else
-        {
-            InterruptMgr.WriteReg(addr, value, alignment);
-        }
-    }
-    else
-    {
-        addr = INT_WTST_PWRDWN_IO_ADDR_MIN + ((addr % 0x0001'0000) - 0x0800);
-        InterruptMgr.WriteReg(addr, value, alignment);
-    }
-}
-
-//                Bus   Read      Write     Cycles
-//  Palette RAM   16    8/16/32   16/32     1/1/2 *
-//  Plus 1 cycle if GBA accesses video memory at the same time. (TODO)
-
-std::pair<uint32_t, int> GameBoyAdvance::ReadPaletteRAM(uint32_t addr, AccessSize alignment)
-{
-    if (addr > PALETTE_RAM_ADDR_MAX)
-    {
-        addr = PALETTE_RAM_ADDR_MIN + (addr % (1 * KiB));
+        std::tie(value, cycles) = ReadOpenBus(addr, alignment);
     }
 
-    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - PALETTE_RAM_ADDR_MIN;
-    uint8_t* bytePtr = &(paletteRAM_.at(index));
-    uint32_t value = ReadPointer(bytePtr, alignment);
     return {value, cycles};
 }
 
-int GameBoyAdvance::WritePaletteRAM(uint32_t addr, uint32_t value, AccessSize alignment)
+int GameBoyAdvance::WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    if (addr > PALETTE_RAM_ADDR_MAX)
+    if ((addr > INT_WTST_PWRDWN_IO_ADDR_MAX) && ((addr % (64 * KiB) < 4)))
     {
-        addr = PALETTE_RAM_ADDR_MIN + (addr % (1 * KiB));
+        addr = 0x0400'0800 + (addr % (64 * KiB));
     }
 
-    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
+    bool unhandledRegion = false;
 
-    if (alignment == AccessSize::BYTE)
+    switch (addr)
     {
-        alignment = AccessSize::HALFWORD;
-        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
+        case LCD_IO_ADDR_MIN ... LCD_IO_ADDR_MAX:
+            ppu_.WriteReg(addr, value, alignment);
+            break;
+        case SOUND_IO_ADDR_MIN ... SOUND_IO_ADDR_MAX:
+            apu_.WriteReg(addr, value, alignment);
+            break;
+        case DMA_TRANSFER_CHANNELS_IO_ADDR_MIN ... DMA_TRANSFER_CHANNELS_IO_ADDR_MAX:
+            WriteDmaReg(addr, value, alignment);
+            break;
+        case TIMER_IO_ADDR_MIN ... TIMER_IO_ADDR_MAX:
+            timerManager_.WriteReg(addr, value, alignment);
+            break;
+        case SERIAL_COMMUNICATION_1_IO_ADDR_MIN ... SERIAL_COMMUNICATION_1_IO_ADDR_MAX:
+            unhandledRegion = true;
+            break;
+        case KEYPAD_INPUT_IO_ADDR_MIN ... KEYPAD_INPUT_IO_ADDR_MAX:
+            gamepad_.WriteReg(addr, value, alignment);
+            break;
+        case SERIAL_COMMUNICATION_2_IO_ADDR_MIN ... SERIAL_COMMUNICATION_2_IO_ADDR_MAX:
+            unhandledRegion = true;
+            break;
+        case INT_WTST_PWRDWN_IO_ADDR_MIN ... INT_WTST_PWRDWN_IO_ADDR_MAX:
+            SystemController.WriteReg(addr, value, alignment);
+            break;
+        default:
+            break;
     }
 
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - PALETTE_RAM_ADDR_MIN;
-    uint8_t* bytePtr = &(paletteRAM_.at(index));
-    WritePointer(bytePtr, value, alignment);
-    return cycles;
-}
-
-//  Region        Bus   Read      Write     Cycles
-//  VRAM          16    8/16/32   16/32     1/1/2 *
-//  Plus 1 cycle if GBA accesses video memory at the same time. (TODO)
-
-std::pair<uint32_t, int> GameBoyAdvance::ReadVRAM(uint32_t addr, AccessSize alignment)
-{
-    if (addr > VRAM_ADDR_MAX)
+    if (unhandledRegion)
     {
-        uint32_t adjustedAddr = VRAM_ADDR_MIN + (addr % (128 * KiB));
-
-        if (adjustedAddr > VRAM_ADDR_MAX)
-        {
-            adjustedAddr -= (32 * KiB);
-        }
-
-        addr = adjustedAddr;
+        size_t index = addr - IO_REG_ADDR_MIN;
+        uint8_t* bytePtr = &placeholderIoRegisters_.at(index);
+        WritePointer(bytePtr, value, alignment);
     }
 
-    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - VRAM_ADDR_MIN;
-    uint8_t* bytePtr = &(VRAM_.at(index));
-    uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, cycles};
-}
-
-int GameBoyAdvance::WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    if (addr > VRAM_ADDR_MAX)
-    {
-        uint32_t adjustedAddr = VRAM_ADDR_MIN + (addr % (128 * KiB));
-
-        if (adjustedAddr > VRAM_ADDR_MAX)
-        {
-            adjustedAddr -= (32 * KiB);
-        }
-
-        addr = adjustedAddr;
-    }
-
-    if (alignment == AccessSize::BYTE)
-    {
-        if (((ppu_.BgMode() <= 2) && (addr >= 0x0601'0000)) || ((ppu_.BgMode() > 2) && (addr >= 0x0601'4000)))
-        {
-            return 1;
-        }
-
-        alignment = AccessSize::HALFWORD;
-        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
-    }
-
-    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - VRAM_ADDR_MIN;
-    uint8_t* bytePtr = &(VRAM_.at(index));
-    WritePointer(bytePtr, value, alignment);
-    return cycles;
-}
-
-//  Region        Bus   Read      Write     Cycles
-//  OAM           32    8/16/32   16/32     1/1/1 *
-//  Plus 1 cycle if GBA accesses video memory at the same time. (TODO)
-
-std::pair<uint32_t, int> GameBoyAdvance::ReadOAM(uint32_t addr, AccessSize alignment)
-{
-    if (addr > OAM_ADDR_MAX)
-    {
-        addr = OAM_ADDR_MIN + (addr % (1 * KiB));
-    }
-
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - OAM_ADDR_MIN;
-    uint8_t* bytePtr = &(OAM_.at(index));
-    uint32_t value = ReadPointer(bytePtr, alignment);
-    return {value, 1};
-}
-
-int GameBoyAdvance::WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment)
-{
-    if (alignment == AccessSize::BYTE)
-    {
-        return 1;
-    }
-
-    if (addr > OAM_ADDR_MAX)
-    {
-        addr = OAM_ADDR_MIN + (addr % (1 * KiB));
-    }
-
-    addr = AlignAddress(addr, alignment);
-    size_t index = addr - OAM_ADDR_MIN;
-    uint8_t* bytePtr = &(OAM_.at(index));
-    WritePointer(bytePtr, value, alignment);
     return 1;
 }
 

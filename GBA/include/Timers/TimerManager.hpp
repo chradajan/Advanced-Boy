@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 #include <Timers/Timer.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
@@ -16,11 +17,14 @@ public:
     /// @brief Initialize the timers and set scheduler callbacks for timer overflows.
     TimerManager();
 
+    /// @brief Reset the timers to their power-up state.
+    void Reset();
+
     /// @brief Read a memory mapped timer register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
     /// @return Value of specified register.
-    uint32_t ReadReg(uint32_t addr, AccessSize alignment);
+    std::pair<uint32_t, bool> ReadReg(uint32_t addr, AccessSize alignment);
 
     /// @brief Write a memory mapped timer register.
     /// @param addr Address of memory mapped register.

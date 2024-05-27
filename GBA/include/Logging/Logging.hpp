@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include <Config.hpp>
-#include <System/InterruptManager.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/CircularBuffer.hpp>
 
 namespace fs = std::filesystem;

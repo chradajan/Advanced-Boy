@@ -16,12 +16,25 @@ class PPU
 {
 public:
     /// @brief Initialize the PPU.
-    /// @param paletteRAM Reference to palette RAM.
-    /// @param VRAM Reference to VRAM.
-    /// @param OAM Reference to OAM.
-    PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
-        std::array<uint8_t,  96 * KiB> const& VRAM,
-        std::array<uint8_t,   1 * KiB> const& OAM);
+    PPU();
+
+    /// @brief Reset the PPU to its power-on state.
+    void Reset();
+
+    //                Bus   Read      Write     Cycles
+    //  Palette RAM   16    8/16/32   16/32     1/1/2 *
+    std::pair<uint32_t, int> ReadPRAM(uint32_t addr, AccessSize alignment);
+    int WritePRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    //  Region        Bus   Read      Write     Cycles
+    //  VRAM          16    8/16/32   16/32     1/1/2 *
+    std::pair<uint32_t, int> ReadVRAM(uint32_t addr, AccessSize alignment);
+    int WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    //  Region        Bus   Read      Write     Cycles
+    //  OAM           32    8/16/32   16/32     1/1/1 *
+    std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
+    int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Access the raw frame buffer data.
     /// @return Raw pointer to frame buffer.
@@ -46,10 +59,6 @@ public:
     /// @brief Check the current scanline being processed.
     /// @return Current scanline [0, 227].
     int CurrentScanline() const { return scanline_; }
-
-    /// @brief Return the current background mode.
-    /// @return Current background mode.
-    uint8_t BgMode() const { return lcdControl_.flags_.bgMode_; }
 
     /// @brief Function to call on HBlank events.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
@@ -215,14 +224,14 @@ private:
 
     // LCD I/O Registers (0400'0000h - 0400'005Fh)
     std::array<uint8_t, 0x60> lcdRegisters_;
-    DISPCNT& lcdControl_;
-    DISPSTAT& lcdStatus_;
-    VCOUNT& verticalCounter_;
+    DISPCNT& dispcnt_;
+    DISPSTAT& dispstat_;
+    VCOUNT& vcount_;
 
     // Memory
-    std::array<uint8_t,   1 * KiB> const& paletteRAM_;  // 0500'0000h - 0500'03FFh    BG/OBJ Palette RAM
-    std::array<uint8_t,  96 * KiB> const& VRAM_;        // 0600'0000h - 0601'7FFFh    VRAM - Video RAM
-    std::array<uint8_t,   1 * KiB> const& OAM_;         // 0700'0000h - 0700'03FFh    OAM - OBJ Attributes
+    std::array<uint8_t,   1 * KiB> PRAM_;
+    std::array<uint8_t,  96 * KiB> VRAM_;
+    std::array<uint8_t,   1 * KiB> OAM_;
 
     // FPS counting
     int frameCounter_;

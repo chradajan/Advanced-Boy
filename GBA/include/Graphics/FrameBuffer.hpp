@@ -76,6 +76,9 @@ public:
     /// @brief Initialize the frame buffer.
     FrameBuffer();
 
+    /// @brief Reset the frame buffer to its power-up state.
+    void Reset();
+
     /// @brief Access the raw frame buffer data of the last fully drawn frame.
     /// @return Raw pointer to frame buffer.
     uint8_t* GetRawFrameBuffer();

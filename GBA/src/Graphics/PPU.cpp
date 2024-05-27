@@ -6,9 +6,9 @@
 #include <stdexcept>
 #include <utility>
 #include <Graphics/VramTypes.hpp>
-#include <System/InterruptManager.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace
@@ -30,25 +30,141 @@ static_assert(sizeof(AffineObjMatrix) == 32);
 static_assert(sizeof(TwoDim4bppMap) == 2 * CHARBLOCK_SIZE);
 static_assert(sizeof(TwoDim8bppMap) == 2 * CHARBLOCK_SIZE);
 
-PPU::PPU(std::array<uint8_t,   1 * KiB> const& paletteRAM,
-         std::array<uint8_t,  96 * KiB> const& VRAM,
-         std::array<uint8_t,   1 * KiB> const& OAM) :
-    frameBuffer_(),
+PPU::PPU() :
     lcdRegisters_(),
-    lcdControl_(*reinterpret_cast<DISPCNT*>(&lcdRegisters_[0])),
-    lcdStatus_(*reinterpret_cast<DISPSTAT*>(&lcdRegisters_[4])),
-    verticalCounter_(*reinterpret_cast<VCOUNT*>(&lcdRegisters_[6])),
-    paletteRAM_(paletteRAM),
-    VRAM_(VRAM),
-    OAM_(OAM)
+    dispcnt_(*reinterpret_cast<DISPCNT*>(&lcdRegisters_[0])),
+    dispstat_(*reinterpret_cast<DISPSTAT*>(&lcdRegisters_[4])),
+    vcount_(*reinterpret_cast<VCOUNT*>(&lcdRegisters_[6]))
+{
+    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1), true);
+}
+
+void PPU::Reset()
 {
     scanline_ = 0;
     window0EnabledOnScanline_ = false;
     window1EnabledOnScanline_ = false;
     lcdRegisters_.fill(0);
     frameCounter_ = 0;
+    frameBuffer_.Reset();
+}
 
-    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1), true);
+std::pair<uint32_t, int> PPU::ReadPRAM(uint32_t addr, AccessSize alignment)
+{
+    if (addr > PALETTE_RAM_ADDR_MAX)
+    {
+        addr = PALETTE_RAM_ADDR_MIN + (addr % PRAM_.size());
+    }
+
+    size_t index = addr - PALETTE_RAM_ADDR_MIN;
+    uint8_t* bytePtr = &PRAM_.at(index);
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
+    return {value, cycles};
+}
+
+int PPU::WritePRAM(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (addr > PALETTE_RAM_ADDR_MAX)
+    {
+        addr = PALETTE_RAM_ADDR_MIN + (addr % PRAM_.size());
+    }
+
+    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
+
+    if (alignment == AccessSize::BYTE)
+    {
+        alignment = AccessSize::HALFWORD;
+        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
+    }
+
+    size_t index = addr - PALETTE_RAM_ADDR_MIN;
+    uint8_t* bytePtr = &PRAM_.at(index);
+    WritePointer(bytePtr, value, alignment);
+    return cycles;
+}
+
+std::pair<uint32_t, int> PPU::ReadVRAM(uint32_t addr, AccessSize alignment)
+{
+    if (addr > VRAM_ADDR_MAX)
+    {
+        uint32_t adjustedAddr = VRAM_ADDR_MIN + (addr % (128 * KiB));
+
+        if (adjustedAddr > VRAM_ADDR_MAX)
+        {
+            adjustedAddr -= (32 * KiB);
+        }
+
+        addr = adjustedAddr;
+    }
+
+    size_t index = addr - VRAM_ADDR_MIN;
+    uint8_t* bytePtr = &VRAM_.at(index);
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    int cycles = (alignment == AccessSize::WORD) ? 2 : 1;
+    return {value, cycles};
+}
+
+int PPU::WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (addr > VRAM_ADDR_MAX)
+    {
+        uint32_t adjustedAddr = VRAM_ADDR_MIN + (addr % (128 * KiB));
+
+        if (adjustedAddr > VRAM_ADDR_MAX)
+        {
+            adjustedAddr -= (32 * KiB);
+        }
+
+        addr = adjustedAddr;
+    }
+
+    if (alignment == AccessSize::BYTE)
+    {
+        if (((dispcnt_.flags_.bgMode_ <= 2) && (addr >= 0x0601'0000)) || ((dispcnt_.flags_.bgMode_ > 2) && (addr >= 0x0601'4000)))
+        {
+            return 1;
+        }
+
+        alignment = AccessSize::HALFWORD;
+        value = ((value & MAX_U8) << 8) | (value & MAX_U8);
+    }
+
+    size_t index = addr - VRAM_ADDR_MIN;
+    uint8_t* bytePtr = &(VRAM_.at(index));
+    WritePointer(bytePtr, value, alignment);
+    return (alignment == AccessSize::WORD) ? 2 : 1;
+}
+
+std::pair<uint32_t, int> PPU::ReadOAM(uint32_t addr, AccessSize alignment)
+{
+    if (addr > OAM_ADDR_MAX)
+    {
+        addr = OAM_ADDR_MIN + (addr % OAM_.size());
+    }
+
+    size_t index = addr - OAM_ADDR_MIN;
+    uint8_t* bytePtr = &OAM_.at(index);
+    uint32_t value = ReadPointer(bytePtr, alignment);
+    return {value, 1};
+}
+
+int PPU::WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (alignment == AccessSize::BYTE)
+    {
+        return 1;
+    }
+
+    if (addr > OAM_ADDR_MAX)
+    {
+        addr = OAM_ADDR_MIN + (addr % OAM_.size());
+    }
+
+    size_t index = addr - OAM_ADDR_MIN;
+    uint8_t* bytePtr = &(OAM_.at(index));
+    WritePointer(bytePtr, value, alignment);
+    return 1;
 }
 
 std::pair<uint32_t, bool> PPU::ReadReg(uint32_t addr, AccessSize alignment)
@@ -80,18 +196,18 @@ void PPU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
             {
                 if (addr == DISPSTAT_ADDR)
                 {
-                    lcdStatus_.halfword_ = (lcdStatus_.halfword_ & 0xFF00) |
-                                           (((lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
+                    dispstat_.halfword_ = (dispstat_.halfword_ & 0xFF00) |
+                                           (((dispstat_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
                 }
                 else
                 {
-                    lcdStatus_.flags_.vCountSetting_ = (value & MAX_U8);
+                    dispstat_.flags_.vCountSetting_ = (value & MAX_U8);
                 }
                 break;
             }
             case AccessSize::HALFWORD:
             case AccessSize::WORD:
-                lcdStatus_.halfword_ = (lcdStatus_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
+                dispstat_.halfword_ = (dispstat_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
                 break;
         }
 
@@ -138,21 +254,21 @@ void PPU::VDraw(int extraCycles)
         scanline_ = 0;
     }
 
-    verticalCounter_.flags_.currentScanline_ = scanline_;
-    lcdStatus_.flags_.hBlank_ = 0;
+    vcount_.flags_.currentScanline_ = scanline_;
+    dispstat_.flags_.hBlank_ = 0;
 
-    if (scanline_ == lcdStatus_.flags_.vCountSetting_)
+    if (scanline_ == dispstat_.flags_.vCountSetting_)
     {
-        lcdStatus_.flags_.vCounter_ = 1;
+        dispstat_.flags_.vCounter_ = 1;
 
-        if (lcdStatus_.flags_.vCounterIrqEnable_)
+        if (dispstat_.flags_.vCounterIrqEnable_)
         {
-            InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
+            SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        lcdStatus_.flags_.vCounter_ = 0;
+        dispstat_.flags_.vCounter_ = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -165,11 +281,11 @@ void PPU::VDraw(int extraCycles)
 void PPU::HBlank(int extraCycles)
 {
     // HBlank register updates
-    lcdStatus_.flags_.hBlank_ = 1;
+    dispstat_.flags_.hBlank_ = 1;
 
-    if (lcdStatus_.flags_.hBlankIrqEnable_)
+    if (dispstat_.flags_.hBlankIrqEnable_)
     {
-        InterruptMgr.RequestInterrupt(InterruptType::LCD_HBLANK);
+        SystemController.RequestInterrupt(InterruptType::LCD_HBLANK);
     }
 
     // Event scheduling
@@ -180,9 +296,9 @@ void PPU::HBlank(int extraCycles)
     // Draw scanline if not in VBlank
     if (scanline_ < 160)
     {
-        uint16_t backdrop = *reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
-        bool windowEnabled = (lcdControl_.halfword_ & 0xE000) != 0;
-        bool forceBlank = lcdControl_.flags_.forceBlank_;
+        uint16_t backdrop = *reinterpret_cast<uint16_t const*>(&PRAM_[0]);
+        bool windowEnabled = (dispcnt_.halfword_ & 0xE000) != 0;
+        bool forceBlank = dispcnt_.flags_.forceBlank_;
 
         if (!forceBlank)
         {
@@ -202,7 +318,7 @@ void PPU::HBlank(int extraCycles)
 
                 frameBuffer_.InitializeWindow(outOfWindow);
 
-                if (lcdControl_.flags_.screenDisplayObj_ && lcdControl_.flags_.objWindowDisplay_)
+                if (dispcnt_.flags_.screenDisplayObj_ && dispcnt_.flags_.objWindowDisplay_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -216,7 +332,7 @@ void PPU::HBlank(int extraCycles)
                     EvaluateOAM(&objWindow);
                 }
 
-                if (lcdControl_.flags_.window1Display_)
+                if (dispcnt_.flags_.window1Display_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -236,7 +352,7 @@ void PPU::HBlank(int extraCycles)
                     }
                 }
 
-                if (lcdControl_.flags_.window0Display_)
+                if (dispcnt_.flags_.window0Display_)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
@@ -267,14 +383,14 @@ void PPU::HBlank(int extraCycles)
                 frameBuffer_.InitializeWindow(allEnabled);
             }
 
-            if (lcdControl_.flags_.screenDisplayObj_)
+            if (dispcnt_.flags_.screenDisplayObj_)
             {
                 frameBuffer_.ClearSpritePixels();
                 EvaluateOAM();
                 frameBuffer_.PushSpritePixels();
             }
 
-            switch (lcdControl_.flags_.bgMode_)
+            switch (dispcnt_.flags_.bgMode_)
             {
                 case 0:
                     RenderMode0Scanline();
@@ -310,19 +426,19 @@ void PPU::VBlank(int extraCycles)
 {
     // VBlank register updates
     ++scanline_;
-    verticalCounter_.flags_.currentScanline_ = scanline_;
-    lcdStatus_.flags_.hBlank_ = 0;
+    vcount_.flags_.currentScanline_ = scanline_;
+    dispstat_.flags_.hBlank_ = 0;
 
     if (scanline_ == 160)
     {
         // First time entering VBlank
-        lcdStatus_.flags_.vBlank_ = 1;
+        dispstat_.flags_.vBlank_ = 1;
         ++frameCounter_;
         frameBuffer_.ResetFrameIndex();
 
-        if (lcdStatus_.flags_.vBlankIrqEnable_)
+        if (dispstat_.flags_.vBlankIrqEnable_)
         {
-            InterruptMgr.RequestInterrupt(InterruptType::LCD_VBLANK);
+            SystemController.RequestInterrupt(InterruptType::LCD_VBLANK);
         }
 
         bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
@@ -332,21 +448,21 @@ void PPU::VBlank(int extraCycles)
     }
     else if (scanline_ == 227)
     {
-        lcdStatus_.flags_.vBlank_ = 0;
+        dispstat_.flags_.vBlank_ = 0;
     }
 
-    if (scanline_ == lcdStatus_.flags_.vCountSetting_)
+    if (scanline_ == dispstat_.flags_.vCountSetting_)
     {
-        lcdStatus_.flags_.vCounter_ = 1;
+        dispstat_.flags_.vCounter_ = 1;
 
-        if (lcdStatus_.flags_.vCounterIrqEnable_)
+        if (dispstat_.flags_.vCounterIrqEnable_)
         {
-            InterruptMgr.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
+            SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        lcdStatus_.flags_.vCounter_ = 0;
+        dispstat_.flags_.vCounter_ = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -418,7 +534,7 @@ void PPU::RenderMode0Scanline()
 {
     for (uint16_t i = 0; i < 4; ++i)
     {
-        if (lcdControl_.halfword_ & (0x100 << i))
+        if (dispcnt_.halfword_ & (0x100 << i))
         {
             BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
             uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
@@ -432,7 +548,7 @@ void PPU::RenderMode1Scanline()
 {
     for (uint16_t i = 0; i < 2; ++i)
     {
-        if (lcdControl_.halfword_ & (0x100 << i))
+        if (dispcnt_.halfword_ & (0x100 << i))
         {
             BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
             uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
@@ -441,7 +557,7 @@ void PPU::RenderMode1Scanline()
         }
     }
 
-    if (lcdControl_.flags_.screenDisplayBg2_)
+    if (dispcnt_.flags_.screenDisplayBg2_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -452,7 +568,7 @@ void PPU::RenderMode1Scanline()
 
 void PPU::RenderMode2Scanline()
 {
-    if (lcdControl_.flags_.screenDisplayBg2_)
+    if (dispcnt_.flags_.screenDisplayBg2_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -460,7 +576,7 @@ void PPU::RenderMode2Scanline()
         RenderAffineTiledBackgroundScanline(2, bgControl, bg2RefX_, bg2RefY_, pa, pc);
     }
 
-    if (lcdControl_.flags_.screenDisplayBg3_)
+    if (dispcnt_.flags_.screenDisplayBg3_)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0E]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x30]);
@@ -475,7 +591,7 @@ void PPU::RenderMode3Scanline()
     size_t vramIndex = scanline_ * 480;
     uint16_t const* vramPtr = reinterpret_cast<uint16_t const*>(&VRAM_.at(vramIndex));
 
-    if (lcdControl_.flags_.screenDisplayBg2_)
+    if (dispcnt_.flags_.screenDisplayBg2_)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
@@ -493,14 +609,14 @@ void PPU::RenderMode4Scanline()
 {
     BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
     size_t vramIndex = scanline_ * 240;
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(PRAM_.data());
 
-    if (lcdControl_.flags_.displayFrameSelect_)
+    if (dispcnt_.flags_.displayFrameSelect_)
     {
         vramIndex += 0xA000;
     }
 
-    if (lcdControl_.flags_.screenDisplayBg2_)
+    if (dispcnt_.flags_.screenDisplayBg2_)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
@@ -559,7 +675,7 @@ void PPU::RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, 
     int const mapY = (y / 8) % 32;
     TileData4bpp const* baseTilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
     ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[0]);
 
     // Control data
     PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
@@ -632,7 +748,7 @@ void PPU::RenderRegular8bppBackground(int bgIndex, BGCNT const& control, int x, 
     size_t const charBlockAddr = control.flags_.charBaseBlock_ * CHARBLOCK_SIZE;
     TileData8bpp const* baseTilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[charBlockAddr]);
     ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[0]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[0]);
 
     // Control data
     PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
@@ -719,7 +835,7 @@ void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control,
     // VRAM pointers
     uint8_t const* screenBlockPtr = &VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE];
     TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(paletteRAM_.data());
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(PRAM_.data());
 
     for (int dot = 0; dot < LCD_WIDTH; ++dot)
     {
@@ -872,7 +988,7 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             continue;
         }
 
-        if (lcdControl_.flags_.objCharacterVramMapping_)
+        if (dispcnt_.flags_.objCharacterVramMapping_)
         {
             // One dimensional mapping
             if (oamEntry.attribute0_.colorMode_)
@@ -937,7 +1053,7 @@ void PPU::Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntr
     int const heightInTiles = height / 8;
 
     TileData4bpp const* const tileMapPtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
 
     int const leftEdge = std::max(0, x);
     int const rightEdge = std::min(239, x + width - 1);
@@ -995,7 +1111,7 @@ void PPU::Render1d4bppRegularSprite(int x, int y, int width, int height, OamEntr
 void PPU::Render1d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TileData8bpp const* tileDataPtr = nullptr;
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
 
     int const widthInTiles = width / 8;
     int const heightInTiles = height / 8;
@@ -1053,7 +1169,7 @@ void PPU::Render1d8bppRegularSprite(int x, int y, int width, int height, OamEntr
 void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim4bppMap const* const tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     TileData4bpp const* tileDataPtr = nullptr;
 
     int const widthInTiles = width / 8;
@@ -1135,7 +1251,7 @@ void PPU::Render2d4bppRegularSprite(int x, int y, int width, int height, OamEntr
 void PPU::Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim8bppMap const* const tileMapPtr = reinterpret_cast<TwoDim8bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* const palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     TileData8bpp const* tileDataPtr = nullptr;
 
     int const leftEdge = std::max(0, x);
@@ -1191,7 +1307,7 @@ void PPU::Render2d8bppRegularSprite(int x, int y, int width, int height, OamEntr
 void PPU::Render1d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TileData4bpp const* tileMapPtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     AffineObjMatrix const* affineMatrix =
         &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
 
@@ -1260,7 +1376,7 @@ void PPU::Render1d4bppAffineSprite(int x, int y, int width, int height, OamEntry
 void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim4bppMap const* tileMapPtr = reinterpret_cast<TwoDim4bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     AffineObjMatrix const* affineMatrix =
         &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
 
@@ -1334,7 +1450,7 @@ void PPU::Render2d4bppAffineSprite(int x, int y, int width, int height, OamEntry
 
 void PPU::Render1d8bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     AffineObjMatrix const* affineMatrix =
         &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
 
@@ -1407,7 +1523,7 @@ void PPU::Render1d8bppAffineSprite(int x, int y, int width, int height, OamEntry
 void PPU::Render2d8bppAffineSprite(int x, int y, int width, int height, OamEntry const& oamEntry, WindowSettings* windowSettingsPtr)
 {
     TwoDim8bppMap const* tileMapPtr = reinterpret_cast<TwoDim8bppMap const*>(&VRAM_[OBJ_CHARBLOCK_ADDR]);
-    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&paletteRAM_[OBJ_PALETTE_ADDR]);
+    uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[OBJ_PALETTE_ADDR]);
     AffineObjMatrix const* affineMatrix =
         &(reinterpret_cast<AffineObjMatrix const*>(&OAM_[0])[oamEntry.attribute1_.rotationOrScaling_.parameterSelection_]);
 
@@ -1479,7 +1595,7 @@ void PPU::AddSpritePixelToLineBuffer(int dot, uint16_t bgr555, int priority, boo
         // Visible Sprite
         Pixel& currentPixel = frameBuffer_.GetSpritePixel(dot);
 
-        if (frameBuffer_.GetWindowSettings(dot).objEnabled_ &&
+        if (frameBuffer_.GetWindowSettings(dot).objEnabled_ && !transparent &&
             (!currentPixel.initialized_ || (priority < currentPixel.priority_) || currentPixel.transparent_))
         {
             currentPixel = Pixel(PixelSrc::OBJ, bgr555, priority, transparent, semiTransparent);

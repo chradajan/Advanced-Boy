@@ -3,8 +3,8 @@
 #include <array>
 #include <cstdint>
 #include <utility>
-#include <System/InterruptManager.hpp>
 #include <System/EventScheduler.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 class GameBoyAdvance;
@@ -15,6 +15,9 @@ public:
     /// @brief Initialize a DMA channel's registers and assign it an event and interrupt based on its index.
     /// @param index Which DMA channel this is.
     DmaChannel(int index);
+
+    /// @brief Reset this DMA channel to its power-up state.
+    void Reset();
 
     /// @brief Read a register associated with this DMA channel.
     /// @param addr Address of memory mapped register.
@@ -102,7 +105,7 @@ private:
     AccessSize xferAlignment_;
 
     // Status
-    int dmaChannelIndex_;
+    int const dmaChannelIndex_;
     int totalTransferCycles_;
     int cyclesPerTransfer_;
 

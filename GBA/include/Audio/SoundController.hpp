@@ -23,6 +23,9 @@ public:
     /// @brief Register and schedule the audio sampling event.
     SoundController();
 
+    /// @brief Reset the sound controller to its power-up state.
+    void Reset();
+
     /// @brief Read a memory mapped audio register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.

@@ -61,12 +61,21 @@ SoundController::SoundController() :
     soundControl_(*reinterpret_cast<SOUNDCNT*>(&soundRegisters_[32])),
     soundBias_(*reinterpret_cast<SOUNDBIAS*>(&soundRegisters_[40]))
 {
-    soundRegisters_.fill(0);
     Scheduler.RegisterEvent(EventType::SampleAPU, std::bind(&CollectSample, this, std::placeholders::_1), true);
-    Scheduler.ScheduleEvent(EventType::SampleAPU, CPU_CYCLES_PER_SAMPLE);
+}
 
+void SoundController::Reset()
+{
+    soundRegisters_.fill(0);
+
+    fifoA_.Clear();
+    fifoB_.Clear();
     fifoASample_ = 0;
     fifoBSample_ = 0;
+
+    internalBuffer_.Clear();
+
+    Scheduler.ScheduleEvent(EventType::SampleAPU, CPU_CYCLES_PER_SAMPLE);
 }
 
 std::pair<uint32_t, bool> SoundController::ReadReg(uint32_t addr, AccessSize alignment)

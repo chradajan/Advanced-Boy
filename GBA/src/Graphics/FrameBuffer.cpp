@@ -94,15 +94,18 @@ bool Pixel::operator<(Pixel const& rhs) const
 
 FrameBuffer::FrameBuffer()
 {
-    frameBuffers_[0].fill(0xFFFF);
-    frameBuffers_[1].fill(0xFFFF);
-    activeFrameBufferIndex_ = 0;
-    pixelIndex_ = 0;
-
     for (auto& pixels : scanline_)
     {
         pixels.reserve(5);
     }
+}
+
+void FrameBuffer::Reset()
+{
+    frameBuffers_[0].fill(0xFFFF);
+    frameBuffers_[1].fill(0xFFFF);
+    activeFrameBufferIndex_ = 0;
+    pixelIndex_ = 0;
 }
 
 uint8_t* FrameBuffer::GetRawFrameBuffer()
