@@ -169,113 +169,48 @@ int PPU::WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment)
 
 std::pair<uint32_t, bool> PPU::ReadReg(uint32_t addr, AccessSize alignment)
 {
-    if (((addr >= BG0HOFS_ADDR) && (addr < WININ_ADDR)) ||
-        ((addr >= MOSAIC_ADDR) && (addr < BLDCNT_ADDR)) ||
-        (addr >= BLDY_ADDR))
+    if (((0x0400'0010 <= addr) && (addr < 0x0400'0048)) ||
+        ((0x0400'004C <= addr) && (addr < 0x0400'0050)) ||
+        ((0x0400'0054 <= addr) && (addr < 0x0400'0058)))
     {
-        // Write-only or unused regions
+        // Write only regions.
         return {0, true};
     }
 
     size_t index = addr - LCD_IO_ADDR_MIN;
-    uint8_t* bytePtr = &(lcdRegisters_.at(index));
+    uint8_t* bytePtr = &lcdRegisters_.at(index);
     uint32_t value = ReadPointer(bytePtr, alignment);
     return {value, false};
 }
 
 void PPU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 {
-    if ((addr >= DISPSTAT_ADDR) && (addr < VCOUNT_ADDR))
+    if ((0x0400'0004 <= addr) && (addr < 0x0400'0008))
     {
-        // Write to DISPSTAT; not all bits are writable. If writing a word, the next register is VCOUNT so don't write that either.
-        static constexpr uint16_t DISPSTAT_WRITABLE_MASK = 0b1111'1111'1011'1000;
-
-        switch (alignment)
-        {
-            case AccessSize::BYTE:
-            {
-                if (addr == DISPSTAT_ADDR)
-                {
-                    dispstat_.value = (dispstat_.value & 0xFF00) |
-                                      (((dispstat_.value & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
-                }
-                else
-                {
-                    dispstat_.vCountSetting = (value & MAX_U8);
-                }
-                break;
-            }
-            case AccessSize::HALFWORD:
-            case AccessSize::WORD:
-                dispstat_.value = (dispstat_.value & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
-                break;
-        }
-
-        return;
-    }
-    else if ((addr >= VCOUNT_ADDR) && (addr < BG0CNT_ADDR))
-    {
-        // Write to VCOUNT which is read-only. VCOUNT is halfword aligned, so alignment must be byte or halfword.
+        WriteDispstatVcount(addr, value, alignment);
         return;
     }
 
     size_t index = addr - LCD_IO_ADDR_MIN;
-    uint8_t* bytePtr = &(lcdRegisters_.at(index));
+    uint8_t* bytePtr = &lcdRegisters_.at(index);
     WritePointer(bytePtr, value, alignment);
 
-    if ((index >= 0x28) && (index <= 0x3F))
+    if ((0x0400'0028 <= addr) && (addr < 0x0400'002C))
     {
-        if (index <= 0x2B)
-        {
-            bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
-        }
-        else if (index <= 0x2F)
-        {
-            bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
-        }
-        else if (index <= 0x3B)
-        {
-            bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
-        }
-        else
-        {
-            bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
-        }
+        bg2RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x28]), 27);
     }
-}
-
-void PPU::VDraw(int extraCycles)
-{
-    // VDraw register updates
-    ++scanline_;
-
-    if (scanline_ == 228)
+    else if ((0x0400'002C <= addr) && (addr < 0x0400'0030))
     {
-        scanline_ = 0;
+        bg2RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x2C]), 27);
     }
-
-    vcount_.currentScanline = scanline_;
-    dispstat_.hBlank = 0;
-
-    if (scanline_ == dispstat_.vCountSetting)
+    else if ((0x0400'0038 <= addr) && (addr < 0x0400'003C))
     {
-        dispstat_.vCounter = 1;
-
-        if (dispstat_.vCounterIrqEnable)
-        {
-            SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
-        }
+        bg3RefX_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x38]), 27);
     }
-    else
+    else if ((0x0400'003C <= addr) && (addr < 0x0400'0040))
     {
-        dispstat_.vCounter = 0;
+        bg3RefY_ = SignExtend32(*reinterpret_cast<uint32_t*>(&lcdRegisters_[0x3C]), 27);
     }
-
-    SetNonObjWindowEnabled();
-
-    // Event Scheduling
-    int cyclesUntilHBlank = (960 - extraCycles) + 46;
-    Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
 }
 
 void PPU::HBlank(int extraCycles)
@@ -469,6 +404,68 @@ void PPU::VBlank(int extraCycles)
 
     // Event Scheduling
     Scheduler.ScheduleEvent(EventType::HBlank, (960 - extraCycles) + 46);
+}
+
+void PPU::VDraw(int extraCycles)
+{
+    // VDraw register updates
+    ++scanline_;
+
+    if (scanline_ == 228)
+    {
+        scanline_ = 0;
+    }
+
+    vcount_.currentScanline = scanline_;
+    dispstat_.hBlank = 0;
+
+    if (scanline_ == dispstat_.vCountSetting)
+    {
+        dispstat_.vCounter = 1;
+
+        if (dispstat_.vCounterIrqEnable)
+        {
+            SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
+        }
+    }
+    else
+    {
+        dispstat_.vCounter = 0;
+    }
+
+    SetNonObjWindowEnabled();
+
+    // Event Scheduling
+    int cyclesUntilHBlank = (960 - extraCycles) + 46;
+    Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
+}
+
+void PPU::WriteDispstatVcount(uint32_t addr, uint32_t value, AccessSize alignment)
+{
+    if (addr < 0x0400'0006)  // Write to DISPSTAT and possibly VCOUNT. Ignore writes to any portion of VCOUNT.
+    {
+        if (alignment != AccessSize::BYTE)  // Completely write DISPSTAT.
+        {
+            uint16_t writableMask = 0xFFB8;
+            dispstat_.value &= ~writableMask;
+            value = (value & MAX_U16) & writableMask;
+            dispstat_.value |= value;
+        }
+        else if (addr == 0x0400'0004)  // BYTE write to lower half of DISPSTAT.
+        {
+            uint16_t writableMask = 0x00B8;
+            dispstat_.value &= ~writableMask;
+            value = (value & MAX_U8) & writableMask;
+            dispstat_.value |= value;
+        }
+        else  // BYTE write to upper half of DISPSTAT.
+        {
+            uint16_t writableMask = 0xFF00;
+            dispstat_.value &= ~writableMask;
+            value = ((value & MAX_U8) << 8) & writableMask;
+            dispstat_.value |= value;
+        }
+    }
 }
 
 void PPU::SetNonObjWindowEnabled()

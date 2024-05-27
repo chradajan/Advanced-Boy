@@ -36,14 +36,6 @@ public:
     std::pair<uint32_t, int> ReadOAM(uint32_t addr, AccessSize alignment);
     int WriteOAM(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief Access the raw frame buffer data.
-    /// @return Raw pointer to frame buffer.
-    uint8_t* GetRawFrameBuffer() { return frameBuffer_.GetRawFrameBuffer(); }
-
-    /// @brief Get the number of times the PPU has hit VBlank since the last check.
-    /// @return Number of times PPU has entered VBlank.
-    int GetAndResetFrameCounter() { int temp = frameCounter_; frameCounter_ = 0; return temp; }
-
     /// @brief Read a memory mapped LCD I/O register.
     /// @param addr Address of memory mapped register.
     /// @param alignment BYTE, HALFWORD, or WORD.
@@ -55,6 +47,14 @@ public:
     /// @param val Value to write to register.
     /// @param alignment BYTE, HALFWORD, or WORD.
     void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
+
+    /// @brief Access the raw frame buffer data.
+    /// @return Raw pointer to frame buffer.
+    uint8_t* GetRawFrameBuffer() { return frameBuffer_.GetRawFrameBuffer(); }
+
+    /// @brief Get the number of times the PPU has hit VBlank since the last check.
+    /// @return Number of times PPU has entered VBlank.
+    int GetAndResetFrameCounter() { int temp = frameCounter_; frameCounter_ = 0; return temp; }
 
     /// @brief Check the current scanline being processed.
     /// @return Current scanline [0, 227].
@@ -72,6 +72,12 @@ private:
     /// @brief Callback function for an enter VDraw event.
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VDraw(int extraCycles);
+
+    /// @brief Handle writes to mixed r/w registers DISPSTAT and VCOUNT.
+    /// @param addr Address of register to write.
+    /// @param value Value to write to register.
+    /// @param alignment Number of bytes to write.
+    void WriteDispstatVcount(uint32_t addr, uint32_t value, AccessSize alignment);
 
     /// @brief Determine whether window 0 and window 1 are active on the current scanline.
     void SetNonObjWindowEnabled();
