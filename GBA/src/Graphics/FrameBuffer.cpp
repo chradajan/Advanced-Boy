@@ -133,20 +133,20 @@ void FrameBuffer::RenderScanline(uint16_t backdropColor, bool forceBlank, BLDCNT
 
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wnarrowing"
-    std::array<bool, 6> firstTargetLayer = {bldcnt.flags_.objA, bldcnt.flags_.bg0A, bldcnt.flags_.bg1A, bldcnt.flags_.bg2A, bldcnt.flags_.bg3A, bldcnt.flags_.bdA};
-    std::array<bool, 6> secondTargetLayer = {bldcnt.flags_.objB, bldcnt.flags_.bg0B, bldcnt.flags_.bg1B, bldcnt.flags_.bg2B, bldcnt.flags_.bg3B, bldcnt.flags_.bdB};
+    std::array<bool, 6> firstTargetLayer = {bldcnt.objA, bldcnt.bg0A, bldcnt.bg1A, bldcnt.bg2A, bldcnt.bg3A, bldcnt.bdA};
+    std::array<bool, 6> secondTargetLayer = {bldcnt.objB, bldcnt.bg0B, bldcnt.bg1B, bldcnt.bg2B, bldcnt.bg3B, bldcnt.bdB};
     #pragma GCC diagnostic pop
 
     Pixel bdPixel = Pixel(PixelSrc::BD, backdropColor, 4, false);
     Pixel* pixelA = nullptr;
     Pixel* pixelB = nullptr;
 
-    SpecialEffect const bldcntEffect = static_cast<SpecialEffect>(bldcnt.flags_.specialEffect);
+    SpecialEffect const bldcntEffect = static_cast<SpecialEffect>(bldcnt.specialEffect);
 
     // Coefficients are 1.4 fixed point values
-    uint16_t const eva = std::min(bldalpha.flags_.evaCoefficient_, static_cast<uint16_t>(0x10));
-    uint16_t const evb = std::min(bldalpha.flags_.evbCoefficient_, static_cast<uint16_t>(0x10));
-    uint16_t const evy = std::min(bldy.flags_.evyCoefficient_, static_cast<uint8_t>(0x10));
+    uint16_t const eva = std::min(bldalpha.evaCoefficient, static_cast<uint16_t>(0x10));
+    uint16_t const evb = std::min(bldalpha.evbCoefficient, static_cast<uint16_t>(0x10));
+    uint16_t const evy = std::min(bldy.evyCoefficient, static_cast<uint16_t>(0x10));
 
     for (int dot = 0; dot < LCD_WIDTH; ++dot)
     {

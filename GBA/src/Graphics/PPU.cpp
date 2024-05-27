@@ -121,7 +121,7 @@ int PPU::WriteVRAM(uint32_t addr, uint32_t value, AccessSize alignment)
 
     if (alignment == AccessSize::BYTE)
     {
-        if (((dispcnt_.flags_.bgMode_ <= 2) && (addr >= 0x0601'0000)) || ((dispcnt_.flags_.bgMode_ > 2) && (addr >= 0x0601'4000)))
+        if (((dispcnt_.bgMode <= 2) && (addr >= 0x0601'0000)) || ((dispcnt_.bgMode > 2) && (addr >= 0x0601'4000)))
         {
             return 1;
         }
@@ -196,18 +196,18 @@ void PPU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
             {
                 if (addr == DISPSTAT_ADDR)
                 {
-                    dispstat_.halfword_ = (dispstat_.halfword_ & 0xFF00) |
-                                           (((dispstat_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
+                    dispstat_.value = (dispstat_.value & 0xFF00) |
+                                      (((dispstat_.value & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK)) & MAX_U8);
                 }
                 else
                 {
-                    dispstat_.flags_.vCountSetting_ = (value & MAX_U8);
+                    dispstat_.vCountSetting = (value & MAX_U8);
                 }
                 break;
             }
             case AccessSize::HALFWORD:
             case AccessSize::WORD:
-                dispstat_.halfword_ = (dispstat_.halfword_ & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
+                dispstat_.value = (dispstat_.value & ~DISPSTAT_WRITABLE_MASK) | (value & DISPSTAT_WRITABLE_MASK);
                 break;
         }
 
@@ -254,21 +254,21 @@ void PPU::VDraw(int extraCycles)
         scanline_ = 0;
     }
 
-    vcount_.flags_.currentScanline_ = scanline_;
-    dispstat_.flags_.hBlank_ = 0;
+    vcount_.currentScanline = scanline_;
+    dispstat_.hBlank = 0;
 
-    if (scanline_ == dispstat_.flags_.vCountSetting_)
+    if (scanline_ == dispstat_.vCountSetting)
     {
-        dispstat_.flags_.vCounter_ = 1;
+        dispstat_.vCounter = 1;
 
-        if (dispstat_.flags_.vCounterIrqEnable_)
+        if (dispstat_.vCounterIrqEnable)
         {
             SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        dispstat_.flags_.vCounter_ = 0;
+        dispstat_.vCounter = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -281,9 +281,9 @@ void PPU::VDraw(int extraCycles)
 void PPU::HBlank(int extraCycles)
 {
     // HBlank register updates
-    dispstat_.flags_.hBlank_ = 1;
+    dispstat_.hBlank = 1;
 
-    if (dispstat_.flags_.hBlankIrqEnable_)
+    if (dispstat_.hBlankIrqEnable)
     {
         SystemController.RequestInterrupt(InterruptType::LCD_HBLANK);
     }
@@ -297,8 +297,8 @@ void PPU::HBlank(int extraCycles)
     if (scanline_ < 160)
     {
         uint16_t backdrop = *reinterpret_cast<uint16_t const*>(&PRAM_[0]);
-        bool windowEnabled = (dispcnt_.halfword_ & 0xE000) != 0;
-        bool forceBlank = dispcnt_.flags_.forceBlank_;
+        bool windowEnabled = (dispcnt_.value & 0xE000) != 0;
+        bool forceBlank = dispcnt_.forceBlank;
 
         if (!forceBlank)
         {
@@ -310,36 +310,36 @@ void PPU::HBlank(int extraCycles)
                 #pragma GCC diagnostic push
                 #pragma GCC diagnostic ignored "-Wnarrowing"
                 WindowSettings outOfWindow = {
-                    {winout.outsideBg0Enabled_, winout.outsideBg1Enabled_, winout.outsideBg2Enabled_, winout.outsideBg3Enabled_},
-                    winout.outsideObjEnabled_,
-                    winout.outsideSpecialEffect_
+                    {winout.outsideBg0Enabled, winout.outsideBg1Enabled, winout.outsideBg2Enabled, winout.outsideBg3Enabled},
+                    winout.outsideObjEnabled,
+                    winout.outsideSpecialEffect
                 };
                 #pragma GCC diagnostic pop
 
                 frameBuffer_.InitializeWindow(outOfWindow);
 
-                if (dispcnt_.flags_.screenDisplayObj_ && dispcnt_.flags_.objWindowDisplay_)
+                if (dispcnt_.screenDisplayObj && dispcnt_.objWindowDisplay)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings objWindow = {
-                        {winout.objWinBg0Enabled_, winout.objWinBg1Enabled_, winout.objWinBg2Enabled_, winout.objWinBg3Enabled_},
-                        winout.objWinObjEnabled_,
-                        winout.objWinSpecialEffect_
+                        {winout.objWinBg0Enabled, winout.objWinBg1Enabled, winout.objWinBg2Enabled, winout.objWinBg3Enabled},
+                        winout.objWinObjEnabled,
+                        winout.objWinSpecialEffect
                     };
                     #pragma GCC diagnostic pop
 
                     EvaluateOAM(&objWindow);
                 }
 
-                if (dispcnt_.flags_.window1Display_)
+                if (dispcnt_.window1Display)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings window1 = {
-                        {winin.win1Bg0Enabled_, winin.win1Bg1Enabled_, winin.win1Bg2Enabled_, winin.win1Bg3Enabled_},
-                        winin.win1ObjEnabled_,
-                        winin.win1SpecialEffect_
+                        {winin.win1Bg0Enabled, winin.win1Bg1Enabled, winin.win1Bg2Enabled, winin.win1Bg3Enabled},
+                        winin.win1ObjEnabled,
+                        winin.win1SpecialEffect
                     };
                     #pragma GCC diagnostic pop
 
@@ -352,14 +352,14 @@ void PPU::HBlank(int extraCycles)
                     }
                 }
 
-                if (dispcnt_.flags_.window0Display_)
+                if (dispcnt_.window0Display)
                 {
                     #pragma GCC diagnostic push
                     #pragma GCC diagnostic ignored "-Wnarrowing"
                     WindowSettings window0 = {
-                        {winin.win0Bg0Enabled_, winin.win0Bg1Enabled_, winin.win0Bg2Enabled_, winin.win0Bg3Enabled_},
-                        winin.win0ObjEnabled_,
-                        winin.win0SpecialEffect_
+                        {winin.win0Bg0Enabled, winin.win0Bg1Enabled, winin.win0Bg2Enabled, winin.win0Bg3Enabled},
+                        winin.win0ObjEnabled,
+                        winin.win0SpecialEffect
                     };
                     #pragma GCC diagnostic pop
 
@@ -383,14 +383,14 @@ void PPU::HBlank(int extraCycles)
                 frameBuffer_.InitializeWindow(allEnabled);
             }
 
-            if (dispcnt_.flags_.screenDisplayObj_)
+            if (dispcnt_.screenDisplayObj)
             {
                 frameBuffer_.ClearSpritePixels();
                 EvaluateOAM();
                 frameBuffer_.PushSpritePixels();
             }
 
-            switch (dispcnt_.flags_.bgMode_)
+            switch (dispcnt_.bgMode)
             {
                 case 0:
                     RenderMode0Scanline();
@@ -426,17 +426,17 @@ void PPU::VBlank(int extraCycles)
 {
     // VBlank register updates
     ++scanline_;
-    vcount_.flags_.currentScanline_ = scanline_;
-    dispstat_.flags_.hBlank_ = 0;
+    vcount_.currentScanline = scanline_;
+    dispstat_.hBlank = 0;
 
     if (scanline_ == 160)
     {
         // First time entering VBlank
-        dispstat_.flags_.vBlank_ = 1;
+        dispstat_.vBlank = 1;
         ++frameCounter_;
         frameBuffer_.ResetFrameIndex();
 
-        if (dispstat_.flags_.vBlankIrqEnable_)
+        if (dispstat_.vBlankIrqEnable)
         {
             SystemController.RequestInterrupt(InterruptType::LCD_VBLANK);
         }
@@ -448,21 +448,21 @@ void PPU::VBlank(int extraCycles)
     }
     else if (scanline_ == 227)
     {
-        dispstat_.flags_.vBlank_ = 0;
+        dispstat_.vBlank = 0;
     }
 
-    if (scanline_ == dispstat_.flags_.vCountSetting_)
+    if (scanline_ == dispstat_.vCountSetting)
     {
-        dispstat_.flags_.vCounter_ = 1;
+        dispstat_.vCounter = 1;
 
-        if (dispstat_.flags_.vCounterIrqEnable_)
+        if (dispstat_.vCounterIrqEnable)
         {
             SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
         }
     }
     else
     {
-        dispstat_.flags_.vCounter_ = 0;
+        dispstat_.vCounter = 0;
     }
 
     SetNonObjWindowEnabled();
@@ -534,7 +534,7 @@ void PPU::RenderMode0Scanline()
 {
     for (uint16_t i = 0; i < 4; ++i)
     {
-        if (dispcnt_.halfword_ & (0x100 << i))
+        if (dispcnt_.value & (0x100 << i))
         {
             BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
             uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
@@ -548,7 +548,7 @@ void PPU::RenderMode1Scanline()
 {
     for (uint16_t i = 0; i < 2; ++i)
     {
-        if (dispcnt_.halfword_ & (0x100 << i))
+        if (dispcnt_.value & (0x100 << i))
         {
             BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x08 + (2 * i)]);
             uint16_t xOffset = *reinterpret_cast<uint16_t*>(&lcdRegisters_[0x10 + (4 * i)]) & 0x01FF;
@@ -557,7 +557,7 @@ void PPU::RenderMode1Scanline()
         }
     }
 
-    if (dispcnt_.flags_.screenDisplayBg2_)
+    if (dispcnt_.screenDisplayBg2)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -568,7 +568,7 @@ void PPU::RenderMode1Scanline()
 
 void PPU::RenderMode2Scanline()
 {
-    if (dispcnt_.flags_.screenDisplayBg2_)
+    if (dispcnt_.screenDisplayBg2)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0C]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x20]);
@@ -576,7 +576,7 @@ void PPU::RenderMode2Scanline()
         RenderAffineTiledBackgroundScanline(2, bgControl, bg2RefX_, bg2RefY_, pa, pc);
     }
 
-    if (dispcnt_.flags_.screenDisplayBg3_)
+    if (dispcnt_.screenDisplayBg3)
     {
         BGCNT const& bgControl = *reinterpret_cast<BGCNT*>(&lcdRegisters_[0x0E]);
         int16_t pa = *reinterpret_cast<int16_t*>(&lcdRegisters_[0x30]);
@@ -591,13 +591,13 @@ void PPU::RenderMode3Scanline()
     size_t vramIndex = scanline_ * 480;
     uint16_t const* vramPtr = reinterpret_cast<uint16_t const*>(&VRAM_.at(vramIndex));
 
-    if (dispcnt_.flags_.screenDisplayBg2_)
+    if (dispcnt_.screenDisplayBg2)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
             if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[2])
             {
-                frameBuffer_.PushPixel({PixelSrc::BG2, *vramPtr, bgControl.flags_.bgPriority_, false}, dot);
+                frameBuffer_.PushPixel({PixelSrc::BG2, *vramPtr, bgControl.bgPriority, false}, dot);
             }
 
             ++vramPtr;
@@ -611,12 +611,12 @@ void PPU::RenderMode4Scanline()
     size_t vramIndex = scanline_ * 240;
     uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(PRAM_.data());
 
-    if (dispcnt_.flags_.displayFrameSelect_)
+    if (dispcnt_.displayFrameSelect)
     {
         vramIndex += 0xA000;
     }
 
-    if (dispcnt_.flags_.screenDisplayBg2_)
+    if (dispcnt_.screenDisplayBg2)
     {
         for (int dot = 0; dot < 240; ++dot)
         {
@@ -633,7 +633,7 @@ void PPU::RenderMode4Scanline()
 
             if (frameBuffer_.GetWindowSettings(dot).bgEnabled_[2])
             {
-                frameBuffer_.PushPixel({PixelSrc::BG2, bgr555, bgControl.flags_.bgPriority_, transparent}, dot);
+                frameBuffer_.PushPixel({PixelSrc::BG2, bgr555, bgControl.bgPriority, transparent}, dot);
             }
         }
     }
@@ -641,13 +641,13 @@ void PPU::RenderMode4Scanline()
 
 void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control, int xOffset, int yOffset)
 {
-    int const width = (control.flags_.screenSize_ & 0b01) ? 512 : 256;
-    int const height = (control.flags_.screenSize_ & 0b10) ? 512 : 256;
+    int const width = (control.screenSize & 0b01) ? 512 : 256;
+    int const height = (control.screenSize & 0b10) ? 512 : 256;
 
     int const x = xOffset % width;
     int const y = (scanline_ + yOffset) % height;
 
-    if (control.flags_.colorMode_)
+    if (control.colorMode)
     {
         RenderRegular8bppBackground(bgIndex, control, x, y, width);
     }
@@ -660,7 +660,7 @@ void PPU::RenderRegularTiledBackgroundScanline(int bgIndex, BGCNT const& control
 void PPU::RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width)
 {
     ScreenBlock const* screenBlockPtr =
-        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE]);
+        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.screenBaseBlock * SCREENBLOCK_SIZE]);
 
     if (y > 255)
     {
@@ -673,13 +673,13 @@ void PPU::RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, 
     }
 
     int const mapY = (y / 8) % 32;
-    TileData4bpp const* baseTilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
+    TileData4bpp const* baseTilePtr = reinterpret_cast<TileData4bpp const*>(&VRAM_[control.charBaseBlock * CHARBLOCK_SIZE]);
     ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
     uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[0]);
 
     // Control data
     PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
-    int const priority = control.flags_.bgPriority_;
+    int const priority = control.bgPriority;
 
     // Screen block entry
     TileData4bpp const* tileData = nullptr;
@@ -732,7 +732,7 @@ void PPU::RenderRegular4bppBackground(int bgIndex, BGCNT const& control, int x, 
 void PPU::RenderRegular8bppBackground(int bgIndex, BGCNT const& control, int x, int y, int width)
 {
     ScreenBlock const* screenBlockPtr =
-        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE]);
+        reinterpret_cast<ScreenBlock const*>(&VRAM_[control.screenBaseBlock * SCREENBLOCK_SIZE]);
 
     if (y > 255)
     {
@@ -745,14 +745,14 @@ void PPU::RenderRegular8bppBackground(int bgIndex, BGCNT const& control, int x, 
     }
 
     int const mapY = (y / 8) % 32;
-    size_t const charBlockAddr = control.flags_.charBaseBlock_ * CHARBLOCK_SIZE;
+    size_t const charBlockAddr = control.charBaseBlock * CHARBLOCK_SIZE;
     TileData8bpp const* baseTilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[charBlockAddr]);
     ScreenBlockEntry const* screenBlockEntryPtr = nullptr;
     uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(&PRAM_[0]);
 
     // Control data
     PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
-    int const priority = control.flags_.bgPriority_;
+    int const priority = control.bgPriority;
 
     // Screen block entry
     TileData8bpp const* tileData = nullptr;
@@ -805,7 +805,7 @@ void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control,
     // Map size
     int mapSizeInTiles;
 
-    switch (control.flags_.screenSize_)
+    switch (control.screenSize)
     {
         case 0:
             mapSizeInTiles = 16;
@@ -828,13 +828,13 @@ void PPU::RenderAffineTiledBackgroundScanline(int bgIndex, BGCNT const& control,
     int32_t affineY = dy;
 
     // Control fields
-    bool const wrapOnOverflow = control.flags_.overflowMode_;
-    int const priority = control.flags_.bgPriority_;
+    bool const wrapOnOverflow = control.overflowMode;
+    int const priority = control.bgPriority;
     PixelSrc const src = static_cast<PixelSrc>(bgIndex + 1);
 
     // VRAM pointers
-    uint8_t const* screenBlockPtr = &VRAM_[control.flags_.screenBaseBlock_ * SCREENBLOCK_SIZE];
-    TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.flags_.charBaseBlock_ * CHARBLOCK_SIZE]);
+    uint8_t const* screenBlockPtr = &VRAM_[control.screenBaseBlock * SCREENBLOCK_SIZE];
+    TileData8bpp const* tilePtr = reinterpret_cast<TileData8bpp const*>(&VRAM_[control.charBaseBlock * CHARBLOCK_SIZE]);
     uint16_t const* palettePtr = reinterpret_cast<uint16_t const*>(PRAM_.data());
 
     for (int dot = 0; dot < LCD_WIDTH; ++dot)
@@ -988,7 +988,7 @@ void PPU::EvaluateOAM(WindowSettings* windowSettingsPtr)
             continue;
         }
 
-        if (dispcnt_.flags_.objCharacterVramMapping_)
+        if (dispcnt_.objCharacterVramMapping)
         {
             // One dimensional mapping
             if (oamEntry.attribute0_.colorMode_)
