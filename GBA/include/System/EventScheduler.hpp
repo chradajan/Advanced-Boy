@@ -29,11 +29,8 @@ enum class EventType
     Timer2Overflow,
     Timer3Overflow,
 
-    // DMA Channels
-    DMA0,
-    DMA1,
-    DMA2,
-    DMA3,
+    // DMA
+    DmaComplete,
 
     // Number of unique events that can be scheduled. Do not schedule this, and do not place events below it.
     COUNT

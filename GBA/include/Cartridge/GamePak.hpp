@@ -123,17 +123,19 @@ public:
     /// @brief Set the EEPROM index to be read from on the next EEPROM read.
     /// @param index Index to read from.
     /// @param indexLength Number of bits (6 or 14) in index.
-    void SetEepromIndex(size_t index, int indexLength);
+    /// @return Total number of cycles taken to write the index.
+    int SetEepromIndex(size_t index, int indexLength);
 
     /// @brief Get the double word at previously set EEPROM index.
-    /// @return Double word at EEPROM index.
-    uint64_t GetEepromDoubleWord();
+    /// @return Double word at EEPROM index and number of cycles taken to read it.
+    std::pair<uint64_t, int> ReadFromEeprom();
 
     /// @brief Write a double word to EEPROM.
     /// @param index Index to write to.
     /// @param indexLength Number of bits (6 or 14) in index.
     /// @param doubleWord Double word to write to EEPROM.
-    void WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord);
+    /// @return Total number of cycles taken to write to EEPROM.
+    int WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord);
 
 private:
     /// @brief Read an address in GamePak SRAM.

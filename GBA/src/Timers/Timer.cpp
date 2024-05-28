@@ -9,7 +9,7 @@
 Timer::Timer(int index, EventType overflowEvent, InterruptType interruptType) :
     timerRegisters_(),
     timerReload_(*reinterpret_cast<uint16_t*>(&timerRegisters_[0])),
-    timerControl_(*reinterpret_cast<TIMXCNT*>(&timerRegisters_[2])),
+    timerControl_(*reinterpret_cast<TIMCNT*>(&timerRegisters_[2])),
     timerIndex_(index),
     overflowEvent_(overflowEvent),
     interruptType_(interruptType)
@@ -63,7 +63,7 @@ void Timer::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
         UpdateInternalCounter(GetDivider(timerControl_.prescalerSelection));
     }
 
-    TIMXCNT prevControl = timerControl_;
+    TIMCNT prevControl = timerControl_;
 
     size_t index = addr & 0x03;
     uint8_t* bytePtr = &timerRegisters_.at(index);

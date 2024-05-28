@@ -67,6 +67,10 @@ constexpr uint32_t SERIAL_COMMUNICATION_2_IO_ADDR_MAX = 0x0400'015B;
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MIN = 0x0400'0200;
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0803;
 
+// Audio
+constexpr uint32_t FIFO_A_ADDR = 0x0400'00A0;
+constexpr uint32_t FIFO_B_ADDR = 0x0400'00A4;
+
 // Interrupt, Waitstate, and Power-Down Control
 
 constexpr uint32_t INT_WAITCNT_ADDR_MIN = 0x0400'0200;

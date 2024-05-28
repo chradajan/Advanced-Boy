@@ -11,9 +11,10 @@
 #include <utility>
 #include <Audio/SoundController.hpp>
 #include <Cartridge/GamePak.hpp>
+#include <DMA/DmaChannel.hpp>
+#include <DMA/DmaManager.hpp>
 #include <Gamepad/GamepadManager.hpp>
 #include <Graphics/PPU.hpp>
-#include <System/DmaChannel.hpp>
 #include <Timers/TimerManager.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
@@ -108,27 +109,6 @@ private:
     /// @param extraCycles Number of cycles that passed since the overflow happened.
     void TimerOverflow(int timer, int extraCycles);
 
-    /// @brief Callback function to execute Dma Channel 0 transfer.
-    void DMA0(int) { ExecuteDMA(0); }
-
-    /// @brief Callback function to execute Dma Channel 1 transfer.
-    void DMA1(int) { ExecuteDMA(1); }
-
-    /// @brief Callback function to execute Dma Channel 2 transfer.
-    void DMA2(int) { ExecuteDMA(2); }
-
-    /// @brief Callback function to execute Dma Channel 3 transfer.
-    void DMA3(int) { ExecuteDMA(3); }
-
-    /// @brief Run the currently active DMA channel, and prepare to run the next highest priority channel if one is waiting.
-    /// @param dmaChannelIndex DMA transfer channel to execute.
-    void ExecuteDMA(int dmaChannelIndex);
-
-    /// @brief Schedule a DMA transfer, partially run any channels that are being interrupted by a higher priority channel, and
-    ///        update the scheduler to update the timing of any DMA events currently in the queue.
-    /// @param enabledDmaChannels Array of which channels are enabled for a given transfer mode.
-    void ScheduleDMA(std::array<bool, 4>& enabledDmaChannels);
-
     // Area specific R/W handling
 
     //                Bus   Read      Write     Cycles
@@ -150,9 +130,6 @@ private:
     std::pair<uint32_t, int> ReadIoReg(uint32_t addr, AccessSize alignment);
     int WriteIoReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    std::pair<uint32_t, bool> ReadDmaReg(uint32_t addr, AccessSize alignment);
-    void WriteDmaReg(uint32_t addr, uint32_t value, AccessSize alignment);
-
     std::pair<uint32_t, int> ReadOpenBus(uint32_t addr, AccessSize alignment);
 
     // State
@@ -162,24 +139,16 @@ private:
     // Components
     Audio::SoundController apu_;
     CPU::ARM7TDMI cpu_;
+    DmaManager dmaMgr_;
     GamepadManager gamepad_;
     Graphics::PPU ppu_;
-    TimerManager timerManager_;
+    TimerManager timerMgr_;
     std::unique_ptr<Cartridge::GamePak> gamePak_;
 
-    // DMA channels
-    std::array<DmaChannel, 4> dmaChannels_;
-    std::array<bool, 4> dmaImmediately_;
-    std::array<bool, 4> dmaOnVBlank_;
-    std::array<bool, 4> dmaOnHBlank_;
-    std::array<bool, 4> dmaOnReplenishA_;
-    std::array<bool, 4> dmaOnReplenishB_;
-    std::optional<int> activeDmaChannel_;
-
     // Memory
-    std::array<uint8_t,  16 * KiB> BIOS_;           // 00000000-00003FFF    BIOS - System ROM
-    std::array<uint8_t, 256 * KiB> onBoardWRAM_;    // 02000000-0203FFFF    WRAM - On-board Work RAM
-    std::array<uint8_t,  32 * KiB> onChipWRAM_;     // 03000000-03007FFF    WRAM - On-chip Work RAM
+    std::array<uint8_t,  16 * KiB> BIOS_;
+    std::array<uint8_t, 256 * KiB> onBoardWRAM_;
+    std::array<uint8_t,  32 * KiB> onChipWRAM_;
 
     std::array<uint8_t, 0x804> placeholderIoRegisters_;
 
@@ -187,6 +156,7 @@ private:
     uint32_t lastBiosFetch_;
     uint32_t lastReadValue_;
 
-    // Friends
+    // DMA friends
     friend class DmaChannel;
+    friend class DmaManager;
 };

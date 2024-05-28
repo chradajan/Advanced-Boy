@@ -21,6 +21,10 @@ enum class ReadStatus
 constexpr uint32_t KiB = 1024;
 constexpr uint32_t MiB = KiB * KiB;
 
+// Useful 64-bit constants
+constexpr uint64_t MSB_64 = 0x8000'0000'0000'0000;
+constexpr uint64_t MAX_U64 = std::numeric_limits<uint64_t>::max();
+
 // Useful 32-bit constants
 constexpr uint32_t MSB_32 = 0b1000'0000'0000'0000'0000'0000'0000'0000;
 constexpr uint32_t MAX_U32 = std::numeric_limits<uint32_t>::max();

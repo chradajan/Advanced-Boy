@@ -68,7 +68,7 @@ private:
     /// @return CPU clock divider.
     uint16_t GetDivider(uint16_t prescalerSelection) const;
 
-    union TIMXCNT
+    union TIMCNT
     {
         struct
         {
@@ -87,7 +87,7 @@ private:
     std::array<uint8_t, 4> timerRegisters_;
     uint16_t& timerReload_;
     uint16_t internalTimer_;
-    TIMXCNT& timerControl_;
+    TIMCNT& timerControl_;
 
     // Timer info
     int const timerIndex_;

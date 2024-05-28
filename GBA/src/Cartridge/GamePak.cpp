@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 #include <System/MemoryMap.hpp>
+#include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace
@@ -223,12 +224,16 @@ bool GamePak::FlashAccess(uint32_t addr) const
     return (backupType_ == BackupType::FLASH) && (SRAM_FLASH_ADDR_MIN <= addr) && (addr <= SRAM_FLASH_ADDR_MAX);
 }
 
-void GamePak::SetEepromIndex(size_t index, int indexLength)
+int GamePak::SetEepromIndex(size_t index, int indexLength)
 {
     if (backupType_ != BackupType::EEPROM)
     {
-        return;
+        return 0;
     }
+
+    int cycles = indexLength + 3;
+    cycles += SystemController.WaitStates(WaitState::TWO, false, AccessSize::HALFWORD) +
+              (SystemController.WaitStates(WaitState::TWO, true, AccessSize::HALFWORD) * (indexLength + 2));
 
     if (backupMedia_.empty())
     {
@@ -243,25 +248,34 @@ void GamePak::SetEepromIndex(size_t index, int indexLength)
     }
 
     eepromIndex_ = index & 0x03FF;
+    return cycles;
 }
 
-uint64_t GamePak::GetEepromDoubleWord()
+std::pair<uint64_t, int> GamePak::ReadFromEeprom()
 {
     if ((backupType_ != BackupType::EEPROM) || backupMedia_.empty() || ((eepromIndex_ * 8) >= backupMedia_.size()))
     {
-        return 0xFFFF'FFFF'FFFF'FFFF;
+        return {0xFFFF'FFFF'FFFF'FFFF, 0};
     }
 
+    int cycles = 68;
+    cycles += SystemController.WaitStates(WaitState::TWO, false, AccessSize::HALFWORD) +
+              (SystemController.WaitStates(WaitState::TWO, true, AccessSize::HALFWORD) * 67);
+
     uint64_t* eepromPtr = reinterpret_cast<uint64_t*>(backupMedia_.data());
-    return eepromPtr[eepromIndex_];
+    return {eepromPtr[eepromIndex_], cycles};
 }
 
-void GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
+int GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
 {
     if (backupType_ != BackupType::EEPROM)
     {
-        return;
+        return 0;
     }
+
+    int cycles = 67 + indexLength;
+    cycles += SystemController.WaitStates(WaitState::TWO, false, AccessSize::HALFWORD) +
+              (SystemController.WaitStates(WaitState::TWO, true, AccessSize::HALFWORD) * (indexLength + 66));
 
     if (backupMedia_.empty())
     {
@@ -282,6 +296,8 @@ void GamePak::WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord)
         uint64_t* eepromPtr = reinterpret_cast<uint64_t*>(backupMedia_.data());
         eepromPtr[index] = doubleWord;
     }
+
+    return cycles;
 }
 
 uint32_t GamePak::ReadSRAM(uint32_t addr, AccessSize alignment)
