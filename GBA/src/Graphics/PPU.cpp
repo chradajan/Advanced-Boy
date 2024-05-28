@@ -348,9 +348,9 @@ void PPU::HBlank(int extraCycles)
             }
         }
 
-        BLDCNT const& bldcnt = *reinterpret_cast<BLDCNT const*>(&lcdRegisters_[0x50]);
-        BLDALPHA const& bldalpha = *reinterpret_cast<BLDALPHA const*>(&lcdRegisters_[0x52]);
-        BLDY const& bldy = *reinterpret_cast<BLDY const*>(&lcdRegisters_[0x54]);
+        BLDCNT const& bldcnt = *reinterpret_cast<BLDCNT*>(&lcdRegisters_[0x50]);
+        BLDALPHA const& bldalpha = *reinterpret_cast<BLDALPHA*>(&lcdRegisters_[0x52]);
+        BLDY const& bldy = *reinterpret_cast<BLDY*>(&lcdRegisters_[0x54]);
 
         frameBuffer_.RenderScanline(backdrop, forceBlank, bldcnt, bldalpha, bldy);
         IncrementAffineBackgroundReferencePoints();
@@ -386,20 +386,7 @@ void PPU::VBlank(int extraCycles)
         dispstat_.vBlank = 0;
     }
 
-    if (scanline_ == dispstat_.vCountSetting)
-    {
-        dispstat_.vCounter = 1;
-
-        if (dispstat_.vCounterIrqEnable)
-        {
-            SystemController.RequestInterrupt(InterruptType::LCD_VCOUNTER_MATCH);
-        }
-    }
-    else
-    {
-        dispstat_.vCounter = 0;
-    }
-
+    CheckVcount();
     SetNonObjWindowEnabled();
 
     // Event Scheduling
@@ -417,9 +404,20 @@ void PPU::VDraw(int extraCycles)
     }
 
     vcount_.currentScanline = scanline_;
+    dispstat_.vBlank = 0;
     dispstat_.hBlank = 0;
 
-    if (scanline_ == dispstat_.vCountSetting)
+    CheckVcount();
+    SetNonObjWindowEnabled();
+
+    // Event Scheduling
+    int cyclesUntilHBlank = (960 - extraCycles) + 46;
+    Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
+}
+
+void PPU::CheckVcount()
+{
+    if (vcount_.currentScanline == dispstat_.vCountSetting)
     {
         dispstat_.vCounter = 1;
 
@@ -432,18 +430,14 @@ void PPU::VDraw(int extraCycles)
     {
         dispstat_.vCounter = 0;
     }
-
-    SetNonObjWindowEnabled();
-
-    // Event Scheduling
-    int cyclesUntilHBlank = (960 - extraCycles) + 46;
-    Scheduler.ScheduleEvent(EventType::HBlank, cyclesUntilHBlank);
 }
 
 void PPU::WriteDispstatVcount(uint32_t addr, uint32_t value, AccessSize alignment)
 {
     if (addr < 0x0400'0006)  // Write to DISPSTAT and possibly VCOUNT. Ignore writes to any portion of VCOUNT.
     {
+        DISPSTAT prevDispstat = dispstat_;
+
         if (alignment != AccessSize::BYTE)  // Completely write DISPSTAT.
         {
             uint16_t writableMask = 0xFFB8;
@@ -464,6 +458,11 @@ void PPU::WriteDispstatVcount(uint32_t addr, uint32_t value, AccessSize alignmen
             dispstat_.value &= ~writableMask;
             value = ((value & MAX_U8) << 8) & writableMask;
             dispstat_.value |= value;
+        }
+
+        if (prevDispstat.vCountSetting != dispstat_.vCountSetting)
+        {
+            CheckVcount();
         }
     }
 }

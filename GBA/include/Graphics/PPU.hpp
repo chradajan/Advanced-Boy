@@ -73,6 +73,9 @@ private:
     /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
     void VDraw(int extraCycles);
 
+    /// @brief Check for VCount match and request an IRQ if enabled.
+    void CheckVcount();
+
     /// @brief Handle writes to mixed r/w registers DISPSTAT and VCOUNT.
     /// @param addr Address of register to write.
     /// @param value Value to write to register.
