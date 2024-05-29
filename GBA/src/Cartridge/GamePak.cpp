@@ -12,6 +12,7 @@
 #include <Cartridge/EEPROM.hpp>
 #include <Cartridge/Flash.hpp>
 #include <Cartridge/SRAM.hpp>
+#include <System/EventScheduler.hpp>
 #include <System/MemoryMap.hpp>
 #include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
@@ -87,8 +88,6 @@ GamePak::GamePak(fs::path const romPath) :
 
 void GamePak::Reset()
 {
-    lastAddrRead_ = 0;
-
     if (eeprom_ != nullptr)
     {
         eeprom_->Reset();
@@ -97,6 +96,10 @@ void GamePak::Reset()
     {
         flash_->Reset();
     }
+
+    nextSequentialAddr_ = MAX_U32;
+    lastReadCompletionCycle_ = 0;
+    prefetchedWaitStates_ = 0;
 }
 
 std::tuple<uint32_t, int, bool> GamePak::ReadGamePak(uint32_t addr, AccessSize alignment)
@@ -234,11 +237,46 @@ std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize align
         return {value, cycles, true};
     }
 
-    (void)region;
-    // TODO: Use region and prefetch to determine actual cycle count.
+    bool sequential = (addr == nextSequentialAddr_);
+    uint64_t currentCycle = Scheduler.TotalCycles();
+    int waitStates = SystemController.WaitStates(region, sequential, alignment);
+
+    if (SystemController.GamePakPrefetchEnabled())
+    {
+        if (sequential)
+        {
+            int maxPrefetchedWaitStates = 8 * SystemController.WaitStates(region, true, AccessSize::HALFWORD);
+            prefetchedWaitStates_ = std::min(prefetchedWaitStates_ + (currentCycle - lastReadCompletionCycle_),
+                                             static_cast<uint64_t>(maxPrefetchedWaitStates));
+
+            if (prefetchedWaitStates_ >= waitStates)
+            {
+                prefetchedWaitStates_ -= waitStates;
+                waitStates = 0;
+            }
+            else
+            {
+                waitStates -= prefetchedWaitStates_;
+                prefetchedWaitStates_ = 0;
+            }
+        }
+        else
+        {
+            prefetchedWaitStates_ = 0;
+        }
+    }
+    else
+    {
+        prefetchedWaitStates_ = 0;
+    }
 
     uint8_t* bytePtr = &ROM_[index];
     value = ReadPointer(bytePtr, alignment);
+
+    nextSequentialAddr_ = addr + static_cast<uint8_t>(alignment);
+    lastReadCompletionCycle_ = currentCycle + cycles;
+    cycles += waitStates;
+
     return {value, cycles, false};
 }
 

@@ -111,6 +111,8 @@ private:
     std::unique_ptr<SRAM> sram_;
 
     // Prefetch buffer and access timing info
-    uint32_t lastAddrRead_;
+    uint32_t nextSequentialAddr_;
+    uint64_t lastReadCompletionCycle_;
+    int prefetchedWaitStates_;
 };
 }
