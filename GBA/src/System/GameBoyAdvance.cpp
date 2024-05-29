@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <Audio/SoundController.hpp>
+#include <Audio/APU.hpp>
 #include <Cartridge/GamePak.hpp>
 #include <DMA/DmaChannel.hpp>
 #include <DMA/DmaManager.hpp>
@@ -73,7 +73,7 @@ void GameBoyAdvance::Reset()
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
-void GameBoyAdvance::FillAudioBuffer(int samples)
+void GameBoyAdvance::FillAudioBuffer(size_t samples)
 {
     if (!biosLoaded_ && !gamePakLoaded_)
     {
@@ -105,7 +105,7 @@ void GameBoyAdvance::FillAudioBuffer(int samples)
 
 void GameBoyAdvance::DrainAudioBuffer(float* buffer)
 {
-    apu_.DrainInternalBuffer(buffer);
+    apu_.DrainBuffer(buffer);
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)
@@ -305,7 +305,7 @@ void GameBoyAdvance::TimerOverflow(int timer, int extraCycles)
             return;
     }
 
-    auto [replenishA, replenishB] = apu_.UpdateDmaSound(timer);
+    auto [replenishA, replenishB] = apu_.TimerOverflow(timer);
 
     if (replenishA)
     {

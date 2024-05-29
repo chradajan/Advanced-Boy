@@ -34,7 +34,7 @@ bool InsertCartridge(fs::path romPath)
     return gamePakLoaded;
 }
 
-void FillAudioBuffer(int samples)
+void FillAudioBuffer(size_t samples)
 {
     if (!gba)
     {

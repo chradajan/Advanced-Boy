@@ -68,6 +68,27 @@ constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MIN = 0x0400'0200;
 constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0803;
 
 // Audio
+constexpr uint32_t CHANNEL_1_ADDR_MIN = 0x0400'0060;
+constexpr uint32_t CHANNEL_1_ADDR_MAX = 0x0400'0067;
+
+constexpr uint32_t CHANNEL_2_ADDR_MIN = 0x0400'0068;
+constexpr uint32_t CHANNEL_2_ADDR_MAX = 0x0400'006F;
+
+constexpr uint32_t CHANNEL_3_ADDR_MIN = 0x0400'0070;
+constexpr uint32_t CHANNEL_3_ADDR_MAX = 0x0400'0077;
+
+constexpr uint32_t CHANNEL_4_ADDR_MIN = 0x0400'0078;
+constexpr uint32_t CHANNEL_4_ADDR_MAX = 0x0400'007F;
+
+constexpr uint32_t APU_CONTROL_ADDR_MIN = 0x0400'0080;
+constexpr uint32_t APU_CONTROL_ADDR_MAX = 0x0400'008F;
+
+constexpr uint32_t WAVE_RAM_ADDR_MIN = 0x0400'0090;
+constexpr uint32_t WAVE_RAM_ADDR_MAX = 0x0400'009F;
+
+constexpr uint32_t DMA_AUDIO_ADDR_MIN = 0x0400'00A0;
+constexpr uint32_t DMA_AUDIO_ADDR_MAX = 0x0400'00A7;
+
 constexpr uint32_t FIFO_A_ADDR = 0x0400'00A0;
 constexpr uint32_t FIFO_B_ADDR = 0x0400'00A4;
 

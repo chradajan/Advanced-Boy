@@ -4,69 +4,55 @@
 
 namespace Audio
 {
-constexpr uint32_t FIFO_A_ADDR = 0x0400'00A0;
-constexpr uint32_t FIFO_B_ADDR = 0x0400'00A4;
-
-struct SOUNDCNT
+struct SOUNDCNT_L
 {
-    // |--------------|
-    // |  SOUNDCNT_L  |
-    // |--------------|
+    uint16_t psgRightMasterVolume : 3;
+    uint16_t : 1;
+    uint16_t psgLeftMasterVolume : 3;
+    uint16_t : 1;
+    uint16_t chan1EnableRight : 1;
+    uint16_t chan2EnableRight : 1;
+    uint16_t chan3EnableRight : 1;
+    uint16_t chan4EnableRight : 1;
+    uint16_t chan1EnableLeft : 1;
+    uint16_t chan2EnableLeft : 1;
+    uint16_t chan3EnableLeft : 1;
+    uint16_t chan4EnableLeft : 1;
+};
 
-    // NR50
-    uint64_t psgRightMasterVolume_ : 3;
-    uint64_t : 1;
-    uint64_t psgLeftMasterVolume_ : 3;
-    uint64_t : 1;
+struct SOUNDCNT_H
+{
+    uint16_t psgVolume : 2;
+    uint16_t dmaVolumeA : 1;
+    uint16_t dmaVolumeB : 1;
+    uint16_t :  4;
+    uint16_t dmaEnableRightA : 1;
+    uint16_t dmaEnableLeftA : 1;
+    uint16_t dmaTimerSelectA : 1;
+    uint16_t dmaResetA : 1;
+    uint16_t dmaEnableRightB : 1;
+    uint16_t dmaEnableLeftB : 1;
+    uint16_t dmaTimerSelectB : 1;
+    uint16_t dmaResetB : 1;
+};
 
-    // NR51
-    uint64_t chan1EnabledRight_ : 1;
-    uint64_t chan2EnabledRight_ : 1;
-    uint64_t chan3EnabledRight_ : 1;
-    uint64_t chan4EnabledRight_ : 1;
-    uint64_t chan1EnabledLeft_ : 1;
-    uint64_t chan2EnabledLeft_ : 1;
-    uint64_t chan3EnabledLeft_ : 1;
-    uint64_t chan4EnabledLeft_ : 1;
-
-    // |--------------|
-    // |  SOUNDCNT_H  |
-    // |--------------|
-
-    uint64_t psgVolume_ : 2;
-    uint64_t dmaSoundAVolume_ : 1;
-    uint64_t dmaSoundBVolume_ : 1;
-    uint64_t : 4;
-
-    uint64_t dmaSoundAEnabledRight_ : 1;
-    uint64_t dmaSoundAEnabledLeft_ : 1;
-    uint64_t dmaSoundATimerSelect_ : 1;
-    uint64_t dmaSoundAResetFifo_ : 1;
-
-    uint64_t dmaSoundBEnabledRight_ : 1;
-    uint64_t dmaSoundBEnabledLeft_ : 1;
-    uint64_t dmaSoundBTimerSelect_ : 1;
-    uint64_t dmaSoundBResetFifo_ : 1;
-
-    // |--------------|
-    // |  SOUNDCNT_X  |
-    // |--------------|
-
-    // NR52
-    uint64_t chan1On_ : 1;  // Read only
-    uint64_t chan2On_ : 1;  // Read only
-    uint64_t chan3On_ : 1;  // Read only
-    uint64_t chan4On_ : 1;  // Read only
-    uint64_t : 3;
-    uint64_t psgFifoMasterEnable_ : 1;
-    uint64_t : 24;
+struct SOUNDCNT_X
+{
+    uint32_t chan1On : 1;
+    uint32_t chan2On : 1;
+    uint32_t chan3On : 1;
+    uint32_t chan4On : 1;
+    uint32_t : 3;
+    uint32_t masterEnable : 1;
+    uint32_t : 24;
 };
 
 struct SOUNDBIAS
 {
-    uint16_t : 1;
-    uint16_t biasLevel_ : 9;
-    uint16_t : 4;
-    uint16_t samplingCycle_ : 2;
+    uint32_t : 1;
+    uint32_t biasLevel : 9;
+    uint32_t : 4;
+    uint32_t samplingCycle : 2;
+    uint32_t : 16;
 };
 }

@@ -305,7 +305,7 @@ int DmaChannel::ExecuteFifoXfer()
     for (int i = 0; i < 4; ++i)
     {
         auto [value, readCycles] = gba_.ReadMemory(internalSrcAddr_, alignment);
-        gba_.apu_.WriteToFifo(internalDestAddr_, value);
+        gba_.apu_.WriteReg(internalDestAddr_, value, AccessSize::WORD);
         xferCycles += readCycles + 1;
         internalSrcAddr_ += srcAddrDelta;
     }

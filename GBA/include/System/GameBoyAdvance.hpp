@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <Audio/SoundController.hpp>
+#include <Audio/APU.hpp>
 #include <Cartridge/GamePak.hpp>
 #include <DMA/DmaChannel.hpp>
 #include <DMA/DmaManager.hpp>
@@ -39,7 +39,7 @@ public:
 
     /// @brief Run the emulator until a specified number of audio samples are generated.
     /// @param samples Number of samples to generate.
-    void FillAudioBuffer(int samples);
+    void FillAudioBuffer(size_t samples);
 
     /// @brief Empty the internal audio buffer into another buffer.
     /// @param buffer Buffer to load samples into.
@@ -137,7 +137,7 @@ private:
     bool gamePakLoaded_;
 
     // Components
-    Audio::SoundController apu_;
+    Audio::APU apu_;
     CPU::ARM7TDMI cpu_;
     DmaManager dmaMgr_;
     GamepadManager gamepad_;

@@ -10,7 +10,7 @@ namespace
 {
 void AudioCallback(void*, uint8_t* stream, int bufferSize)
 {
-    int numSamples = (bufferSize / sizeof(float)) / 2;
+    size_t numSamples = (bufferSize / sizeof(float)) / 2;
     ::FillAudioBuffer(numSamples);
     ::DrainAudioBuffer(reinterpret_cast<float*>(stream));
 }
