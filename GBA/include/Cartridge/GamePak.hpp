@@ -1,68 +1,29 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <Cartridge/EEPROM.hpp>
+#include <Cartridge/Flash.hpp>
+#include <Cartridge/SRAM.hpp>
 #include <Utilities/MemoryUtilities.hpp>
 
 namespace fs = std::filesystem;
 
 namespace Cartridge
 {
-constexpr uint32_t EEPROM_ADDR_SMALL_CART_MIN = 0x0D00'0000;
-constexpr uint32_t EEPROM_ADDR_LARGE_CART_MIN = 0x0DFF'FF00;
-constexpr uint32_t EEPROM_ADDR_MAX = 0x0DFF'FFFF;
-
-constexpr uint32_t SRAM_FLASH_ADDR_MIN = 0x0E00'0000;
-constexpr uint32_t SRAM_FLASH_ADDR_MAX = 0x0FFF'FFFF;
-
 constexpr uint32_t MAX_ROM_SIZE = 32 * MiB;
-constexpr uint32_t ROM_ADDR_MAX = 0x0DFF'FFFF;
 
-enum class BackupType : uint8_t
+enum class BackupType
 {
-    None = 0,
+    None,
     SRAM,
     EEPROM,
     FLASH
-};
-
-enum class FlashCommand : uint8_t
-{
-    START_CMD_SEQ = 0xAA,
-    AWAIT_CMD = 0x55,
-
-    ENTER_CHIP_ID_MODE = 0x90,
-    EXIT_CHIP_ID_MODE = 0xF0,
-
-    PREPARE_TO_RCV_ERASE_CMD = 0x80,
-    ERASE_ENTIRE_CHIP = 0x10,
-    ERASE_4K_SECTOR = 0x30,
-
-    PREPARE_TO_WRITE_BYTE = 0xA0,
-
-    SET_MEMORY_BANK = 0xB0,
-
-    TERMINATE_WRITE_ERASE_CMD = 0xF0
-};
-
-enum class FlashState
-{
-    READY,
-    CMD_SEQ_STARTED,
-    AWAITING_CMD,
-
-    ERASE_SEQ_READY,
-    ERASE_SEQ_STARTED,
-    AWAITING_ERASE_CMD,
-
-    PREPARE_TO_WRITE,
-
-    AWAITING_MEMORY_BANK
 };
 
 class GamePak
@@ -71,15 +32,6 @@ public:
     /// @brief Initialize a Game Pak.
     /// @param romPath Path to GBA ROM file.
     GamePak(fs::path romPath);
-
-    /// @brief Destructor that handles creating save file upon unloading a Game Pak.
-    ~GamePak();
-
-    GamePak() = delete;
-    GamePak(GamePak const&) = delete;
-    GamePak(GamePak&&) = delete;
-    GamePak& operator=(GamePak const&) = delete;
-    GamePak& operator=(GamePak&&) = delete;
 
     /// @brief Reset the GamePak to its power-up state.
     void Reset();
@@ -133,34 +85,12 @@ public:
     /// @brief Write a double word to EEPROM.
     /// @param index Index to write to.
     /// @param indexLength Number of bits (6 or 14) in index.
-    /// @param doubleWord Double word to write to EEPROM.
+    /// @param value Double word to write to EEPROM.
     /// @return Total number of cycles taken to write to EEPROM.
-    int WriteToEeprom(size_t index, int indexLength, uint64_t doubleWord);
+    int WriteToEeprom(size_t index, int indexLength, uint64_t value);
 
 private:
-    /// @brief Read an address in GamePak SRAM.
-    /// @param addr Address to read.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value at specified address.
-    uint32_t ReadSRAM(uint32_t addr, AccessSize alignment);
-
-    /// @brief Write to an address in GamePak SRAM.
-    /// @param addr Address to write.
-    /// @param value Value to write.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    void WriteSRAM(uint32_t addr, uint32_t value, AccessSize alignment);
-
-    /// @brief Read from an address in GamePak flash.
-    /// @param addr Address to read.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    /// @return Value at specified address.
-    uint32_t ReadFlash(uint32_t addr, AccessSize alignment);
-
-    /// @brief Write to GamePak flash and interpret flash commands.
-    /// @param addr Address to write.
-    /// @param value Value to write or flash command.
-    /// @param alignment BYTE, HALFWORD, or WORD.
-    void WriteFlash(uint32_t addr, uint32_t value, AccessSize alignment);
+    std::tuple<uint32_t, int, bool> ReadROM(uint32_t addr, AccessSize alignment);
 
     /// @brief Read the ROM for a string indicating what type of backup media this cartridge contains.
     /// @return Backup type and if relevant, size of backup media in bytes.
@@ -176,12 +106,9 @@ private:
 
     // Backup Media
     BackupType backupType_;
-    std::vector<uint8_t> backupMedia_;
-    size_t eepromIndex_;
-    FlashState flashState_;
-    bool chipIdMode_;
-    bool eraseMode_;
-    size_t flashBank_;
+    std::unique_ptr<EEPROM> eeprom_;
+    std::unique_ptr<Flash> flash_;
+    std::unique_ptr<SRAM> sram_;
 
     // Prefetch buffer and access timing info
     uint32_t lastAddrRead_;

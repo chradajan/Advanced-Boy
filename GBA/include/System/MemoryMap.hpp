@@ -40,7 +40,7 @@ constexpr uint32_t OAM_ADDR_MIN = 0x0700'0000;
 constexpr uint32_t OAM_ADDR_MAX = 0x0700'03FF;
 
 constexpr uint32_t GAME_PAK_ADDR_MIN = 0x0800'0000;
-constexpr uint32_t GAME_PAK_ADDR_MAX = 0x0E00'FFFF;
+constexpr uint32_t GAME_PAK_ADDR_MAX = 0x0FFF'FFFF;
 
 // Sub I/O Ranges
 constexpr uint32_t LCD_IO_ADDR_MIN = 0x0400'0000;
@@ -70,6 +70,16 @@ constexpr uint32_t INT_WTST_PWRDWN_IO_ADDR_MAX = 0x0400'0803;
 // Audio
 constexpr uint32_t FIFO_A_ADDR = 0x0400'00A0;
 constexpr uint32_t FIFO_B_ADDR = 0x0400'00A4;
+
+// GamePak
+constexpr uint32_t SRAM_ADDR_MIN = 0x0E00'0000;
+constexpr uint32_t SRAM_ADDR_MAX = 0x0FFF'FFFF;
+
+constexpr uint32_t EEPROM_ADDR_SMALL_CART_MIN = 0x0D00'0000;
+constexpr uint32_t EEPROM_ADDR_LARGE_CART_MIN = 0x0DFF'FF00;
+constexpr uint32_t EEPROM_ADDR_MAX = 0x0DFF'FFFF;
+
+constexpr uint32_t ROM_ADDR_MAX = 0x0DFF'FFFF;
 
 // Interrupt, Waitstate, and Power-Down Control
 

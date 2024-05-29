@@ -74,3 +74,15 @@ int16_t SignExtend16(uint16_t input, size_t signBit);
 /// @param signBit Which bit is the current sign bit.
 /// @return 32 bit signed value.
 int32_t SignExtend32(uint32_t input, size_t signBit);
+
+/// @brief Rotate a byte read from an 8-bit bus without byte alignment.
+/// @param byte Value at address being read.
+/// @param alignment Alignment that was read with.
+/// @return Rotated value.
+uint32_t Read8BitBus(uint8_t byte, AccessSize alignment);
+
+/// @brief Rotate a value written to an address on an 8-bit bus.
+/// @param addr Address being written.
+/// @param value Value to write to address.
+/// @return Rotated value to actually write.
+uint8_t Write8BitBus(uint32_t addr, uint32_t value);

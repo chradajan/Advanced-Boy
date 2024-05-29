@@ -1,4 +1,5 @@
 #include <Utilities/MemoryUtilities.hpp>
+#include <bit>
 #include <cstdint>
 
 uint32_t AlignAddress(uint32_t addr, AccessSize alignment)
@@ -96,4 +97,25 @@ int32_t SignExtend32(uint32_t input, size_t signBit)
     }
 
     return static_cast<int32_t>(input);
+}
+
+uint32_t Read8BitBus(uint8_t byte, AccessSize alignment)
+{
+    uint32_t value = byte;
+
+    if (alignment == AccessSize::HALFWORD)
+    {
+        value *= 0x0101;
+    }
+    else if (alignment == AccessSize::WORD)
+    {
+        value *= 0x0101'0101;
+    }
+
+    return value;
+}
+
+uint8_t Write8BitBus(uint32_t addr, uint32_t value)
+{
+    return std::rotr(value, (addr & 0x03) * 8) & MAX_U8;
 }
