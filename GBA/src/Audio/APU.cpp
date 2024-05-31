@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <functional>
 #include <utility>
+#include <Audio/Channel1.hpp>
+#include <Audio/Channel2.hpp>
 #include <Audio/DmaAudio.hpp>
 #include <Audio/Registers.hpp>
 #include <System/EventScheduler.hpp>
@@ -27,6 +29,7 @@ void APU::Reset()
 {
     apuRegisters_.fill(0);
     channel1_.Reset();
+    channel2_.Reset();
     dmaFifos_.Reset();
     sampleBuffer_.Clear();
 
@@ -47,6 +50,8 @@ std::pair<uint32_t, bool> APU::ReadReg(uint32_t addr, AccessSize alignment)
             std::tie(value, openBus) = channel1_.ReadReg(addr, alignment);
             break;
         case CHANNEL_2_ADDR_MIN ... CHANNEL_2_ADDR_MAX:
+            std::tie(value, openBus) = channel2_.ReadReg(addr, alignment);
+            break;
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
         case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
         {
@@ -99,6 +104,16 @@ void APU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
             break;
         }
         case CHANNEL_2_ADDR_MIN ... CHANNEL_2_ADDR_MAX:
+        {
+            bool triggered = channel2_.WriteReg(addr, value, alignment);
+
+            if (triggered)
+            {
+                soundcnt_x_.chan2On = 1;
+            }
+
+            break;
+        }
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
         case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
         {
@@ -167,6 +182,11 @@ std::pair<uint32_t, bool> APU::ReadApuCntReg(uint32_t addr, AccessSize alignment
         soundcnt_x_.chan1On = 0;
     }
 
+    if (channel2_.Expired())
+    {
+        soundcnt_x_.chan2On = 0;
+    }
+
     size_t index = addr - SOUND_IO_ADDR_MIN;
     uint8_t* bytePtr = &apuRegisters_.at(index);
     uint32_t value = ReadPointer(bytePtr, alignment);
@@ -220,6 +240,19 @@ void APU::Sample(int extraCycles)
         if (soundcnt_l_.chan1EnableRight)
         {
             psgRightSample += channel1Sample;
+        }
+
+        // Channel 2
+        int16_t channel2Sample = channel2_.Sample();
+
+        if (soundcnt_l_.chan2EnableLeft)
+        {
+            psgLeftSample += channel2Sample;
+        }
+
+        if (soundcnt_l_.chan2EnableRight)
+        {
+            psgRightSample += channel2Sample;
         }
 
         // Adjust PSG volume and mix in

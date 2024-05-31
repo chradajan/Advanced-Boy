@@ -99,7 +99,7 @@ void SystemControl::CheckForInterrupt()
     {
         if (ime_ & 0x01)
         {
-            Scheduler.ScheduleEvent(EventType::IRQ, SCHEDULE_NOW);
+            Scheduler.ScheduleEvent(EventType::IRQ, 3);
         }
 
         halted_ = false;

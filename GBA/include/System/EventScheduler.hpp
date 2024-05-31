@@ -18,6 +18,10 @@ enum class EventType
     Channel1LengthTimer,
     Channel1FrequencySweep,
 
+    Channel2Clock,
+    Channel2Envelope,
+    Channel2LengthTimer,
+
     SampleAPU,
 
     // Interrupts

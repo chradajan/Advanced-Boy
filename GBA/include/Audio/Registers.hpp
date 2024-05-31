@@ -4,6 +4,7 @@
 
 namespace Audio
 {
+// Channel 1
 struct SOUND1CNT_L
 {
     uint16_t step : 3;
@@ -29,6 +30,11 @@ struct SOUND1CNT_X
     uint16_t trigger : 1;
 };
 
+// Channel 2
+struct SOUND2CNT_L : public SOUND1CNT_H {};
+struct SOUND2CNT_H : public SOUND1CNT_X {};
+
+// Control
 struct SOUNDCNT_L
 {
     uint16_t psgRightMasterVolume : 3;
