@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 #include <utility>
+#include <Audio/Channel1.hpp>
+#include <Audio/Constants.hpp>
 #include <Audio/DmaAudio.hpp>
 #include <Audio/Registers.hpp>
 #include <CPU/CpuTypes.hpp>
@@ -11,14 +13,6 @@
 
 namespace Audio
 {
-constexpr size_t SAMPLE_BUFFER_SIZE = 2048;
-constexpr int SAMPLING_FREQUENCY_HZ = 44100;
-constexpr float SAMPLING_PERIOD = 1.0 / SAMPLING_FREQUENCY_HZ;
-constexpr int CPU_CYCLES_PER_SAMPLE = (CPU::CPU_FREQUENCY_HZ / SAMPLING_FREQUENCY_HZ);
-
-constexpr int16_t MIN_OUTPUT_LEVEL = 0;
-constexpr int16_t MAX_OUTPUT_LEVEL = 1023;
-
 class APU
 {
 public:
@@ -78,6 +72,7 @@ private:
     SOUNDBIAS& soundbias_;
 
     // Channels
+    Channel1 channel1_;
     DmaAudio dmaFifos_;
 
     // Internal sample buffer

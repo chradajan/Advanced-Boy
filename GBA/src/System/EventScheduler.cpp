@@ -95,8 +95,13 @@ void EventScheduler::RegisterEvent(EventType eventType, std::function<void(int)>
     registeredEvents_.insert({eventType, {callback, fireMidInstruction}});
 }
 
-void EventScheduler::ScheduleEvent(EventType eventType, uint64_t cycles)
+void EventScheduler::ScheduleEvent(EventType eventType, int cycles)
 {
+    if (cycles < 0)
+    {
+        throw std::runtime_error("Bad event scheduling");
+    }
+
     uint64_t cycleToExecute = cycles + totalCycles_;
     queue_.push_back({eventType, totalCycles_, cycleToExecute});
     std::make_heap(queue_.begin(), queue_.end(), std::greater<>{});

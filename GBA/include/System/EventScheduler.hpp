@@ -12,16 +12,16 @@ constexpr int SCHEDULE_NOW = 0;
 ///        the same time (lower value = higher priority).
 enum class EventType
 {
-    // Audio
+    // APU
+    Channel1Clock,
+    Channel1Envelope,
+    Channel1LengthTimer,
+    Channel1FrequencySweep,
+
     SampleAPU,
 
     // Interrupts
     IRQ,
-
-    // PPU
-    HBlank,
-    VBlank,
-    VDraw,
 
     // Timers
     Timer0Overflow,
@@ -31,6 +31,11 @@ enum class EventType
 
     // DMA
     DmaComplete,
+
+    // PPU
+    HBlank,
+    VBlank,
+    VDraw,
 
     // Number of unique events that can be scheduled. Do not schedule this, and do not place events below it.
     COUNT
@@ -84,7 +89,7 @@ public:
     /// @brief Schedule an event to be executed in some number of cycles from now.
     /// @param event Type of event that should be scheduled.
     /// @param cycles Number of cycles from now that this event should fire.
-    void ScheduleEvent(EventType eventType, uint64_t cycles);
+    void ScheduleEvent(EventType eventType, int cycles);
 
     /// @brief Remove a schedule event from the event queue.
     /// @param eventType Type of event to unschedule.

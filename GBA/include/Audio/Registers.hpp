@@ -4,6 +4,31 @@
 
 namespace Audio
 {
+struct SOUND1CNT_L
+{
+    uint16_t step : 3;
+    uint16_t direction : 1;
+    uint16_t pace : 3;
+    uint16_t : 9;
+};
+
+struct SOUND1CNT_H
+{
+    uint16_t initialLengthTimer : 6;
+    uint16_t waveDuty : 2;
+    uint16_t pace : 3;
+    uint16_t direction : 1;
+    uint16_t initialVolume : 4;
+};
+
+struct SOUND1CNT_X
+{
+    uint16_t period : 11;
+    uint16_t : 3;
+    uint16_t lengthEnable : 1;
+    uint16_t trigger : 1;
+};
+
 struct SOUNDCNT_L
 {
     uint16_t psgRightMasterVolume : 3;
@@ -38,21 +63,20 @@ struct SOUNDCNT_H
 
 struct SOUNDCNT_X
 {
-    uint32_t chan1On : 1;
-    uint32_t chan2On : 1;
-    uint32_t chan3On : 1;
-    uint32_t chan4On : 1;
-    uint32_t : 3;
-    uint32_t masterEnable : 1;
-    uint32_t : 24;
+    uint16_t chan1On : 1;
+    uint16_t chan2On : 1;
+    uint16_t chan3On : 1;
+    uint16_t chan4On : 1;
+    uint16_t : 3;
+    uint16_t masterEnable : 1;
+    uint16_t : 8;
 };
 
 struct SOUNDBIAS
 {
-    uint32_t : 1;
-    uint32_t biasLevel : 9;
-    uint32_t : 4;
-    uint32_t samplingCycle : 2;
-    uint32_t : 16;
+    uint16_t : 1;
+    uint16_t biasLevel : 9;
+    uint16_t : 4;
+    uint16_t samplingCycle : 2;
 };
 }

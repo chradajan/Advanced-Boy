@@ -26,6 +26,7 @@ APU::APU() :
 void APU::Reset()
 {
     apuRegisters_.fill(0);
+    channel1_.Reset();
     dmaFifos_.Reset();
     sampleBuffer_.Clear();
 
@@ -43,6 +44,8 @@ std::pair<uint32_t, bool> APU::ReadReg(uint32_t addr, AccessSize alignment)
     switch (addr)
     {
         case CHANNEL_1_ADDR_MIN ... CHANNEL_1_ADDR_MAX:
+            std::tie(value, openBus) = channel1_.ReadReg(addr, alignment);
+            break;
         case CHANNEL_2_ADDR_MIN ... CHANNEL_2_ADDR_MAX:
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
         case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
@@ -85,6 +88,16 @@ void APU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
     switch (addr)
     {
         case CHANNEL_1_ADDR_MIN ... CHANNEL_1_ADDR_MAX:
+        {
+            bool triggered = channel1_.WriteReg(addr, value, alignment);
+
+            if (triggered)
+            {
+                soundcnt_x_.chan1On = 1;
+            }
+
+            break;
+        }
         case CHANNEL_2_ADDR_MIN ... CHANNEL_2_ADDR_MAX:
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
         case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
@@ -149,6 +162,11 @@ std::pair<uint32_t, bool> APU::ReadApuCntReg(uint32_t addr, AccessSize alignment
         return {0, true};
     }
 
+    if (channel1_.Expired())
+    {
+        soundcnt_x_.chan1On = 0;
+    }
+
     size_t index = addr - SOUND_IO_ADDR_MIN;
     uint8_t* bytePtr = &apuRegisters_.at(index);
     uint32_t value = ReadPointer(bytePtr, alignment);
@@ -187,6 +205,41 @@ void APU::Sample(int extraCycles)
 
     if (soundcnt_x_.masterEnable)
     {
+        // PSG channel samples
+        int16_t psgLeftSample = 0;
+        int16_t psgRightSample = 0;
+
+        // Channel 1
+        int16_t channel1Sample = channel1_.Sample();
+
+        if (soundcnt_l_.chan1EnableLeft)
+        {
+            psgLeftSample += channel1Sample;
+        }
+
+        if (soundcnt_l_.chan1EnableRight)
+        {
+            psgRightSample += channel1Sample;
+        }
+
+        // Adjust PSG volume and mix in
+        int psgMultiplier = 8;
+
+        if (soundcnt_h_.psgVolume == 0)
+        {
+            psgMultiplier = 2;
+        }
+        else if (soundcnt_h_.psgVolume == 1)
+        {
+            psgMultiplier = 4;
+        }
+
+        psgLeftSample *= psgMultiplier;
+        psgRightSample *= psgMultiplier;
+
+        leftSample += psgLeftSample;
+        rightSample += psgRightSample;
+
         // DMA Audio samples
         auto [fifoASample, fifoBSample] = dmaFifos_.Sample();
 
