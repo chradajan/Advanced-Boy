@@ -70,7 +70,7 @@ bool Channel1::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
     return triggered;
 }
 
-int16_t Channel1::Sample()
+uint8_t Channel1::Sample()
 {
     if (lengthTimerExpired_ || frequencyOverflow_)
     {

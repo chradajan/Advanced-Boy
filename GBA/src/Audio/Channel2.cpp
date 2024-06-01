@@ -68,7 +68,7 @@ bool Channel2::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
     return triggered;
 }
 
-int16_t Channel2::Sample()
+uint8_t Channel2::Sample()
 {
     if (lengthTimerExpired_)
     {

@@ -22,6 +22,10 @@ enum class EventType
     Channel2Envelope,
     Channel2LengthTimer,
 
+    Channel4Clock,
+    Channel4Envelope,
+    Channel4LengthTimer,
+
     SampleAPU,
 
     // Interrupts

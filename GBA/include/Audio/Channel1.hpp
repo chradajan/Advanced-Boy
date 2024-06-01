@@ -32,7 +32,7 @@ public:
 
     /// @brief Sample Channel 1's current output.
     /// @return Channel 1 output value.
-    int16_t Sample();
+    uint8_t Sample();
 
     /// @brief Check if Channel 1 has turned off due to its length timer expiring.
     /// @return True if length timer has expired.

@@ -6,6 +6,7 @@
 #include <utility>
 #include <Audio/Channel1.hpp>
 #include <Audio/Channel2.hpp>
+#include <Audio/Channel4.hpp>
 #include <Audio/DmaAudio.hpp>
 #include <Audio/Registers.hpp>
 #include <System/EventScheduler.hpp>
@@ -30,6 +31,7 @@ void APU::Reset()
     apuRegisters_.fill(0);
     channel1_.Reset();
     channel2_.Reset();
+    channel4_.Reset();
     dmaFifos_.Reset();
     sampleBuffer_.Clear();
 
@@ -53,12 +55,14 @@ std::pair<uint32_t, bool> APU::ReadReg(uint32_t addr, AccessSize alignment)
             std::tie(value, openBus) = channel2_.ReadReg(addr, alignment);
             break;
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
-        case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
         {
             size_t index = addr - SOUND_IO_ADDR_MIN;
             bytePtr = &apuRegisters_.at(index);
             break;
         }
+        case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
+            std::tie(value, openBus) = channel4_.ReadReg(addr, alignment);
+            break;
         case APU_CONTROL_ADDR_MIN ... APU_CONTROL_ADDR_MAX:
             std::tie(value, openBus) = ReadApuCntReg(addr, alignment);
             break;
@@ -115,10 +119,20 @@ void APU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
             break;
         }
         case CHANNEL_3_ADDR_MIN ... CHANNEL_3_ADDR_MAX:
-        case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
         {
             size_t index = addr - SOUND_IO_ADDR_MIN;
             bytePtr = &apuRegisters_.at(index);
+            break;
+        }
+        case CHANNEL_4_ADDR_MIN ... CHANNEL_4_ADDR_MAX:
+        {
+            bool triggered = channel4_.WriteReg(addr, value, alignment);
+
+            if (triggered)
+            {
+                soundcnt_x_.chan4On = 1;
+            }
+
             break;
         }
         case APU_CONTROL_ADDR_MIN ... APU_CONTROL_ADDR_MAX:
@@ -185,6 +199,11 @@ std::pair<uint32_t, bool> APU::ReadApuCntReg(uint32_t addr, AccessSize alignment
     if (channel2_.Expired())
     {
         soundcnt_x_.chan2On = 0;
+    }
+
+    if (channel4_.Expired())
+    {
+        soundcnt_x_.chan4On = 0;
     }
 
     size_t index = addr - SOUND_IO_ADDR_MIN;
@@ -255,7 +274,23 @@ void APU::Sample(int extraCycles)
             psgRightSample += channel2Sample;
         }
 
+        // Channel 4
+        int16_t channel4Sample = channel4_.Sample();
+
+        if (soundcnt_l_.chan4EnableLeft)
+        {
+            psgLeftSample += channel4Sample;
+        }
+
+        if (soundcnt_l_.chan4EnableRight)
+        {
+            psgRightSample += channel4Sample;
+        }
+
         // Adjust PSG volume and mix in
+        psgLeftSample = (psgLeftSample * 2) - 0x0F;
+        psgRightSample = (psgRightSample * 2) - 0x0F;
+
         int psgMultiplier = 8;
 
         if (soundcnt_h_.psgVolume == 0)

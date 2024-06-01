@@ -34,6 +34,26 @@ struct SOUND1CNT_X
 struct SOUND2CNT_L : public SOUND1CNT_H {};
 struct SOUND2CNT_H : public SOUND1CNT_X {};
 
+// Channel 4
+struct SOUND4CNT_L
+{
+    uint16_t initialLengthTimer : 6;
+    uint16_t : 2;
+    uint16_t pace : 3;
+    uint16_t direction : 1;
+    uint16_t initialVolume : 4;
+};
+
+struct SOUND4CNT_H
+{
+    uint16_t dividingRatio : 3;
+    uint16_t countWidth : 1;
+    uint16_t shiftClockFrequency : 4;
+    uint16_t : 6;
+    uint16_t lengthEnable : 1;
+    uint16_t trigger : 1;
+};
+
 // Control
 struct SOUNDCNT_L
 {

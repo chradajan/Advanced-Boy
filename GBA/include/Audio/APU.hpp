@@ -5,6 +5,7 @@
 #include <utility>
 #include <Audio/Channel1.hpp>
 #include <Audio/Channel2.hpp>
+#include <Audio/Channel4.hpp>
 #include <Audio/Constants.hpp>
 #include <Audio/DmaAudio.hpp>
 #include <Audio/Registers.hpp>
@@ -75,6 +76,7 @@ private:
     // Channels
     Channel1 channel1_;
     Channel2 channel2_;
+    Channel4 channel4_;
     DmaAudio dmaFifos_;
 
     // Internal sample buffer
