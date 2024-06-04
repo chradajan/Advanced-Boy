@@ -38,61 +38,39 @@ EventScheduler::EventScheduler()
 void EventScheduler::Reset()
 {
     totalCycles_ = 0;
+    irqPending_ = false;
     queue_.clear();
 }
 
 void EventScheduler::Step(uint64_t cycles)
 {
     totalCycles_ += cycles;
-    Event nextEvent = queue_.front();
-
-    while (totalCycles_ >= nextEvent.cycleToExecute_)
-    {
-        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
-
-        if (registrationData.second)
-        {
-            std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
-            queue_.pop_back();
-            registrationData.first(totalCycles_ - nextEvent.cycleToExecute_);
-            nextEvent = queue_.front();
-        }
-        else
-        {
-            break;
-        }
-    }
+    CheckEventQueue();
 }
 
 void EventScheduler::CheckEventQueue()
 {
-    while (totalCycles_ >= queue_.front().cycleToExecute_)
+    Event nextEvent = queue_.front();
+
+    while (totalCycles_ >= nextEvent.cycleToExecute_)
     {
-        Event nextEvent = queue_.front();
         std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
         queue_.pop_back();
-        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
-        registrationData.first(totalCycles_ - nextEvent.cycleToExecute_);
+        auto& callback = registeredEvents_[nextEvent.eventType_];
+        callback(totalCycles_ - nextEvent.cycleToExecute_);
+        nextEvent = queue_.front();
     }
 }
 
 void EventScheduler::SkipToNextEvent()
 {
     totalCycles_ = queue_.front().cycleToExecute_;
-
-    while (totalCycles_ == queue_.front().cycleToExecute_)
-    {
-        Event nextEvent = queue_.front();
-        std::pop_heap(queue_.begin(), queue_.end(), std::greater<>{});
-        queue_.pop_back();
-        RegisteredEvent& registrationData = registeredEvents_[nextEvent.eventType_];
-        registrationData.first(0);
-    }
+    CheckEventQueue();
 }
 
-void EventScheduler::RegisterEvent(EventType eventType, std::function<void(int)> callback, bool fireMidInstruction)
+void EventScheduler::RegisterEvent(EventType eventType, std::function<void(int)> callback)
 {
-    registeredEvents_.insert({eventType, {callback, fireMidInstruction}});
+    registeredEvents_.insert({eventType, callback});
 }
 
 void EventScheduler::ScheduleEvent(EventType eventType, int cycles)

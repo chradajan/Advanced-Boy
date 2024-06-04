@@ -120,7 +120,7 @@ int Timer::Overflow(int extraCycles)
         internalTimer_ += (extraCycles / divider);
         extraCycles %= divider;
 
-        uint64_t cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * divider) - extraCycles;
+        int cyclesUntilOverflow = ((0x0001'0000 - internalTimer_) * divider) - extraCycles;
         Scheduler.ScheduleEvent(overflowEvent_, cyclesUntilOverflow);
     }
 

@@ -16,7 +16,7 @@ DmaManager::DmaManager(GameBoyAdvance& gba) :
                   DmaChannel(2, InterruptType::DMA2, gba),
                   DmaChannel(3, InterruptType::DMA3, gba)})
 {
-    Scheduler.RegisterEvent(EventType::DmaComplete, std::bind(&EndDma, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::DmaComplete, std::bind(&EndDma, this, std::placeholders::_1));
 }
 
 void DmaManager::Reset()

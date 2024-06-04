@@ -16,9 +16,9 @@ Channel4::Channel4() :
     sound4cnt_l_(*reinterpret_cast<SOUND4CNT_L*>(&channel4Registers_[0])),
     sound4cnt_h_(*reinterpret_cast<SOUND4CNT_H*>(&channel4Registers_[4]))
 {
-    Scheduler.RegisterEvent(EventType::Channel4Clock, std::bind(&Clock, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel4Envelope, std::bind(&Envelope, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel4LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Channel4Clock, std::bind(&Clock, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel4Envelope, std::bind(&Envelope, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel4LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1));
 }
 
 void Channel4::Reset()

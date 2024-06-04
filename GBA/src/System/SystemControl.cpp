@@ -95,15 +95,19 @@ void SystemControl::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment
 
 void SystemControl::CheckForInterrupt()
 {
+    bool irqPending = false;
+
     if ((ie_ & if_) != 0)
     {
         if (ime_ & 0x01)
         {
-            Scheduler.ScheduleEvent(EventType::IRQ, 3);
+            irqPending = true;
         }
 
         halted_ = false;
     }
+
+    Scheduler.SetPendingIRQ(irqPending);
 }
 
 void SystemControl::RequestInterrupt(InterruptType interrupt)

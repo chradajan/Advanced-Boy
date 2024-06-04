@@ -288,7 +288,6 @@ void BlockDataTransfer::Execute(ARM7TDMI& cpu)
                     if (instruction_.S)
                     {
                         cpu.registers_.LoadSPSR();
-                        SystemController.CheckForInterrupt();
                     }
                 }
 
@@ -1034,7 +1033,6 @@ void PSRTransferMSR::Execute(ARM7TDMI& cpu)
         cpsr &= ~mask;
         cpsr |= value;
         cpu.registers_.SetCPSR(cpsr);
-        SystemController.CheckForInterrupt();
     }
 }
 
@@ -1268,7 +1266,6 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
         if (destIndex == PC_INDEX)
         {
             cpu.registers_.LoadSPSR();
-            SystemController.CheckForInterrupt();
             cpu.flushPipeline_ = writeResult;
         }
         else

@@ -57,9 +57,6 @@ public:
     /// @param alignment Number of bytes to write.
     void WriteReg(uint32_t addr, uint32_t value, AccessSize alignment);
 
-    /// @brief If an enabled interrupt is pending and the master interrupt control is enabled, schedule an IRQ.
-    void CheckForInterrupt();
-
     /// @brief Set an interrupt flag in the IF register.
     /// @param interrupt Which interrupt type to request.
     void RequestInterrupt(InterruptType interrupt);
@@ -76,6 +73,9 @@ public:
     bool GamePakPrefetchEnabled() const { return waitcnt_.prefetchBuffer; }
 
 private:
+    /// @brief If an enabled interrupt is pending and the master interrupt control is enabled, schedule an IRQ.
+    void CheckForInterrupt();
+
     /// @brief Handle reads to POSTFLG and HALTCNT registers.
     /// @param addr Address of register to read.
     /// @param alignment Number of bytes to read.

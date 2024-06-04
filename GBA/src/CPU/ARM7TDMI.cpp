@@ -20,7 +20,6 @@ ARM7TDMI::ARM7TDMI(MemReadCallback readCallback, MemWriteCallback writeCallback)
     WriteMemory(writeCallback),
     flushPipeline_(false)
 {
-    Scheduler.RegisterEvent(EventType::IRQ, std::bind(&IRQ, this, std::placeholders::_1), false);
 }
 
 void ARM7TDMI::Reset()
@@ -30,8 +29,13 @@ void ARM7TDMI::Reset()
     registers_.Reset();
 }
 
-void ARM7TDMI::Step()
+void ARM7TDMI::Step(bool irqPending)
 {
+    if (irqPending && !registers_.IsIrqDisabled())
+    {
+        IRQ();
+    }
+
     bool armMode = registers_.GetOperatingState() == OperatingState::ARM;
     AccessSize alignment = armMode ? AccessSize::WORD : AccessSize::HALFWORD;
 
@@ -129,36 +133,33 @@ bool ARM7TDMI::ArmConditionSatisfied(uint8_t condition)
     throw std::runtime_error("Illegal ARM condition");
 }
 
-void ARM7TDMI::IRQ(int)
+void ARM7TDMI::IRQ()
 {
-    if (!registers_.IsIrqDisabled())
+    uint32_t currentCPSR = registers_.GetCPSR();
+    uint32_t savedPC = 0;
+
+    if (pipeline_.Empty())
     {
-        uint32_t currentCPSR = registers_.GetCPSR();
-        uint32_t savedPC = 0;
-
-        if (pipeline_.Empty())
-        {
-            savedPC = registers_.GetPC();
-        }
-        else
-        {
-            savedPC = pipeline_.Peak().second;
-        }
-
-        savedPC += 4;
-
-        if (LogMgr.LoggingEnabled())
-        {
-            LogMgr.LogIRQ();
-        }
-
-        registers_.SetOperatingState(OperatingState::ARM);
-        registers_.SetOperatingMode(OperatingMode::IRQ);
-        registers_.WriteRegister(LR_INDEX, savedPC);
-        registers_.SetIrqDisabled(true);
-        registers_.SetSPSR(currentCPSR);
-        registers_.SetPC(0x0000'0018);
-        pipeline_.Clear();
+        savedPC = registers_.GetPC();
     }
+    else
+    {
+        savedPC = pipeline_.Peak().second;
+    }
+
+    savedPC += 4;
+
+    if (LogMgr.LoggingEnabled())
+    {
+        LogMgr.LogIRQ();
+    }
+
+    registers_.SetOperatingState(OperatingState::ARM);
+    registers_.SetOperatingMode(OperatingMode::IRQ);
+    registers_.WriteRegister(LR_INDEX, savedPC);
+    registers_.SetIrqDisabled(true);
+    registers_.SetSPSR(currentCPSR);
+    registers_.SetPC(0x0000'0018);
+    pipeline_.Clear();
 }
 }

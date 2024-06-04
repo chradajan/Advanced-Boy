@@ -26,11 +26,6 @@ enum class EventType
     Channel4Envelope,
     Channel4LengthTimer,
 
-    SampleAPU,
-
-    // Interrupts
-    IRQ,
-
     // Timers
     Timer0Overflow,
     Timer1Overflow,
@@ -44,6 +39,9 @@ enum class EventType
     HBlank,
     VBlank,
     VDraw,
+
+    // Audio Sampling
+    SampleAPU,
 
     // Number of unique events that can be scheduled. Do not schedule this, and do not place events below it.
     COUNT
@@ -70,8 +68,6 @@ struct Event
 /// @brief Manager for scheduling and executing events.
 class EventScheduler
 {
-    using RegisteredEvent = std::pair<std::function<void(int)>, bool>;
-
 public:
     /// @brief Initialize EventScheduler.
     EventScheduler();
@@ -91,13 +87,20 @@ public:
     /// @brief Register a callback function with a specified event type.
     /// @param eventType Event to register.
     /// @param callback Callback function to use for eventType.
-    /// @param fireMidInstruction Whether this event can be dispatched mid CPU instruction.
-    void RegisterEvent(EventType eventType, std::function<void(int)> callback, bool fireMidInstruction);
+    void RegisterEvent(EventType eventType, std::function<void(int)> callback);
 
     /// @brief Schedule an event to be executed in some number of cycles from now.
     /// @param event Type of event that should be scheduled.
     /// @param cycles Number of cycles from now that this event should fire.
     void ScheduleEvent(EventType eventType, int cycles);
+
+    /// @brief Set the status of the IRQ line.
+    /// @param status True if IRQ should trigger, false otherwise.
+    void SetPendingIRQ(bool status) { irqPending_ = status; }
+
+    /// @brief Check the IRQ line.
+    /// @return True if IRQ should trigger, false otherwise.
+    bool GetPendingIRQ() const { return irqPending_; }
 
     /// @brief Remove a schedule event from the event queue.
     /// @param eventType Type of event to unschedule.
@@ -129,8 +132,9 @@ public:
 
 private:
     std::vector<Event> queue_;
-    std::unordered_map<EventType, RegisteredEvent> registeredEvents_;
+    std::unordered_map<EventType, std::function<void(int)>> registeredEvents_;
     uint64_t totalCycles_;
+    bool irqPending_;
 };
 
 extern EventScheduler Scheduler;

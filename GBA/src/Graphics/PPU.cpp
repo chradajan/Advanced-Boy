@@ -36,7 +36,7 @@ PPU::PPU() :
     dispstat_(*reinterpret_cast<DISPSTAT*>(&lcdRegisters_[4])),
     vcount_(*reinterpret_cast<VCOUNT*>(&lcdRegisters_[6]))
 {
-    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::VDraw, std::bind(&VDraw, this, std::placeholders::_1));
 }
 
 void PPU::Reset()

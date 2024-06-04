@@ -173,16 +173,6 @@ void Registers::SetSPSR(uint32_t spsr)
     }
 }
 
-void Registers::SetCPSR(uint32_t cpsr)
-{
-    cpsr_.Register = cpsr;
-
-    if (!IsIrqDisabled())
-    {
-        SystemController.CheckForInterrupt();
-    }
-}
-
 uint32_t Registers::GetSPSR() const
 {
     auto mode = GetOperatingMode();
@@ -227,11 +217,6 @@ void Registers::LoadSPSR()
             break;
         default:
             break;
-    }
-
-    if (!IsIrqDisabled())
-    {
-        SystemController.CheckForInterrupt();
     }
 }
 

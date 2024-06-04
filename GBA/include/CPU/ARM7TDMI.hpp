@@ -33,7 +33,8 @@ public:
     void Reset();
 
     /// @brief Advance the CPU by one instruction. GLobal scheduler will be advanced as well.
-    void Step();
+    /// @param irqPending True if an IRQ is currently pending.
+    void Step(bool irqPending);
 
     /// @brief Get the current value of the PC register.
     /// @return Value of PC.
@@ -45,9 +46,8 @@ private:
     /// @return True if condition is satisfied and the instruction should be executed.
     bool ArmConditionSatisfied(uint8_t condition);
 
-    /// @brief Callback function for an IRQ event.
-    /// @param extraCycles Number of cycles that passed since this event was supposed to execute.
-    void IRQ(int);
+    /// @brief Flush pipeline and set CPU state when IRQ occurs.
+    void IRQ();
 
     // Memory R/W callbacks
     MemReadCallback ReadMemory;

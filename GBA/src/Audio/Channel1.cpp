@@ -18,10 +18,10 @@ Channel1::Channel1() :
     sound1cnt_h_(*reinterpret_cast<SOUND1CNT_H*>(&channel1Registers_[2])),
     sound1cnt_x_(*reinterpret_cast<SOUND1CNT_X*>(&channel1Registers_[4]))
 {
-    Scheduler.RegisterEvent(EventType::Channel1Clock, std::bind(&Clock, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel1Envelope, std::bind(&Envelope, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel1LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel1FrequencySweep, std::bind(&FrequencySweep, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Channel1Clock, std::bind(&Clock, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel1Envelope, std::bind(&Envelope, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel1LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel1FrequencySweep, std::bind(&FrequencySweep, this, std::placeholders::_1));
 }
 
 void Channel1::Reset()

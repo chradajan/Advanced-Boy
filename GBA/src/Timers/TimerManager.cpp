@@ -13,8 +13,8 @@ TimerManager::TimerManager() :
              Timer(2, EventType::Timer2Overflow, InterruptType::TIMER_2_OVERFLOW),
              Timer(3, EventType::Timer3Overflow, InterruptType::TIMER_3_OVERFLOW)})
 {
-    Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Timer2Overflow, std::bind(&Timer2Overflow, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer3Overflow, std::bind(&Timer3Overflow, this, std::placeholders::_1));
 }
 
 void TimerManager::Reset()

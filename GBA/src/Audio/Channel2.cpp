@@ -16,9 +16,9 @@ Channel2::Channel2() :
     sound2cnt_l_(*reinterpret_cast<SOUND2CNT_L*>(&channel2Registers_[0])),
     sound2cnt_h_(*reinterpret_cast<SOUND2CNT_H*>(&channel2Registers_[4]))
 {
-    Scheduler.RegisterEvent(EventType::Channel2Clock, std::bind(&Clock, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel2Envelope, std::bind(&Envelope, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Channel2LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::Channel2Clock, std::bind(&Clock, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel2Envelope, std::bind(&Envelope, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Channel2LengthTimer, std::bind(&LengthTimer, this, std::placeholders::_1));
 }
 
 void Channel2::Reset()

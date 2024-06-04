@@ -23,7 +23,7 @@ APU::APU() :
     soundbias_(*reinterpret_cast<SOUNDBIAS*>(&apuRegisters_[0x28])),
     dmaFifos_(soundcnt_h_)
 {
-    Scheduler.RegisterEvent(EventType::SampleAPU, std::bind(&Sample, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::SampleAPU, std::bind(&Sample, this, std::placeholders::_1));
 }
 
 void APU::Reset()

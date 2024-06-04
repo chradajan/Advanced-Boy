@@ -35,10 +35,10 @@ GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
     // State
     gamePakLoaded_ = false;
 
-    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1), true);
-    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1), true);
+    Scheduler.RegisterEvent(EventType::HBlank, std::bind(&HBlank, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::VBlank, std::bind(&VBlank, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer0Overflow, std::bind(&Timer0Overflow, this, std::placeholders::_1));
+    Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1));
 }
 
 void GameBoyAdvance::Reset()
@@ -90,7 +90,7 @@ void GameBoyAdvance::FillAudioBuffer(size_t samples)
             }
             else
             {
-                cpu_.Step();
+                cpu_.Step(Scheduler.GetPendingIRQ());
                 Scheduler.CheckEventQueue();
             }
         }
