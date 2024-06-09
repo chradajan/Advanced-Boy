@@ -1,16 +1,16 @@
 #pragma once
 
-#include <QtCore/QtCore>
-#include <QtCore/QTimer>
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QtWidgets>
 #include <cstdint>
 #include <filesystem>
 #include <set>
 #include <string>
+#include <EmuThread.hpp>
+#include <QtCore/QtCore>
+#include <QtCore/QTimer>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QtWidgets>
 
 namespace fs = std::filesystem;
-class EmuThread;
 
 class MainWindow : public QMainWindow
 {
@@ -23,8 +23,6 @@ public:
     /// @param logging Whether to log CPU instructions.
     /// @param parent Parent widget.
     MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent = nullptr);
-
-    ~MainWindow();
 
 private:
     /// @brief Initialize the window menu bar.
@@ -44,6 +42,10 @@ private:
     /// @param event Key release event.
     void keyReleaseEvent(QKeyEvent* event);
 
+    /// @brief Handle main window closing event.
+    /// @param event Close event.
+    void closeEvent(QCloseEvent* event);
+
     /// @brief Update the GBA gamepad based on which keys are currently pressed.
     void SendKeyPresses() const;
 
@@ -54,7 +56,7 @@ private:
     void RefreshScreen();
 
     // Emulator
-    EmuThread* gbaThread;
+    EmuThread gbaThread_;
     std::string romTitle_;
     QTimer fpsTimer_;
 

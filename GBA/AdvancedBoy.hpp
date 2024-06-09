@@ -18,13 +18,17 @@ void Initialize(fs::path biosPath);
 /// @pre Initialize must have been previously called.
 bool InsertCartridge(fs::path romPath);
 
-/// @brief Run the emulator until the specified number of audio samples have been produced.
-/// @param samples Number of audio samples to produce.
-void FillAudioBuffer(size_t samples);
+/// @brief Run the emulator until the internal audio buffer is full.
+void FillAudioBuffer();
 
-/// @brief Drain the emulator's internal audio buffer into the specified buffer.
+/// @brief Fill an external audio buffer with the requested number of samples.
 /// @param buffer Buffer to load internal audio buffer's samples into.
-void DrainAudioBuffer(float* buffer);
+/// @param cnt Number of samples to load into external buffer.
+void DrainAudioBuffer(float* buffer, size_t cnt);
+
+/// @brief Check how many audio samples are currently saved in the internal buffer. One sample is a single left or right sample.
+/// @return Number of samples saved in internal buffer.
+size_t AvailableSamplesCount();
 
 /// @brief Update the GBA gamepad status.
 /// @param gamepad Current gamepad buttons being pressed.

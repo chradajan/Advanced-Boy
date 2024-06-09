@@ -5,10 +5,12 @@
 
 namespace Audio
 {
-constexpr size_t SAMPLE_BUFFER_SIZE = 2048;
 constexpr int SAMPLING_FREQUENCY_HZ = 44100;
 constexpr float SAMPLING_PERIOD = 1.0 / SAMPLING_FREQUENCY_HZ;
 constexpr int CPU_CYCLES_PER_SAMPLE = (CPU::CPU_FREQUENCY_HZ / SAMPLING_FREQUENCY_HZ);
+
+// Maintain audio buffer of 22ms
+constexpr size_t BUFFER_SIZE = ((SAMPLING_FREQUENCY_HZ * 22) / 1000) * 2;
 
 constexpr int CPU_CYCLES_PER_GB_CYCLE = CPU::CPU_FREQUENCY_HZ / 1'048'576;
 constexpr int CPU_CYCLES_PER_ENVELOPE_SWEEP = CPU::CPU_FREQUENCY_HZ / 64;

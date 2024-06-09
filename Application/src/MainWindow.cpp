@@ -1,19 +1,20 @@
 #include <MainWindow.hpp>
-#include <AdvancedBoy.hpp>
-#include <EmuThread.hpp>
-#include <Gamepad.hpp>
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QtWidgets>
 #include <cstdint>
 #include <filesystem>
 #include <format>
 #include <set>
 #include <string>
+#include <AdvancedBoy.hpp>
+#include <EmuThread.hpp>
+#include <Gamepad.hpp>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QtWidgets>
 
 namespace fs = std::filesystem;
 
 MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent) :
     QMainWindow(parent),
+    gbaThread_(romPath, biosPath, logging, this),
     fpsTimer_(this),
     lcd_(this),
     refreshScreenTimer_(this),
@@ -23,10 +24,12 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
     ResizeWindow();
     InitializeMenuBar();
     InitializeLCD();
-    gbaThread = new EmuThread(romPath, biosPath, logging);
-    romTitle_ = gbaThread->RomTitle();
+    setAttribute(Qt::WA_QuitOnClose);
+    romTitle_ = gbaThread_.RomTitle();
     setWindowTitle(QString::fromStdString(romTitle_));
-    gbaThread->Play();
+
+    gbaThread_.Play();
+    gbaThread_.start();
 
     refreshScreenTimer_.setTimerType(Qt::PreciseTimer);
     connect(&refreshScreenTimer_, &QTimer::timeout, this, &RefreshScreen);
@@ -34,14 +37,6 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
 
     connect(&fpsTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
     fpsTimer_.start(1000);
-}
-
-MainWindow::~MainWindow()
-{
-    // gbaThread->PowerOff();
-    // gbaThread->terminate();
-    // gbaThread->wait();
-    delete gbaThread;
 }
 
 void MainWindow::InitializeMenuBar()
@@ -79,6 +74,12 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     {
         pressedKeys_.erase(event->key());
     }
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    gbaThread_.Quit();
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::SendKeyPresses() const

@@ -37,13 +37,17 @@ public:
     /// @brief Reset the GBA and all its components to its power-up state.
     void Reset();
 
-    /// @brief Run the emulator until a specified number of audio samples are generated.
-    /// @param samples Number of samples to generate.
-    void FillAudioBuffer(size_t samples);
+    /// @brief Run the emulator until the internal audio buffer is full.
+    void FillAudioBuffer();
 
-    /// @brief Empty the internal audio buffer into another buffer.
-    /// @param buffer Buffer to load samples into.
-    void DrainAudioBuffer(float* buffer);
+    /// @brief Fill an external audio buffer with the requested number of samples.
+    /// @param buffer Buffer to load internal audio buffer's samples into.
+    /// @param cnt Number of samples to load into external buffer.
+    void DrainAudioBuffer(float* buffer, size_t cnt) { apu_.DrainBuffer(buffer, cnt); }
+
+    /// @brief Check how many audio samples are currently saved in the internal buffer. One sample is a single left or right sample.
+    /// @return Number of samples saved in internal buffer.
+    size_t AvailableSamplesCount() const { return apu_.AvailableSamplesCount(); }
 
     /// @brief Load a Game Pak into memory.
     /// @param romPath Path to ROM file.
@@ -70,6 +74,10 @@ public:
     void DumpLogs() const;
 
 private:
+    /// @brief Run the emulator until the APU has been sampled a set number of times.
+    /// @param samples How many times the APU should be sampled before returning.
+    void Run(size_t samples);
+
     /// @brief Top level function to read an address. Determine which memory region to route the read to. Force aligns address.
     /// @param addr Address to read from.
     /// @param alignment Number of bytes to read.

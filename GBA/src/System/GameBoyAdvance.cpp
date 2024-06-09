@@ -73,39 +73,38 @@ void GameBoyAdvance::Reset()
     Scheduler.ScheduleEvent(EventType::HBlank, 960);
 }
 
-void GameBoyAdvance::FillAudioBuffer(size_t samples)
+void GameBoyAdvance::FillAudioBuffer()
 {
     if (!biosLoaded_ && !gamePakLoaded_)
     {
         return;
     }
 
-    try
+    size_t samplesToGenerate = apu_.FreeBufferSpace();
+
+    while (samplesToGenerate > 0)
     {
-        while (apu_.SampleCount() < samples)
-        {
-            if (SystemController.Halted() || dmaMgr_.DmaActive())
-            {
-                Scheduler.SkipToNextEvent();
-            }
-            else
-            {
-                cpu_.Step(Scheduler.GetPendingIRQ());
-                Scheduler.CheckEventQueue();
-            }
-        }
-    }
-    catch (std::exception const& error)
-    {
-        Logging::LogMgr.LogException(error);
-        Logging::LogMgr.DumpLogs();
-        throw;
+        Run(samplesToGenerate);
+        samplesToGenerate = apu_.FreeBufferSpace();
     }
 }
 
-void GameBoyAdvance::DrainAudioBuffer(float* buffer)
+void GameBoyAdvance::Run(size_t samples)
 {
-    apu_.DrainBuffer(buffer);
+    apu_.ClearSampleCounter();
+
+    while (apu_.GetSampleCounter() < samples)
+    {
+        if (SystemController.Halted() || dmaMgr_.DmaActive())
+        {
+            Scheduler.SkipToNextEvent();
+        }
+        else
+        {
+            cpu_.Step(Scheduler.GetPendingIRQ());
+            Scheduler.CheckEventQueue();
+        }
+    }
 }
 
 std::pair<uint32_t, int> GameBoyAdvance::ReadMemory(uint32_t addr, AccessSize alignment)

@@ -34,24 +34,34 @@ bool InsertCartridge(fs::path romPath)
     return gamePakLoaded;
 }
 
-void FillAudioBuffer(size_t samples)
+void FillAudioBuffer()
 {
     if (!gba)
     {
         throw std::runtime_error("Ran uninitialized GBA");
     }
 
-    gba->FillAudioBuffer(samples);
+    gba->FillAudioBuffer();
 }
 
-void DrainAudioBuffer(float* buffer)
+void DrainAudioBuffer(float* buffer, size_t cnt)
 {
     if (!gba)
     {
         throw std::runtime_error("Audio callback with uninitialized GBA");
     }
 
-    gba->DrainAudioBuffer(buffer);
+    gba->DrainAudioBuffer(buffer, cnt);
+}
+
+size_t AvailableSamplesCount()
+{
+    if (!gba)
+    {
+        throw std::runtime_error("Audio callback with uninitialized GBA");
+    }
+
+    return gba->AvailableSamplesCount();
 }
 
 void UpdateGamepad(Gamepad gamepad)

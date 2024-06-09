@@ -33,7 +33,7 @@ void APU::Reset()
     channel2_.Reset();
     channel4_.Reset();
     dmaFifos_.Reset();
-    sampleBuffer_.Clear();
+    sampleCounter_ = 0;
 
     Scheduler.ScheduleEvent(EventType::SampleAPU, CPU_CYCLES_PER_SAMPLE);
 }
@@ -158,16 +158,11 @@ void APU::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
     }
 }
 
-void APU::DrainBuffer(float* buffer)
+size_t APU::FreeBufferSpace() const
 {
-    size_t index = 0;
-
-    while (!sampleBuffer_.Empty())
-    {
-        auto [left, right] = sampleBuffer_.Pop();
-        buffer[index++] = left;
-        buffer[index++] = right;
-    }
+    size_t bufferSpace = sampleBuffer_.GetFree();
+    bufferSpace >>= 1;
+    return bufferSpace;
 }
 
 std::pair<uint32_t, bool> APU::ReadApuCntReg(uint32_t addr, AccessSize alignment)
@@ -233,11 +228,6 @@ void APU::WriteApuCntReg(uint32_t addr, uint32_t value, AccessSize alignment)
 void APU::Sample(int extraCycles)
 {
     Scheduler.ScheduleEvent(EventType::SampleAPU, CPU_CYCLES_PER_SAMPLE - extraCycles);
-
-    if (sampleBuffer_.Full())
-    {
-        return;
-    }
 
     int16_t leftSample = 0;
     int16_t rightSample = 0;
@@ -341,6 +331,9 @@ void APU::Sample(int extraCycles)
 
     float leftOutput = (leftSample / 511.5) - 1.0;
     float rightOutput = (rightSample / 511.5) - 1.0;
-    sampleBuffer_.Push({leftOutput, rightOutput});
+
+    float sample[2] = {leftOutput, rightOutput};
+    sampleBuffer_.Write(&sample[0], 2);
+    ++sampleCounter_;
 }
 }

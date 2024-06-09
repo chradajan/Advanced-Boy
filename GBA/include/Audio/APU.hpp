@@ -10,8 +10,8 @@
 #include <Audio/DmaAudio.hpp>
 #include <Audio/Registers.hpp>
 #include <CPU/CpuTypes.hpp>
-#include <Utilities/CircularBuffer.hpp>
 #include <Utilities/MemoryUtilities.hpp>
+#include <Utilities/RingBuffer.hpp>
 
 namespace Audio
 {
@@ -41,13 +41,29 @@ public:
     /// @return Whether FIFO A and FIFO B should trigger a DMA to refill them.
     std::pair<bool, bool> TimerOverflow(int timerIndex) { return dmaFifos_.TimerOverflow(timerIndex); }
 
-    /// @brief Check how many samples have been collected in the internal buffer.
-    /// @return Number of samples in internal buffer.
-    size_t SampleCount() const { return sampleBuffer_.Size(); }
+    // Producer thread functions
 
-    /// @brief Drain all samples in the internal buffer into an external playback buffer.
-    /// @param buffer Pointer to buffer to drain internal samples into.
-    void DrainBuffer(float* buffer);
+    /// @brief Only call from producer thread. Check number of free space for samples in internal buffer.
+    /// @return Number of samples that can be buffered, with one sample being two left/right samples.
+    size_t FreeBufferSpace() const;
+
+    /// @brief Clear the current sample counter. Counter increments each time the APU is sampled.
+    void ClearSampleCounter() { sampleCounter_ = 0; }
+
+    /// @brief Check how many times the APU has been sampled since it was last cleared.
+    /// @return Number of samples that have been produced.
+    size_t GetSampleCounter() { return sampleCounter_; }
+
+    // Consumer thread functions
+
+    /// @brief Fill an external audio buffer with the requested number of samples.
+    /// @param buffer Buffer to load internal audio buffer's samples into.
+    /// @param cnt Number of samples to load into external buffer.
+    void DrainBuffer(float* buffer, size_t cnt) { sampleBuffer_.Read(buffer, cnt); }
+
+    /// @brief Check how many audio samples are currently saved in the internal buffer. One sample is a single left or right sample.
+    /// @return Number of samples saved in internal buffer.
+    size_t AvailableSamplesCount() const { return sampleBuffer_.GetAvailable(); }
 
 private:
     /// @brief Read an APU control register.
@@ -80,6 +96,7 @@ private:
     DmaAudio dmaFifos_;
 
     // Internal sample buffer
-    CircularBuffer<std::pair<float, float>, SAMPLE_BUFFER_SIZE> sampleBuffer_;
+    RingBuffer<float, BUFFER_SIZE> sampleBuffer_;
+    size_t sampleCounter_;
 };
 }
