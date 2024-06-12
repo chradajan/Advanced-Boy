@@ -38,7 +38,7 @@ EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging, QObject*
     // Audio startup
     SDL_Init(SDL_INIT_AUDIO);
     SDL_AudioSpec audioSpec = {};
-    audioSpec.freq = 44100;
+    audioSpec.freq = 32768;
     audioSpec.format = AUDIO_F32SYS;
     audioSpec.channels = 2;
     audioSpec.samples = 256;
