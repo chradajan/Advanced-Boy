@@ -287,15 +287,14 @@ int DmaChannel::ExecuteFifoXfer()
 {
     int xferCycles = 0;
     int8_t srcAddrDelta = 0;
-    auto alignment = AccessSize::WORD;
 
     switch (dmacnt_.srcAddrCnt)
     {
         case 0:  // Increment
-            srcAddrDelta = static_cast<int8_t>(alignment);
+            srcAddrDelta = 4;
             break;
         case 1:  // Decrement
-            srcAddrDelta = -1 * static_cast<int8_t>(alignment);
+            srcAddrDelta = -4;
             break;
         case 2:  // Fixed
         case 3:  // Prohibited
@@ -304,7 +303,7 @@ int DmaChannel::ExecuteFifoXfer()
 
     for (int i = 0; i < 4; ++i)
     {
-        auto [value, readCycles] = gba_.ReadMemory(internalSrcAddr_, alignment);
+        auto [value, readCycles] = gba_.ReadMemory(internalSrcAddr_, AccessSize::WORD);
         gba_.apu_.WriteReg(internalDestAddr_, value, AccessSize::WORD);
         xferCycles += readCycles + 1;
         internalSrcAddr_ += srcAddrDelta;
@@ -316,7 +315,7 @@ int DmaChannel::ExecuteFifoXfer()
 bool DmaChannel::IsFifoXfer() const
 {
     return dmacnt_.repeat && 
-           ((internalDestAddr_ == FIFO_A_ADDR) || (internalDestAddr_ == FIFO_B_ADDR)) &&
+           ((dad_ == FIFO_A_ADDR) || (dad_ == FIFO_B_ADDR)) &&
            ((channelIndex_ == 1) || (channelIndex_ == 2));
 }
 
@@ -337,7 +336,7 @@ DmaXfer DmaChannel::DetermineStartTiming() const
             break;
         case 3:
         {
-            if ((channelIndex_ == 1) || (channelIndex_ == 2))
+            if (IsFifoXfer())
             {
                 if (dad_ == FIFO_A_ADDR)
                 {

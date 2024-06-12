@@ -76,7 +76,7 @@ struct SOUNDCNT_H
     uint16_t psgVolume : 2;
     uint16_t dmaVolumeA : 1;
     uint16_t dmaVolumeB : 1;
-    uint16_t :  4;
+    uint16_t : 4;
     uint16_t dmaEnableRightA : 1;
     uint16_t dmaEnableLeftA : 1;
     uint16_t dmaTimerSelectA : 1;

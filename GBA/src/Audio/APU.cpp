@@ -239,7 +239,7 @@ void APU::Sample(int extraCycles)
         int16_t psgRightSample = 0;
 
         // Channel 1
-        int16_t channel1Sample = channel1_.Sample();
+        int8_t channel1Sample = SignExtend8(channel1_.Sample(), 3);
 
         if (soundcnt_l_.chan1EnableLeft)
         {
@@ -252,7 +252,7 @@ void APU::Sample(int extraCycles)
         }
 
         // Channel 2
-        int16_t channel2Sample = channel2_.Sample();
+        int8_t channel2Sample = SignExtend8(channel2_.Sample(), 3);
 
         if (soundcnt_l_.chan2EnableLeft)
         {
@@ -265,7 +265,7 @@ void APU::Sample(int extraCycles)
         }
 
         // Channel 4
-        int16_t channel4Sample = channel4_.Sample();
+        int8_t channel4Sample = SignExtend8(channel4_.Sample(), 3);
 
         if (soundcnt_l_.chan4EnableLeft)
         {
@@ -278,18 +278,15 @@ void APU::Sample(int extraCycles)
         }
 
         // Adjust PSG volume and mix in
-        psgLeftSample = (psgLeftSample * 2) - 0x0F;
-        psgRightSample = (psgRightSample * 2) - 0x0F;
-
-        int psgMultiplier = 8;
+        int psgMultiplier = 16;
 
         if (soundcnt_h_.psgVolume == 0)
         {
-            psgMultiplier = 2;
+            psgMultiplier = 4;
         }
         else if (soundcnt_h_.psgVolume == 1)
         {
-            psgMultiplier = 4;
+            psgMultiplier = 8;
         }
 
         psgLeftSample *= psgMultiplier;
@@ -322,15 +319,15 @@ void APU::Sample(int extraCycles)
         }
 
         // Apply SOUNDBIAS, clamp output, and convert to float
-        leftSample += soundbias_.biasLevel;
-        rightSample += soundbias_.biasLevel;
+        leftSample += (soundbias_.biasLevel << 1);
+        rightSample += (soundbias_.biasLevel << 1);
 
         std::clamp(leftSample, MIN_OUTPUT_LEVEL, MAX_OUTPUT_LEVEL);
         std::clamp(rightSample, MIN_OUTPUT_LEVEL, MAX_OUTPUT_LEVEL);
     }
 
-    float leftOutput = (leftSample / 511.5) - 1.0;
-    float rightOutput = (rightSample / 511.5) - 1.0;
+    float leftOutput = (leftSample - 512) / 512.0;
+    float rightOutput = (rightSample - 512) / 512.0;
 
     float sample[2] = {leftOutput, rightOutput};
     sampleBuffer_.Write(&sample[0], 2);
