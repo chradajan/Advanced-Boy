@@ -405,7 +405,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 {
     uint8_t baseIndex = instruction_.flags.Rn;
     uint8_t srcDestIndex = instruction_.flags.Rd;
-    uint32_t offset;
+    uint32_t offset = 0;
 
     if (!instruction_.flags.I)
     {
@@ -469,7 +469,6 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
         return;
     }
 
-    int32_t signedOffset = (instruction_.flags.U ? offset : -offset);
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
     bool preIndex = instruction_.flags.P;
     bool postIndex = !preIndex;
@@ -477,7 +476,14 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 
     if (preIndex)
     {
-        addr += signedOffset;
+        if (instruction_.flags.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (instruction_.flags.L)
@@ -520,7 +526,14 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 
     if (postIndex)
     {
-        addr += signedOffset;
+        if (instruction_.flags.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (!ignoreWriteback && (instruction_.flags.W || postIndex))
@@ -720,8 +733,7 @@ void MultiplyLong::Execute(ARM7TDMI& cpu)
 
 void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-    uint32_t unsignedOffset = cpu.registers_.ReadRegister(instruction_.Rm);
-    int16_t signedOffset = instruction_.U ? unsignedOffset : -unsignedOffset;
+    uint32_t offset = cpu.registers_.ReadRegister(instruction_.Rm);
     bool preIndex = instruction_.P;
     bool postIndex = !preIndex;
     bool ignoreWriteback = false;
@@ -731,7 +743,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
     if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(cpu.mnemonic_, unsignedOffset);
+        SetMnemonic(cpu.mnemonic_, offset);
     }
 
     if (!cpu.ArmConditionSatisfied(instruction_.Cond))
@@ -741,7 +753,14 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
     if (preIndex)
     {
-        addr += signedOffset;
+        if (instruction_.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (instruction_.L)  // Load
@@ -825,7 +844,14 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
     if (postIndex)
     {
-        addr += signedOffset;
+        if (instruction_.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (!ignoreWriteback && (instruction_.W || postIndex))
@@ -842,8 +868,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
 void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    uint8_t unsignedOffset = (instruction_.Offset1 << 4) | instruction_.Offset;
-    int16_t signedOffset = instruction_.U ? unsignedOffset : -unsignedOffset;
+    uint8_t offset = (instruction_.Offset1 << 4) | instruction_.Offset;
     bool preIndex = instruction_.P;
     bool postIndex = !preIndex;
     bool ignoreWriteback = false;
@@ -853,7 +878,7 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
     if (LogMgr.LoggingEnabled())
     {
-        SetMnemonic(cpu.mnemonic_, unsignedOffset);
+        SetMnemonic(cpu.mnemonic_, offset);
     }
 
     if (!cpu.ArmConditionSatisfied(instruction_.Cond))
@@ -863,7 +888,14 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
     if (preIndex)
     {
-        addr += signedOffset;
+        if (instruction_.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (instruction_.L)  // Load
@@ -946,7 +978,14 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
     if (postIndex)
     {
-        addr += signedOffset;
+        if (instruction_.U)
+        {
+            addr += offset;
+        }
+        else
+        {
+            addr -= offset;
+        }
     }
 
     if (!ignoreWriteback && (instruction_.W || postIndex))

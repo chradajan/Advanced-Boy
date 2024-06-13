@@ -41,6 +41,11 @@ GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
     Scheduler.RegisterEvent(EventType::Timer1Overflow, std::bind(&Timer1Overflow, this, std::placeholders::_1));
 }
 
+GameBoyAdvance::~GameBoyAdvance()
+{
+    Logging::LogMgr.DumpLogs();
+}
+
 void GameBoyAdvance::Reset()
 {
     // Scheduler

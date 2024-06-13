@@ -32,7 +32,8 @@ public:
     GameBoyAdvance(GameBoyAdvance&&) = delete;
     GameBoyAdvance& operator=(GameBoyAdvance const&) = delete;
     GameBoyAdvance& operator=(GameBoyAdvance&&) = delete;
-    ~GameBoyAdvance() = default;
+
+    ~GameBoyAdvance();
 
     /// @brief Reset the GBA and all its components to its power-up state.
     void Reset();
