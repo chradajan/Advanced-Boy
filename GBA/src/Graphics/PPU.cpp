@@ -619,9 +619,8 @@ void PPU::RenderMode4Scanline()
             uint8_t paletteIndex = VRAM_.at(vramIndex++);
             bool transparent = false;
 
-            if ((paletteIndex & 0x0F) == 0)
+            if (paletteIndex == 0)
             {
-                paletteIndex = 0;
                 transparent = true;
             }
 
