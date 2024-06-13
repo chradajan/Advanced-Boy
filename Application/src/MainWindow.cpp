@@ -33,7 +33,7 @@ MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidge
 
     refreshScreenTimer_.setTimerType(Qt::PreciseTimer);
     connect(&refreshScreenTimer_, &QTimer::timeout, this, &RefreshScreen);
-    refreshScreenTimer_.start(10);
+    refreshScreenTimer_.start(16);
 
     connect(&fpsTimer_, &QTimer::timeout, this, &UpdateWindowTitle);
     fpsTimer_.start(1000);

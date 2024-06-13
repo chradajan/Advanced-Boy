@@ -235,11 +235,11 @@ void APU::Sample(int extraCycles)
     if (soundcnt_x_.masterEnable)
     {
         // PSG channel samples
-        int16_t psgLeftSample = 0;
-        int16_t psgRightSample = 0;
+        uint16_t psgLeftSample = 0;
+        uint16_t psgRightSample = 0;
 
         // Channel 1
-        int8_t channel1Sample = SignExtend8(channel1_.Sample(), 3);
+        uint8_t channel1Sample = channel1_.Sample();
 
         if (soundcnt_l_.chan1EnableLeft)
         {
@@ -252,7 +252,7 @@ void APU::Sample(int extraCycles)
         }
 
         // Channel 2
-        int8_t channel2Sample = SignExtend8(channel2_.Sample(), 3);
+        uint8_t channel2Sample = channel2_.Sample();
 
         if (soundcnt_l_.chan2EnableLeft)
         {
@@ -265,7 +265,7 @@ void APU::Sample(int extraCycles)
         }
 
         // Channel 4
-        int8_t channel4Sample = SignExtend8(channel4_.Sample(), 3);
+        uint8_t channel4Sample = channel4_.Sample();
 
         if (soundcnt_l_.chan4EnableLeft)
         {
