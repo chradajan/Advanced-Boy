@@ -274,8 +274,8 @@ std::tuple<uint32_t, int, bool> GamePak::ReadROM(uint32_t addr, AccessSize align
     value = ReadPointer(bytePtr, alignment);
 
     nextSequentialAddr_ = addr + static_cast<uint8_t>(alignment);
-    lastReadCompletionCycle_ = currentCycle + cycles;
     cycles += waitStates;
+    lastReadCompletionCycle_ = currentCycle + cycles;
 
     return {value, cycles, false};
 }
