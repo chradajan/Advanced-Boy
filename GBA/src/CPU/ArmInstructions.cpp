@@ -715,7 +715,7 @@ void MultiplyLong::Execute(ARM7TDMI& cpu)
 
     if (instruction_.S)
     {
-        cpu.registers_.SetNegative(result & MSB_32);
+        cpu.registers_.SetNegative(result & MSB_64);
         cpu.registers_.SetZero(result == 0);
     }
 
