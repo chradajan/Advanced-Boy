@@ -159,7 +159,7 @@ void ARM7TDMI::IRQ()
     registers_.WriteRegister(LR_INDEX, savedPC);
     registers_.SetIrqDisabled(true);
     registers_.SetSPSR(currentCPSR);
-    registers_.SetPC(0x0000'0018);
+    registers_.SetPC(IRQ_VECTOR);
     pipeline_.Clear();
 }
 }

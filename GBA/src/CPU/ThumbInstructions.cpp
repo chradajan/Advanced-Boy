@@ -16,7 +16,7 @@ namespace
 /// @return State of overflow flag after addition
 bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    return (~(op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
+    return (~(op1 ^ op2) & ((op1 ^ result)) & MSB_32) != 0;
 }
 
 /// @brief Determine the result of the overflow flag for subtraction operation: result = op1 - op2
@@ -26,7 +26,7 @@ bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 /// @return State of overflow flag after subtraction
 bool SubtractionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    return ((op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
+    return ((op1 ^ op2) & ((op1 ^ result)) & MSB_32) != 0;
 }
 
 /// @brief Calculate the result of a THUMB add or add w/ carry operation, along with the carry and overflow flags.
@@ -190,19 +190,14 @@ void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
     cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 2);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
-    cpu.registers_.SetPC(0x0000'0008);
+    cpu.registers_.SetPC(SWI_VECTOR);
     cpu.flushPipeline_ = true;
 }
 
 void UnconditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int16_t signedOffset = instruction_.Offset11 << 1;
-
-    if (signedOffset & 0x0800)
-    {
-        signedOffset |= 0xF000;
-    }
-
+    uint16_t offset = instruction_.Offset11 << 1;
+    int16_t signedOffset = SignExtend16(offset, 11);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
     if (LogMgr.LoggingEnabled())
@@ -216,13 +211,8 @@ void UnconditionalBranch::Execute(ARM7TDMI& cpu)
 
 void ConditionalBranch::Execute(ARM7TDMI& cpu)
 {
-    int16_t signedOffset = instruction_.SOffset8 << 1;
-
-    if (signedOffset & 0x0100)
-    {
-        signedOffset |= 0xFE00;
-    }
-
+    uint16_t offset = instruction_.SOffset8 << 1;
+    int16_t signedOffset = SignExtend16(offset, 8);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
     if (LogMgr.LoggingEnabled())
@@ -387,17 +377,25 @@ void LongBranchWithLink::Execute(ARM7TDMI& cpu)
 
 void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
-    uint16_t offset = instruction_.SWord7;
-    offset <<= 2;
-    int16_t signedOffset = instruction_.S ? -offset : offset;
+    uint16_t offset = instruction_.SWord7 << 2;
 
     if (LogMgr.LoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, offset);
     }
 
-    uint32_t sp = cpu.registers_.GetSP();
-    cpu.registers_.WriteRegister(SP_INDEX, sp + signedOffset);
+    uint32_t newSP = cpu.registers_.GetSP();
+
+    if (instruction_.S)
+    {
+        newSP -= offset;
+    }
+    else
+    {
+        newSP += offset;
+    }
+
+    cpu.registers_.WriteRegister(SP_INDEX, newSP);
 }
 
 void PushPopRegisters::Execute(ARM7TDMI& cpu)
@@ -573,7 +571,7 @@ void LoadAddress::Execute(ARM7TDMI& cpu)
         SetMnemonic(cpu.mnemonic_, destIndex, offset);
     }
 
-    uint32_t addr;
+    uint32_t addr = 0;
 
     if (instruction_.SP)
     {
@@ -595,8 +593,8 @@ void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
         SetMnemonic(cpu.mnemonic_);
     }
 
-    AccessSize alignment = (instruction_.B) ? AccessSize::BYTE : AccessSize::WORD;
-    uint8_t offset = (instruction_.B) ? instruction_.Offset5 : (instruction_.Offset5 << 2);
+    AccessSize alignment = instruction_.B ? AccessSize::BYTE : AccessSize::WORD;
+    uint8_t offset = instruction_.B ? instruction_.Offset5 : (instruction_.Offset5 << 2);
     uint32_t addr = cpu.registers_.ReadRegister(instruction_.Rb) + offset;
 
     if (instruction_.L)
@@ -692,21 +690,13 @@ void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
         {
             // LDSH
             std::tie(value, readCycles) = cpu.ReadMemory(addr, AccessSize::HALFWORD);
-
-            if (value & 0x8000)
-            {
-                value |= 0xFFFF'0000;
-            }
+            value = SignExtend32(value, 15);
         }
         else
         {
             // LDSB
             std::tie(value, readCycles) = cpu.ReadMemory(addr, AccessSize::BYTE);
-
-            if (value & 0x80)
-            {
-                value |= 0xFFFF'FF00;
-            }
+            value = SignExtend32(value, 7);
         }
 
         Scheduler.Step(readCycles);
@@ -790,18 +780,17 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
             uint32_t result = cpu.registers_.ReadRegister(destIndex) + cpu.registers_.ReadRegister(srcIndex);
             cpu.registers_.WriteRegister(destIndex, result);
             cpu.flushPipeline_ = (destIndex == PC_INDEX);
-
             break;
         }
         case 0b01:  // CMP
         {
             uint32_t op1 = cpu.registers_.ReadRegister(destIndex);
             uint32_t op2 = cpu.registers_.ReadRegister(srcIndex);
-            uint32_t result;
+            uint32_t result = 0;
 
             auto [c, v] = Sub32(op1, op2, result);
 
-            cpu.registers_.SetNegative(result & 0x8000'0000);
+            cpu.registers_.SetNegative(result & MSB_32);
             cpu.registers_.SetZero(result == 0);
             cpu.registers_.SetCarry(c);
             cpu.registers_.SetOverflow(v);
@@ -810,7 +799,6 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         case 0b10:  // MOV
             cpu.registers_.WriteRegister(destIndex, cpu.registers_.ReadRegister(srcIndex));
             cpu.flushPipeline_ = (destIndex == PC_INDEX);
-
             break;
         case 0b11:  // BX
         {
@@ -827,7 +815,6 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
             }
 
             cpu.registers_.WriteRegister(PC_INDEX, newPC);
-
             break;
         }
     }
@@ -846,7 +833,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
     bool carryOut = cpu.registers_.IsCarry();
     bool overflowOut = cpu.registers_.IsOverflow();
 
-    uint32_t result;
+    uint32_t result = 0;
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.Rd);
     uint32_t op2 = cpu.registers_.ReadRegister(instruction_.Rs);
 
@@ -880,7 +867,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             }
             else if (op2 != 0)
             {
-                carryOut = (op1 & (0x8000'0000 >> (op2 - 1)));
+                carryOut = (op1 & (MSB_32 >> (op2 - 1)));
                 result <<= op2;
             }
 
@@ -900,7 +887,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             }
             else if (op2 == 32)
             {
-                carryOut = (op1 & 0x8000'0000);
+                carryOut = (op1 & MSB_32);
                 result = 0;
             }
             else if (op2 != 0)
@@ -918,7 +905,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             result = op1;
             updateOverflow = false;
 
-            bool msbSet = op1 & 0x8000'0000;
+            bool msbSet = op1 & MSB_32;
 
             if (op2 >= 32)
             {
@@ -932,7 +919,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
                 while (op2 > 0)
                 {
                     result >>= 1;
-                    result |= (msbSet ? 0x8000'0000 : 0);
+                    result |= (msbSet ? MSB_32 : 0);
                     --op2;
                 }
             }
@@ -941,10 +928,8 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             break;
         }
         case 0b0101:  // ADC
-        {
             std::tie(carryOut, overflowOut) = Add32(op1, op2, result, carryOut);
             break;
-        }
         case 0b0110:  // SBC
             std::tie(carryOut, overflowOut) = Sub32(op1, op2, result, carryOut);
             break;
@@ -982,11 +967,9 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             storeResult = false;
             break;
         case 0b1011:  // CMN
-        {
             std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
             storeResult = false;
             break;
-        }
         case 0b1100:  // ORR
             result = op1 | op2;
             updateCarry = false;
@@ -1009,7 +992,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
             break;
     }
 
-    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetNegative(result & MSB_32);
     cpu.registers_.SetZero(result == 0);
 
     if (updateCarry)
@@ -1041,7 +1024,7 @@ void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
     bool updateAllFlags = true;
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.Rd);
     uint32_t op2 = instruction_.Offset8;
-    uint32_t result;
+    uint32_t result = 0;
 
     switch (instruction_.Op)
     {
@@ -1061,7 +1044,7 @@ void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
             break;
     }
 
-    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetNegative(result & MSB_32);
     cpu.registers_.SetZero(result == 0);
 
     if (updateAllFlags)
@@ -1098,7 +1081,7 @@ void AddSubtract::Execute(ARM7TDMI& cpu)
         std::tie(carryOut, overflowOut) = Add32(op1, op2, result);
     }
 
-    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetNegative(result & MSB_32);
     cpu.registers_.SetZero(result == 0);
     cpu.registers_.SetCarry(carryOut);
     cpu.registers_.SetOverflow(overflowOut);
@@ -1128,9 +1111,10 @@ void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
             }
             else
             {
-                carryOut = (operand & (0x8000'0000 >> (shiftAmount - 1)));
+                carryOut = (operand & (MSB_32 >> (shiftAmount - 1)));
                 result = operand << shiftAmount;
             }
+
             break;
         }
         case 0b01:  // LSR
@@ -1138,7 +1122,7 @@ void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
             if (shiftAmount == 0)
             {
                 // LSR #0 -> LSR #32
-                carryOut = (operand & 0x8000'0000);
+                carryOut = (operand & MSB_32);
                 result = 0;
             }
             else
@@ -1146,11 +1130,12 @@ void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
                 carryOut = (operand & (0x01 << (shiftAmount - 1)));
                 result = operand >> shiftAmount;
             }
+
             break;
         }
         case 0b10:  // ASR
         {
-            bool msbSet = operand & 0x8000'0000;
+            bool msbSet = operand & MSB_32;
 
             if (shiftAmount == 0)
             {
@@ -1165,16 +1150,17 @@ void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
                 for (int i = 0; i < shiftAmount; ++i)
                 {
                     operand >>= 1;
-                    operand |= (msbSet ? 0x8000'0000 : 0);
+                    operand |= (msbSet ? MSB_32 : 0);
                 }
 
                 result = operand;
             }
+
             break;
         }
     }
 
-    cpu.registers_.SetNegative(result & 0x8000'0000);
+    cpu.registers_.SetNegative(result & MSB_32);
     cpu.registers_.SetZero(result == 0);
     cpu.registers_.SetCarry(carryOut);
     cpu.registers_.WriteRegister(instruction_.Rd, result);

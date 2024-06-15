@@ -14,9 +14,6 @@ constexpr uint8_t PC_INDEX = 15;
 class Registers
 {
 public:
-    /// @brief Initialize CPU registers.
-    Registers();
-
     /// @brief Reset the ARM registers to their power-up state.
     void Reset();
 

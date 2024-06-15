@@ -18,7 +18,7 @@ namespace
 /// @return State of overflow flag after addition
 bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    return (~(op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
+    return (~(op1 ^ op2) & ((op1 ^ result)) & MSB_32) != 0;
 }
 
 /// @brief Determine the result of the overflow flag for subtraction operation: result = op1 - op2
@@ -28,7 +28,7 @@ bool AdditionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 /// @return State of overflow flag after subtraction
 bool SubtractionOverflow(uint32_t op1, uint32_t op2, uint32_t result)
 {
-    return ((op1 ^ op2) & ((op1 ^ result)) & 0x8000'0000) != 0;
+    return ((op1 ^ op2) & ((op1 ^ result)) & MSB_32) != 0;
 }
 
 /// @brief Calculate the result of a THUMB add or add w/ carry operation, along with the carry and overflow flags.
@@ -227,8 +227,8 @@ void BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
     int regListSize = std::popcount(regList);
     uint32_t baseAddr = cpu.registers_.ReadRegister(instruction_.Rn);
-    uint32_t minAddr;
-    uint32_t wbAddr;
+    uint32_t minAddr = 0;
+    uint32_t wbAddr = 0;
     bool preIndexOffset = instruction_.P;
 
     if (instruction_.U)
@@ -331,13 +331,8 @@ void BlockDataTransfer::Execute(ARM7TDMI& cpu)
 
 void Branch::Execute(ARM7TDMI& cpu)
 {
-    int32_t signedOffset = instruction_.Offset << 2;
-
-    if (signedOffset & 0x0200'0000)
-    {
-        signedOffset |= 0xFC00'0000;
-    }
-
+    uint32_t unsignedOffset = instruction_.Offset << 2;
+    int32_t signedOffset = SignExtend32(unsignedOffset, 25);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
     if (LogMgr.LoggingEnabled())
@@ -352,7 +347,7 @@ void Branch::Execute(ARM7TDMI& cpu)
 
     if (instruction_.L)
     {
-        cpu.registers_.WriteRegister(14, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
+        cpu.registers_.WriteRegister(LR_INDEX, (cpu.registers_.GetPC() - 4) & 0xFFFF'FFFC);
     }
 
     cpu.registers_.SetPC(newPC);
@@ -376,7 +371,7 @@ void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
     cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 4);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
-    cpu.registers_.SetPC(0x0000'0008);
+    cpu.registers_.SetPC(SWI_VECTOR);
     cpu.flushPipeline_ = true;
 }
 
@@ -397,7 +392,7 @@ void Undefined::Execute(ARM7TDMI& cpu)
     cpu.registers_.WriteRegister(LR_INDEX, cpu.registers_.GetPC() - 4);
     cpu.registers_.SetIrqDisabled(true);
     cpu.registers_.SetSPSR(currentCPSR);
-    cpu.registers_.SetPC(0x0000'0004);
+    cpu.registers_.SetPC(UNDEFINED_INSTRUCTION_VECTOR);
     cpu.flushPipeline_ = true;
 }
 
@@ -426,7 +421,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
                 break;
             case 0b10:  // ASR
             {
-                bool msbSet = offset & 0x8000'0000;
+                bool msbSet = offset & MSB_32;
 
                 if (shiftAmount == 0)
                 {
@@ -437,7 +432,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
                     for (int i = 0; i < shiftAmount; ++i)
                     {
                         offset >>= 1;
-                        offset |= (msbSet ? 0x8000'0000 : 0);
+                        offset |= (msbSet ? MSB_32 : 0);
                     }
                 }
 
@@ -448,7 +443,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
                 if (shiftAmount == 0)
                 {
                     offset >>= 1;
-                    offset |= (cpu.registers_.IsCarry() ? 0x8000'0000 : 0);
+                    offset |= (cpu.registers_.IsCarry() ? MSB_32 : 0);
                 }
                 else
                 {
@@ -593,9 +588,8 @@ void Multiply::Execute(ARM7TDMI& cpu)
     uint32_t rm = cpu.registers_.ReadRegister(instruction_.Rm);
     uint32_t rs = cpu.registers_.ReadRegister(instruction_.Rs);
     uint32_t rn = cpu.registers_.ReadRegister(instruction_.Rn);
-    int64_t result;
-
-    int cycles;
+    int64_t result = 0;
+    int cycles = 0;
 
     if (((rs & 0xFFFF'FF00) == 0xFFFF'FF00) || ((rs & 0xFFFF'FF00) == 0))
     {
@@ -628,7 +622,7 @@ void Multiply::Execute(ARM7TDMI& cpu)
 
     if (instruction_.S)
     {
-        cpu.registers_.SetNegative(result & 0x8000'0000);
+        cpu.registers_.SetNegative(result & MSB_32);
         cpu.registers_.SetZero(result == 0);
     }
 
@@ -653,8 +647,7 @@ void MultiplyLong::Execute(ARM7TDMI& cpu)
     uint32_t rdHi = cpu.registers_.ReadRegister(instruction_.RdHi);
     uint32_t rdLo = cpu.registers_.ReadRegister(instruction_.RdLo);
     uint64_t rdHiLo = (static_cast<uint64_t>(rdHi) << 32) | rdLo;
-
-    uint64_t result;
+    uint64_t result = 0;
     int cycles = instruction_.A ? 2 : 1;
 
     if (instruction_.U)
@@ -681,12 +674,12 @@ void MultiplyLong::Execute(ARM7TDMI& cpu)
         int64_t op2 = rs;
         int64_t op3 = rdHiLo;
 
-        if (op1 & 0x8000'0000)
+        if (op1 & MSB_32)
         {
             op1 |= 0xFFFF'FFFF'0000'0000;
         }
 
-        if (op2 & 0x8000'0000)
+        if (op2 & MSB_32)
         {
             op2 |= 0xFFFF'FFFF'0000'0000;
         }
@@ -722,7 +715,7 @@ void MultiplyLong::Execute(ARM7TDMI& cpu)
 
     if (instruction_.S)
     {
-        cpu.registers_.SetNegative(result & 0x8000'0000'0000'0000);
+        cpu.registers_.SetNegative(result & MSB_32);
         cpu.registers_.SetZero(result == 0);
     }
 
@@ -776,7 +769,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
 
         if (s)
         {
-            uint32_t signExtendedWord;
+            uint32_t signExtendedWord = 0;
 
             if (misaligned && h)
             {
@@ -789,13 +782,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 // S = 1, H = 1
                 auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
                 Scheduler.Step(readCycles);
-                signExtendedWord = halfWord;
-
-                if (halfWord & 0x8000)
-                {
-                    signExtendedWord |= 0xFFFF'0000;
-                }
-
+                signExtendedWord = SignExtend32(halfWord, 15);
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
             }
             else
@@ -803,14 +790,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
                 // S = 1, H = 0
                 auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
                 Scheduler.Step(readCycles);
-
-                signExtendedWord = byte;
-
-                if (byte & 0x80)
-                {
-                    signExtendedWord |= 0xFFFF'FF00;
-                }
-
+                signExtendedWord = SignExtend32(byte, 7);
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
             }
         }
@@ -924,13 +904,7 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                 // S = 1, H = 1
                 auto [halfWord, readCycles] = cpu.ReadMemory(addr, AccessSize::HALFWORD);
                 Scheduler.Step(readCycles);
-                signExtendedWord = halfWord;
-
-                if (halfWord & 0x8000)
-                {
-                    signExtendedWord |= 0xFFFF'0000;
-                }
-
+                signExtendedWord = SignExtend32(halfWord, 15);
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
             }
             else
@@ -938,13 +912,7 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
                 // S = 1, H = 0
                 auto [byte, readCycles] = cpu.ReadMemory(addr, AccessSize::BYTE);
                 Scheduler.Step(readCycles);
-                signExtendedWord = byte;
-
-                if (byte & 0x80)
-                {
-                    signExtendedWord |= 0xFFFF'FF00;
-                }
-
+                signExtendedWord = SignExtend32(byte, 7);
                 cpu.registers_.WriteRegister(srcDestIndex, signExtendedWord);
             }
         }
@@ -1078,7 +1046,7 @@ void PSRTransferMSR::Execute(ARM7TDMI& cpu)
 void DataProcessing::Execute(ARM7TDMI& cpu)
 {
     uint32_t op1 = cpu.registers_.ReadRegister(instruction_.flags.Rn);
-    uint32_t op2;
+    uint32_t op2 = 0;
     uint8_t destIndex = instruction_.flags.Rd;
 
     bool carryOut = cpu.registers_.IsCarry();
@@ -1135,7 +1103,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
                 }
                 else if (shiftAmount > 0)
                 {
-                    carryOut = (op2 & (0x8000'0000 >> (shiftAmount - 1)));
+                    carryOut = (op2 & (MSB_32 >> (shiftAmount - 1)));
                     op2 <<= shiftAmount;
                 }
 
@@ -1150,7 +1118,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
                 }
                 else if (shiftAmount == 32)
                 {
-                    carryOut = (op2 & 0x8000'0000);
+                    carryOut = (op2 & MSB_32);
                     op2 = 0;
                 }
                 else if (shiftAmount > 0)
@@ -1161,7 +1129,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
                 else if (!shiftByReg)
                 {
                     // LSR #0 -> LSR #32
-                    carryOut = (op2 & 0x8000'0000);
+                    carryOut = (op2 & MSB_32);
                     op2 = 0;
                 }
 
@@ -1169,7 +1137,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
             }
             case 0b10:  // ASR
             {
-                bool msbSet = op2 & 0x8000'0000;
+                bool msbSet = op2 & MSB_32;
 
                 if (shiftAmount >= 32)
                 {
@@ -1183,7 +1151,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
                     for (int i = 0; i < shiftAmount; ++i)
                     {
                         op2 >>= 1;
-                        op2 |= (msbSet ? 0x8000'0000 : 0);
+                        op2 |= (msbSet ? MSB_32 : 0);
                     }
                 }
                 else if (!shiftByReg)
@@ -1209,7 +1177,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
                         // ROR #0 -> RRX
                         carryOut = op2 & 0x01;
                         op2 >>= 1;
-                        op2 |= cpu.registers_.IsCarry() ? 0x8000'0000 : 0;
+                        op2 |= cpu.registers_.IsCarry() ? MSB_32 : 0;
                     }
                 }
                 else
@@ -1309,7 +1277,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
         }
         else
         {
-            cpu.registers_.SetNegative(result & 0x8000'0000);
+            cpu.registers_.SetNegative(result & MSB_32);
             cpu.registers_.SetZero(result == 0);
             cpu.registers_.SetCarry(carryOut);
 

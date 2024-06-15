@@ -6,7 +6,6 @@
 namespace Audio
 {
 constexpr int SAMPLING_FREQUENCY_HZ = 32768;
-constexpr float SAMPLING_PERIOD = 1.0 / SAMPLING_FREQUENCY_HZ;
 constexpr int CPU_CYCLES_PER_SAMPLE = (CPU::CPU_FREQUENCY_HZ / SAMPLING_FREQUENCY_HZ);
 
 // Maintain audio buffer of 22ms

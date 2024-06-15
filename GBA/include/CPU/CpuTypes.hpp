@@ -16,6 +16,11 @@ typedef MemberFunctor<int (GameBoyAdvance::*)(uint32_t, uint32_t, AccessSize)> M
 
 constexpr int CPU_FREQUENCY_HZ = 16'777'216;
 
+constexpr uint32_t RESET_VECTOR = 0x0000'0000;
+constexpr uint32_t UNDEFINED_INSTRUCTION_VECTOR = 0x0000'0004;
+constexpr uint32_t SWI_VECTOR = 0x0000'0008;
+constexpr uint32_t IRQ_VECTOR = 0x0000'0018;
+
 /// @brief Operating state of CPU (either ARM or THUMB instructions).
 enum class OperatingState : uint32_t
 {
