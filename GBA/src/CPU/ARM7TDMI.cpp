@@ -27,6 +27,9 @@ void ARM7TDMI::Reset()
     pipeline_.Clear();
     flushPipeline_ = false;
     registers_.Reset();
+
+    mnemonic_ = "";
+    regString_ = "";
 }
 
 void ARM7TDMI::Step(bool irqPending)
@@ -50,9 +53,9 @@ void ARM7TDMI::Step(bool irqPending)
     {
         auto [undecodedInstruction, executedPC] = pipeline_.Pop();
 
-        if (LogMgr.LoggingEnabled())
+        if (LogMgr.CpuLoggingEnabled())
         {
-            registers_.SetRegistersString(regString_);
+            regString_ = registers_.SetRegistersString();
         }
 
         Instruction* instruction = nullptr;
@@ -75,7 +78,7 @@ void ARM7TDMI::Step(bool irqPending)
             throw std::runtime_error("Unable to decode instruction");
         }
 
-        if (LogMgr.LoggingEnabled())
+        if (LogMgr.CpuLoggingEnabled())
         {
             LogMgr.LogInstruction(executedPC, mnemonic_, regString_);
         }
@@ -149,7 +152,7 @@ void ARM7TDMI::IRQ()
 
     savedPC += 4;
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         LogMgr.LogIRQ();
     }

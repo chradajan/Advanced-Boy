@@ -16,9 +16,8 @@ public:
     /// @brief Create the thread class used to run the emulator.
     /// @param romPath Path to game ROM.
     /// @param biosPath Path to GBA BIOS.
-    /// @param logging Whether to log CPU instructions.
     /// @param parent Pointer to parent object.
-    EmuThread(fs::path romPath, fs::path biosPath, bool logging, QObject* parent = nullptr);
+    EmuThread(fs::path romPath, fs::path biosPath, QObject* parent = nullptr);
 
     /// @brief Allow the main emulation loop to exit.
     void StopEmulation() { runEmulation_ = false; }

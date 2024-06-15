@@ -145,7 +145,7 @@ CPU::Instruction* DecodeInstruction(uint32_t undecodedInstruction, void* buffer)
 
 void BranchAndExchange::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -174,7 +174,7 @@ void BranchAndExchange::Execute(ARM7TDMI& cpu)
 
 void BlockDataTransfer::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -335,7 +335,7 @@ void Branch::Execute(ARM7TDMI& cpu)
     int32_t signedOffset = SignExtend32(unsignedOffset, 25);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, newPC);
     }
@@ -356,7 +356,7 @@ void Branch::Execute(ARM7TDMI& cpu)
 
 void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -377,7 +377,7 @@ void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 
 void Undefined::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -454,7 +454,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, offset);
     }
@@ -545,7 +545,7 @@ void SingleDataTransfer::Execute(ARM7TDMI& cpu)
 
 void SingleDataSwap::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -574,7 +574,7 @@ void SingleDataSwap::Execute(ARM7TDMI& cpu)
 
 void Multiply::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -632,7 +632,7 @@ void Multiply::Execute(ARM7TDMI& cpu)
 
 void MultiplyLong::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -734,7 +734,7 @@ void HalfwordDataTransferRegisterOffset::Execute(ARM7TDMI& cpu)
     uint8_t srcDestIndex = instruction_.Rd;
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, offset);
     }
@@ -856,7 +856,7 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
     uint8_t srcDestIndex = instruction_.Rd;
     uint32_t addr = cpu.registers_.ReadRegister(baseIndex);
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, offset);
     }
@@ -970,7 +970,7 @@ void HalfwordDataTransferImmediateOffset::Execute(ARM7TDMI& cpu)
 
 void PSRTransferMRS::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -986,7 +986,7 @@ void PSRTransferMRS::Execute(ARM7TDMI& cpu)
 
 void PSRTransferMSR::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -1190,7 +1190,7 @@ void DataProcessing::Execute(ARM7TDMI& cpu)
         }
     }
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, op2);
     }

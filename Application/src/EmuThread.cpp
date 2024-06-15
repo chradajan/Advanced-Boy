@@ -27,13 +27,12 @@ void AudioCallback(void*, uint8_t* stream, int len)
 }
 }
 
-EmuThread::EmuThread(fs::path romPath, fs::path biosPath, bool logging, QObject* parent) :
+EmuThread::EmuThread(fs::path romPath, fs::path biosPath, QObject* parent) :
     QThread(parent)
 {
     Initialize(biosPath);
 
     gamePakSuccessfullyLoaded_ = InsertCartridge(romPath);
-    EnableLogging(logging);
 
     // Audio startup
     SDL_Init(SDL_INIT_AUDIO);

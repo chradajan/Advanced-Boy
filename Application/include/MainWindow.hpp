@@ -19,10 +19,8 @@ class MainWindow : public QMainWindow
 public:
     /// @brief Initialize the main GUI window.
     /// @param romPath Path to game ROM.
-    /// @param biosPath Path to GBA BIOS.
-    /// @param logging Whether to log CPU instructions.
     /// @param parent Parent widget.
-    MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent = nullptr);
+    MainWindow(fs::path romPath, QWidget* parent = nullptr);
 
 private:
     /// @brief Initialize the window menu bar.

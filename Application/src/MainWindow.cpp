@@ -12,9 +12,9 @@
 
 namespace fs = std::filesystem;
 
-MainWindow::MainWindow(fs::path romPath, fs::path biosPath, bool logging, QWidget* parent) :
+MainWindow::MainWindow(fs::path romPath, QWidget* parent) :
     QMainWindow(parent),
-    gbaThread_(romPath, biosPath, logging, this),
+    gbaThread_(romPath, "", this),
     fpsTimer_(this),
     lcd_(this),
     refreshScreenTimer_(this),
@@ -73,6 +73,16 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     if (event)
     {
         pressedKeys_.erase(event->key());
+
+        if (event->key() == 72)  // H
+        {
+            ::ToggleCpuLogging();
+        }
+
+        if (event->key() == 71)  // G
+        {
+            ::ToggleSystemLogging();
+        }
     }
 }
 

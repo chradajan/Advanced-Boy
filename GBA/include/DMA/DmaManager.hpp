@@ -35,21 +35,21 @@ public:
     bool DmaActive() const { return dmaActive_; }
 
     /// @brief Run any DMA channels set to run on VBlank.
-    void CheckVBlankChannels() { CheckSpecialTiming(vblank_); }
+    void CheckVBlankChannels() { CheckSpecialTiming(vblank_, DmaXfer::VBLANK); }
 
     /// @brief Run any DMA channels set to run on HBlank.
-    void CheckHBlankChannels() { CheckSpecialTiming(hblank_); }
+    void CheckHBlankChannels() { CheckSpecialTiming(hblank_, DmaXfer::HBLANK); }
 
     /// @brief Run any DMA channels set to replenish audio FIFO A.
-    void CheckFifoAChannels() { CheckSpecialTiming(fifoA_); }
+    void CheckFifoAChannels() { CheckSpecialTiming(fifoA_, DmaXfer::FIFO_A); }
 
     /// @brief Run any DMA channels set to replenish audio FIFO B.
-    void CheckFifoBChannels() { CheckSpecialTiming(fifoB_); }
+    void CheckFifoBChannels() { CheckSpecialTiming(fifoB_, DmaXfer::FIFO_B); }
 
 private:
     /// @brief Run any DMA channels set to run with special timing.
     /// @param enabledChannels Array of bools indicating which channels should be run based on the current special event.
-    void CheckSpecialTiming(std::array<bool, 4>& enabledChannels);
+    void CheckSpecialTiming(std::array<bool, 4>& enabledChannels, DmaXfer xferType);
 
     /// @brief Callback function to resume CPU execution after a DMA transfer completes.
     void EndDma(int) { dmaActive_ = false; }

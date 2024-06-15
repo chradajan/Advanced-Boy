@@ -16,8 +16,6 @@ int main(int argv, char** args)
 
     // Until GUI is fully implemented, grab arguments from command line
     fs::path romPath = "";
-    fs::path biosPath = "";
-    bool logging = false;
 
     for (int i = 1; i < argv; ++i)
     {
@@ -26,19 +24,10 @@ int main(int argv, char** args)
             case 1:
                 romPath = args[1];
                 break;
-            case 2:
-                biosPath = args[2];
-                break;
-            case 3:
-            {
-                std::string logStr = args[3];
-                logging = (logStr != "0");
-                break;
-            }
         }
     }
 
-    MainWindow mainWindow(romPath, biosPath, logging);
+    MainWindow mainWindow(romPath);
     mainWindow.show();
     return app.exec();
 }

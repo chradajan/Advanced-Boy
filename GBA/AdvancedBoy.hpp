@@ -44,9 +44,11 @@ uint8_t* GetRawFrameBuffer();
 /// @return Number of times PPU has entered VBlank.
 int GetAndResetFrameCounter();
 
-/// @brief Enable/Disable logging of CPU instructions.
-/// @param enable Whether to enable or disable logging.
-void EnableLogging(bool enable);
+/// @brief Toggle logging of various GBA events like DMAs and timer overflows.
+void ToggleSystemLogging();
+
+/// @brief Toggle logging of each CPU instruction and registers state.
+void ToggleCpuLogging();
 
 /// @brief If logging was enabled, dump the log buffer to a file.
 void DumpLogs();

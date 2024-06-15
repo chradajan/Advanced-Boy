@@ -94,14 +94,14 @@ int GetAndResetFrameCounter()
     return gba->GetAndResetFrameCounter();
 }
 
-void EnableLogging(bool enable)
+void ToggleSystemLogging()
 {
-    Config::LOGGING_ENABLED = enable;
+    Logging::LogMgr.ToggleSystemLogging();
+}
 
-    if (enable)
-    {
-        Logging::LogMgr.Initialize();
-    }
+void ToggleCpuLogging()
+{
+    Logging::LogMgr.ToggleCpuLogging();
 }
 
 void DumpLogs()

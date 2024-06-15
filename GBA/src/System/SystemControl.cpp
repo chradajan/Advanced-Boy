@@ -1,6 +1,7 @@
 #include <System/SystemControl.hpp>
 #include <array>
 #include <cstdint>
+#include <Logging/Logging.hpp>
 #include <System/EventScheduler.hpp>
 #include <System/MemoryMap.hpp>
 
@@ -104,6 +105,11 @@ void SystemControl::CheckForInterrupt()
             irqPending = true;
         }
 
+        if (halted_ && Logging::LogMgr.SystemLoggingEnabled())
+        {
+            Logging::LogMgr.LogUnhalt(if_, ie_);
+        }
+
         halted_ = false;
     }
 
@@ -112,6 +118,11 @@ void SystemControl::CheckForInterrupt()
 
 void SystemControl::RequestInterrupt(InterruptType interrupt)
 {
+    if (Logging::LogMgr.SystemLoggingEnabled())
+    {
+        Logging::LogMgr.LogInterruptRequest(interrupt, ie_, ime_);
+    }
+
     if_ |= static_cast<uint16_t>(interrupt);
     CheckForInterrupt();
 }
@@ -246,5 +257,10 @@ void SystemControl::CheckHaltWrite(uint32_t addr, uint32_t value, AccessSize ali
     if (haltcntWritten && !halted_)
     {
         halted_ = (haltcnt & MSB_8) == 0x00;
+
+        if (halted_ && Logging::LogMgr.SystemLoggingEnabled())
+        {
+            Logging::LogMgr.LogHalt(ie_);
+        }
     }
 }

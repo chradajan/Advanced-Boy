@@ -32,6 +32,12 @@ public:
     /// @brief Reset to power-up state.
     void Reset();
 
+    uint32_t GetSrc() const { return internalSrcAddr_; }
+
+    uint32_t GetDest() const { return internalDestAddr_; }
+
+    uint32_t GetCnt() const { return internalWordCount_; }
+
     /// @brief Read a DMA register.
     /// @param addr Address of register to read.
     /// @param alignment Number of bytes to read.

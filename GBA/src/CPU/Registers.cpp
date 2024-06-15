@@ -218,7 +218,7 @@ void Registers::LoadSPSR()
     }
 }
 
-void Registers::SetRegistersString(std::string& regString) const
+std::string Registers::SetRegistersString() const
 {
     std::stringstream regStream;
     bool const isThumbState = GetOperatingState() == OperatingState::THUMB;
@@ -257,6 +257,6 @@ void Registers::SetRegistersString(std::string& regString) const
             break;
     }
 
-    regString = regStream.str();
+    return regStream.str();
 }
 }  // namespace CPU

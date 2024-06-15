@@ -8,11 +8,10 @@
     #define LOG_PATH ""
 #endif
 
-namespace fs = std::filesystem;
+#ifdef _BIOS_PATH
+    #define BIOS_PATH _BIOS_PATH
+#else
+    #define BIOS_PATH ""
+#endif
 
-namespace Config
-{
-inline bool LOGGING_ENABLED;
-constexpr size_t LOG_BUFFER_SIZE = 15'000'000;
-constexpr bool ASSERTS_ENABLED = true;
-}
+namespace fs = std::filesystem;

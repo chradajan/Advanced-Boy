@@ -2,10 +2,11 @@
 #include <array>
 #include <cstdint>
 #include <utility>
+#include <Logging/Logging.hpp>
 #include <System/EventScheduler.hpp>
 #include <System/SystemControl.hpp>
-#include <Utilities/MemoryUtilities.hpp>
 #include <Timers/Timer.hpp>
+#include <Utilities/MemoryUtilities.hpp>
 
 TimerManager::TimerManager() :
     timers_({Timer(0, EventType::Timer0Overflow, InterruptType::TIMER_0_OVERFLOW),
@@ -71,6 +72,11 @@ void TimerManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
 
 void TimerManager::TimerOverflow(int timerIndex, int extraCycles)
 {
+    if (Logging::LogMgr.SystemLoggingEnabled())
+    {
+        Logging::LogMgr.LogTimerOverflow(timerIndex);
+    }
+
     Timer& overflowTimer = timers_[timerIndex];
     Timer* nextTimer = nullptr;
 

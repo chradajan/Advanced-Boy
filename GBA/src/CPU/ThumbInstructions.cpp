@@ -179,7 +179,7 @@ CPU::Instruction* DecodeInstruction(uint16_t undecodedInstruction, void* buffer)
 
 void SoftwareInterrupt::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -200,7 +200,7 @@ void UnconditionalBranch::Execute(ARM7TDMI& cpu)
     int16_t signedOffset = SignExtend16(offset, 11);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, newPC);
     }
@@ -215,7 +215,7 @@ void ConditionalBranch::Execute(ARM7TDMI& cpu)
     int16_t signedOffset = SignExtend16(offset, 8);
     uint32_t newPC = cpu.registers_.GetPC() + signedOffset;
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, newPC);
     }
@@ -229,7 +229,7 @@ void ConditionalBranch::Execute(ARM7TDMI& cpu)
 
 void MultipleLoadStore::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -351,7 +351,7 @@ void LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t lr = cpu.registers_.GetPC() + offset;
         cpu.registers_.WriteRegister(LR_INDEX, lr);
 
-        if (LogMgr.LoggingEnabled())
+        if (LogMgr.CpuLoggingEnabled())
         {
             SetMnemonic(cpu.mnemonic_, 0);
         }
@@ -364,7 +364,7 @@ void LongBranchWithLink::Execute(ARM7TDMI& cpu)
         uint32_t newPC = cpu.registers_.ReadRegister(LR_INDEX) + offset;
         uint32_t lr = (cpu.registers_.GetPC() - 2) | 0x01;
 
-        if (LogMgr.LoggingEnabled())
+        if (LogMgr.CpuLoggingEnabled())
         {
             SetMnemonic(cpu.mnemonic_, newPC);
         }
@@ -379,7 +379,7 @@ void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 {
     uint16_t offset = instruction_.SWord7 << 2;
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, offset);
     }
@@ -400,7 +400,7 @@ void AddOffsetToStackPointer::Execute(ARM7TDMI& cpu)
 
 void PushPopRegisters::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -492,7 +492,7 @@ void PushPopRegisters::Execute(ARM7TDMI& cpu)
 
 void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -528,7 +528,7 @@ void LoadStoreHalfword::Execute(ARM7TDMI& cpu)
 
 void SPRelativeLoadStore::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -566,7 +566,7 @@ void LoadAddress::Execute(ARM7TDMI& cpu)
     uint8_t destIndex = instruction_.Rd;
     uint16_t offset = (instruction_.Word8 << 2);
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, destIndex, offset);
     }
@@ -588,7 +588,7 @@ void LoadAddress::Execute(ARM7TDMI& cpu)
 
 void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -627,7 +627,7 @@ void LoadStoreWithImmediateOffset::Execute(ARM7TDMI& cpu)
 
 void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -665,7 +665,7 @@ void LoadStoreWithRegisterOffset::Execute(ARM7TDMI& cpu)
 
 void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -736,7 +736,7 @@ void LoadStoreSignExtendedByteHalfword::Execute(ARM7TDMI& cpu)
 
 void PCRelativeLoad::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -768,7 +768,7 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
         srcIndex += 8;
     }
 
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_, destIndex, srcIndex);
     }
@@ -822,7 +822,7 @@ void HiRegisterOperationsBranchExchange::Execute(ARM7TDMI& cpu)
 
 void ALUOperations::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -1013,7 +1013,7 @@ void ALUOperations::Execute(ARM7TDMI& cpu)
 
 void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -1061,7 +1061,7 @@ void MoveCompareAddSubtractImmediate::Execute(ARM7TDMI& cpu)
 
 void AddSubtract::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }
@@ -1090,7 +1090,7 @@ void AddSubtract::Execute(ARM7TDMI& cpu)
 
 void MoveShiftedRegister::Execute(ARM7TDMI& cpu)
 {
-    if (LogMgr.LoggingEnabled())
+    if (LogMgr.CpuLoggingEnabled())
     {
         SetMnemonic(cpu.mnemonic_);
     }

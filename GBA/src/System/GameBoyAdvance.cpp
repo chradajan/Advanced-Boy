@@ -12,6 +12,7 @@
 #include <utility>
 #include <Audio/APU.hpp>
 #include <Cartridge/GamePak.hpp>
+#include <Config.hpp>
 #include <DMA/DmaChannel.hpp>
 #include <DMA/DmaManager.hpp>
 #include <Gamepad/GamepadManager.hpp>
@@ -27,11 +28,14 @@
 namespace fs = std::filesystem;
 
 GameBoyAdvance::GameBoyAdvance(fs::path biosPath) :
-    biosLoaded_(LoadBIOS(biosPath)),
+    biosLoaded_(LoadBIOS(BIOS_PATH)),
     cpu_(CPU::MemReadCallback(&ReadMemory, *this), CPU::MemWriteCallback(&WriteMemory, *this)),
     dmaMgr_(*this),
     gamePak_(nullptr)
 {
+    (void)biosPath;
+    Logging::LogMgr.Initialize();
+
     // State
     gamePakLoaded_ = false;
 

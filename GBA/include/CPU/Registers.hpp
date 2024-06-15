@@ -151,7 +151,7 @@ public:
 
     /// @brief Convert CPU registers to a human readable format.
     /// @return String representing current register state.
-    void SetRegistersString(std::string& regString) const;
+    std::string SetRegistersString() const;
 
 private:
     // CPSR layout

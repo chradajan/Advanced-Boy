@@ -5,6 +5,7 @@
 #include <optional>
 #include <utility>
 #include <DMA/DmaChannel.hpp>
+#include <Logging/Logging.hpp>
 #include <System/GameBoyAdvance.hpp>
 #include <System/SystemControl.hpp>
 #include <Utilities/MemoryUtilities.hpp>
@@ -121,14 +122,21 @@ void DmaManager::WriteReg(uint32_t addr, uint32_t value, AccessSize alignment)
     }
 }
 
-void DmaManager::CheckSpecialTiming(std::array<bool, 4>& enabledChannels)
+void DmaManager::CheckSpecialTiming(std::array<bool, 4>& enabledChannels, DmaXfer xferType)
 {
     for (int i = 0; i < 4; ++i)
     {
         if (enabledChannels[i])
         {
-            int dmaCycles = dmaChannels_[i].Execute();
-            enabledChannels[i] = dmaChannels_[i].Enabled();
+            DmaChannel& channel = dmaChannels_[i];
+
+            if (Logging::LogMgr.SystemLoggingEnabled())
+            {
+                Logging::LogMgr.LogDmaTransfer(i, xferType, channel.GetSrc(), channel.GetDest(), channel.GetCnt());
+            }
+
+            int dmaCycles = channel.Execute();
+            enabledChannels[i] = channel.Enabled();
 
             if (dmaCycles > 0)
             {

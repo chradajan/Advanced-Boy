@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <DMA/DmaChannel.hpp>
 #include <System/EventScheduler.hpp>
 #include <System/SystemControl.hpp>
 
@@ -49,12 +50,39 @@ std::string InterruptString(InterruptType interrupt)
 
     return "";
 }
+
+std::string DmaXferString(DmaXfer xferType)
+{
+    switch (xferType)
+    {
+        case DmaXfer::NO_CHANGE:
+            return "NO_CHANGE";
+        case DmaXfer::DISABLE:
+            return "DISABLE";
+        case DmaXfer::IMMEDIATE:
+            return "IMMEDIATE";
+        case DmaXfer::VBLANK:
+            return "VBLANK";
+        case DmaXfer::HBLANK:
+            return "HBLANK";
+        case DmaXfer::FIFO_A:
+            return "FIFO_A";
+        case DmaXfer::FIFO_B:
+            return "FIFO_B";
+        case DmaXfer::VIDEO_CAPTURE:
+            return "VIDEO_CAPTURE";
+    }
+
+    return "";
+}
 }
 
 namespace Logging
 {
 LogManager::LogManager() :
-    loggingInitialized_(false)
+    loggingInitialized_(false),
+    systemLoggingEnabled_(false),
+    cpuLoggingEnabled_(false)
 {
 }
 
@@ -62,7 +90,7 @@ void LogManager::Initialize()
 {
     logPath_ = LOG_PATH;
 
-    if (!logPath_.empty() && Config::LOGGING_ENABLED && !loggingInitialized_)
+    if (!logPath_.empty() && !loggingInitialized_)
     {
         if (!fs::exists(logPath_))
         {
@@ -78,11 +106,6 @@ void LogManager::Initialize()
 
         loggingInitialized_ = true;
     }
-}
-
-bool LogManager::LoggingEnabled() const
-{
-    return Config::LOGGING_ENABLED;
 }
 
 void LogManager::LogInstruction(uint32_t pc, std::string mnemonic, std::string registers)
@@ -125,14 +148,25 @@ void LogManager::LogUnhalt(uint16_t IF, uint16_t IE)
     LogMessage("Unhalting due to " + unhaltReason);
 }
 
-void LogManager::LogInterruptRequest(InterruptType interrupt)
+void LogManager::LogInterruptRequest(InterruptType interrupt, uint16_t IE, uint16_t IME)
 {
-    LogMessage("Requesting " + InterruptString(interrupt) + " interrupt");
+    LogMessage(std::format("Requesting {} interrupt. IE: 0x{:04X}, IME: 0x{:04X}", InterruptString(interrupt), IE, IME));
 }
 
 void LogManager::LogException(std::exception const& error)
 {
     LogMessage(error.what());
+}
+
+void LogManager::LogDmaTransfer(int index, DmaXfer xferType, uint32_t src, uint32_t dest, uint32_t cnt)
+{
+    std::string xferStr = DmaXferString(xferType);
+    LogMessage(std::format("Channel {} {} DMA. Src: 0x{:08X}, Dest: 0x{:08X}, Cnt: {}", index, xferStr, src, dest, cnt));
+}
+
+void LogManager::LogTimerOverflow(int index)
+{
+    LogMessage(std::format("Timer {} Overflow", index));
 }
 
 void LogManager::DumpLogs()
