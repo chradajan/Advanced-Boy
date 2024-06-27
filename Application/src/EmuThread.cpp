@@ -27,12 +27,11 @@ void AudioCallback(void*, uint8_t* stream, int len)
 }
 }
 
-EmuThread::EmuThread(fs::path romPath, fs::path biosPath, QObject* parent) :
-    QThread(parent)
+EmuThread::EmuThread(fs::path biosPath, QObject* parent) :
+    QThread(parent),
+    gamePakSuccessfullyLoaded_(false)
 {
     Initialize(biosPath);
-
-    gamePakSuccessfullyLoaded_ = InsertCartridge(romPath);
 
     // Audio startup
     SDL_Init(SDL_INIT_AUDIO);
@@ -45,10 +44,18 @@ EmuThread::EmuThread(fs::path romPath, fs::path biosPath, QObject* parent) :
     audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &audioSpec, nullptr, 0);
 }
 
+void EmuThread::LoadROM(fs::path romPath)
+{
+    if (isRunning())
+    {
+        return;
+    }
+
+    gamePakSuccessfullyLoaded_ = ::InsertCartridge(romPath);
+}
+
 void EmuThread::Quit()
 {
-    Pause();
-    StopEmulation();
     ::PowerOff();
 }
 
@@ -57,24 +64,21 @@ std::string EmuThread::RomTitle() const
     return ::RomTitle();
 }
 
-void EmuThread::Play()
+void EmuThread::StartAudioCallback()
 {
     SDL_UnlockAudioDevice(audioDevice_);
     SDL_PauseAudioDevice(audioDevice_, 0);
 }
 
-void EmuThread::Pause()
+void EmuThread::PauseAudioCallback()
 {
     SDL_LockAudioDevice(audioDevice_);
     SDL_PauseAudioDevice(audioDevice_, 1);
-    SDL_Delay(20);
 }
 
 void EmuThread::run()
 {
-    runEmulation_ = true;
-
-    while (runEmulation_)
+    while (!isInterruptionRequested())
     {
         ::FillAudioBuffer();
         msleep(5);

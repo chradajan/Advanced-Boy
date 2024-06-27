@@ -66,19 +66,17 @@ size_t AvailableSamplesCount()
 
 void UpdateGamepad(Gamepad gamepad)
 {
-    if (!gba)
+    if (gba)
     {
-        throw std::runtime_error("Update gamepad of uninitialized GBA");
+        gba->UpdateGamepad(gamepad);
     }
-
-    gba->UpdateGamepad(gamepad);
 }
 
 uint8_t* GetRawFrameBuffer()
 {
     if (!gba)
     {
-        throw std::runtime_error("Grabbed frame buffer of uninitialized GBA");
+        return nullptr;
     }
 
     return gba->GetRawFrameBuffer();

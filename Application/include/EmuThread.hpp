@@ -14,13 +14,13 @@ class EmuThread : public QThread
 
 public:
     /// @brief Create the thread class used to run the emulator.
-    /// @param romPath Path to game ROM.
     /// @param biosPath Path to GBA BIOS.
     /// @param parent Pointer to parent object.
-    EmuThread(fs::path romPath, fs::path biosPath, QObject* parent = nullptr);
+    EmuThread(fs::path biosPath, QObject* parent = nullptr);
 
-    /// @brief Allow the main emulation loop to exit.
-    void StopEmulation() { runEmulation_ = false; }
+    /// @brief Insert a cartridge. Can not be performed while emulation is running.
+    /// @param romPath Path to ROM to load.
+    void LoadROM(fs::path romPath);
 
     /// @brief Stop the emulation and audio threads, and power off GBA.
     void Quit();
@@ -29,17 +29,16 @@ public:
     /// @return Title of ROM.
     std::string RomTitle() const;
 
-    /// @brief Unpause the audio device, therefore resuming emulation.
-    void Play();
+    /// @brief Unlock and unpause the audio device.
+    void StartAudioCallback();
 
-    /// @brief Pause the audio device, therefore stopping emulation.
-    void Pause();
-
-    /// @brief Main loop to run emulation.
-    void run();
+    /// @brief Lock and pause the audio device.
+    void PauseAudioCallback();
 
 private:
+    /// @brief Main emulation loop. Access by calling start().
+    void run();
+
     bool gamePakSuccessfullyLoaded_;
-    volatile bool runEmulation_;
     SDL_AudioDeviceID audioDevice_;
 };

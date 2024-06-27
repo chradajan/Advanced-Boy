@@ -12,9 +12,10 @@
 
 namespace fs = std::filesystem;
 
-MainWindow::MainWindow(fs::path romPath, QWidget* parent) :
+MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
-    gbaThread_(romPath, "", this),
+    gbaThread_("", this),
+    romTitle_("Advanced Boy"),
     fpsTimer_(this),
     lcd_(this),
     refreshScreenTimer_(this),
@@ -25,11 +26,7 @@ MainWindow::MainWindow(fs::path romPath, QWidget* parent) :
     InitializeMenuBar();
     InitializeLCD();
     setAttribute(Qt::WA_QuitOnClose);
-    romTitle_ = gbaThread_.RomTitle();
-    setWindowTitle(QString::fromStdString(romTitle_));
-
-    gbaThread_.Play();
-    gbaThread_.start();
+    setWindowTitle("Advanced Boy");
 
     refreshScreenTimer_.setTimerType(Qt::PreciseTimer);
     connect(&refreshScreenTimer_, &QTimer::timeout, this, &RefreshScreen);
@@ -44,6 +41,10 @@ void MainWindow::InitializeMenuBar()
     fileMenu_ = menuBar()->addMenu("File");
     emulationMenu_ = menuBar()->addMenu("Emulation");
     optionsMenu_ = menuBar()->addMenu("Options");
+
+    QAction* loadRomAction = new QAction("Load ROM...", this);
+    connect(loadRomAction, &QAction::triggered, this, &SelectROM);
+    fileMenu_->addAction(loadRomAction);
 }
 
 void MainWindow::InitializeLCD()
@@ -86,10 +87,44 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     }
 }
 
-void MainWindow::closeEvent(QCloseEvent* event)
+void MainWindow::closeEvent(QCloseEvent*)
 {
+    if (gbaThread_.isRunning())
+    {
+        gbaThread_.PauseAudioCallback();
+        gbaThread_.requestInterruption();
+        gbaThread_.wait();
+    }
+
     gbaThread_.Quit();
-    QMainWindow::closeEvent(event);
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event)
+{
+    if (event->mimeData()->hasUrls())
+    {
+        event->acceptProposedAction();
+    }
+}
+
+void MainWindow::dropEvent(QDropEvent* event)
+{
+    fs::path romPath = "";
+
+    for (auto& url : event->mimeData()->urls())
+    {
+        if (url.isLocalFile())
+        {
+            romPath = url.toLocalFile().toStdString();
+
+            if (romPath.has_extension() && (romPath.extension() == ".gba"))
+            {
+                break;
+            }
+        }
+    }
+
+    LoadROM(romPath);
 }
 
 void MainWindow::SendKeyPresses() const
@@ -119,7 +154,7 @@ void MainWindow::SendKeyPresses() const
     if (pressedKeys_.contains(81)) gamepad.buttons_.L = 0;
     if (pressedKeys_.contains(69)) gamepad.buttons_.R = 0;
 
-    UpdateGamepad(gamepad);
+    ::UpdateGamepad(gamepad);
 }
 
 void MainWindow::UpdateWindowTitle()
@@ -131,8 +166,40 @@ void MainWindow::UpdateWindowTitle()
 
 void MainWindow::RefreshScreen()
 {
-    SendKeyPresses();
-    auto image = QImage(::GetRawFrameBuffer(), 240, 160, QImage::Format_RGB555);
-    image.rgbSwap();
-    lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
+    uint8_t* frameBuffer = ::GetRawFrameBuffer();
+
+    if (frameBuffer != nullptr)
+    {
+        SendKeyPresses();
+        auto image = QImage(frameBuffer, 240, 160, QImage::Format_RGB555);
+        image.rgbSwap();
+        lcd_.setPixmap(QPixmap::fromImage(image).scaled(lcd_.width(), lcd_.height()));
+    }
+}
+
+void MainWindow::SelectROM()
+{
+    auto romSelectWindow = QFileDialog(this);
+    romSelectWindow.setFileMode(QFileDialog::FileMode::ExistingFile);
+    fs::path romPath = romSelectWindow.getOpenFileName(this, "Select ROM...", QString(), "GBA (*.gba)").toStdString();
+    LoadROM(romPath);
+}
+
+void MainWindow::LoadROM(fs::path romPath)
+{
+    if (fs::exists(fs::path(romPath)))
+    {
+        if (gbaThread_.isRunning())
+        {
+            gbaThread_.PauseAudioCallback();
+            gbaThread_.requestInterruption();
+            gbaThread_.wait();
+        }
+
+        gbaThread_.LoadROM(romPath);
+        romTitle_ = gbaThread_.RomTitle();
+        setWindowTitle(QString::fromStdString(romTitle_));
+        gbaThread_.start();
+        gbaThread_.StartAudioCallback();
+    }
 }

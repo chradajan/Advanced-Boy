@@ -18,9 +18,8 @@ class MainWindow : public QMainWindow
 
 public:
     /// @brief Initialize the main GUI window.
-    /// @param romPath Path to game ROM.
     /// @param parent Parent widget.
-    MainWindow(fs::path romPath, QWidget* parent = nullptr);
+    MainWindow(QWidget* parent = nullptr);
 
 private:
     /// @brief Initialize the window menu bar.
@@ -41,8 +40,15 @@ private:
     void keyReleaseEvent(QKeyEvent* event);
 
     /// @brief Handle main window closing event.
-    /// @param event Close event.
-    void closeEvent(QCloseEvent* event);
+    void closeEvent(QCloseEvent*);
+
+    /// @brief Event handling when file is dragged into window.
+    /// @param event Drag event.
+    void dragEnterEvent(QDragEnterEvent* event);
+
+    /// @brief Load any dropped GBA ROMs.
+    /// @param event Drop event.
+    void dropEvent(QDropEvent* event);
 
     /// @brief Update the GBA gamepad based on which keys are currently pressed.
     void SendKeyPresses() const;
@@ -52,6 +58,13 @@ private:
 
     /// @brief Update the LCD label widget.
     void RefreshScreen();
+
+    /// @brief Open a file explorer to allow user to select a ROM to load.
+    void SelectROM();
+
+    /// @brief Load a ROM and update window title.
+    /// @param romPath Path of ROM to load.
+    void LoadROM(fs::path romPath);
 
     // Emulator
     EmuThread gbaThread_;
